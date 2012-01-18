@@ -841,9 +841,10 @@ static int show_partition(struct seq_file *seqf, void *v)
 	char buf[BDEVNAME_SIZE];
 
 	/* Don't show non-partitionable removeable devices or empty devices */
-	if (!get_capacity(sgp) || (!disk_partitionable(sgp) &&
-				   (sgp->flags & GENHD_FL_REMOVABLE)))
-		return 0;
+	//if (!get_capacity(sgp) || (!disk_partitionable(sgp) &&
+	//                           (sgp->flags & GENHD_FL_REMOVABLE)))
+	//        return 0;
+
 	if (sgp->flags & GENHD_FL_SUPPRESS_PARTITION_INFO)
 		return 0;
 

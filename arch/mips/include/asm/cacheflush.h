@@ -114,6 +114,9 @@ extern void (*flush_icache_all)(void);
 extern void (*local_flush_data_cache_page)(void * addr);
 extern void (*flush_data_cache_page)(unsigned long addr);
 
+#define dmac_flush_range(s,e)   dma_cache_wback((unsigned long)s, \
+				(unsigned long)(e - s))
+
 /*
  * This flag is used to indicate that the page pointed to by a pte
  * is dirty and requires cleaning before returning it to the user.
