@@ -468,7 +468,7 @@ static inline void local_r4k_flush_cache_page(void *args)
 	pmd_t *pmdp;
 	pte_t *ptep;
 	void *vaddr;
-	int dontflash = 0;
+	int dontflush = 0;
 
 	/*
 	 * If ownes no valid ASID yet, cannot possibly have gotten
@@ -523,7 +523,7 @@ static inline void local_r4k_flush_cache_page(void *args)
 
 			if (cpu_context(cpu, mm) != 0)
 				drop_mmu_context(mm, cpu);
-			dontflash = 1;
+			dontflush = 1;
 		} else
 			if (map_coherent || !cpu_has_ic_aliases)
 				r4k_blast_icache_page(addr);
@@ -537,7 +537,7 @@ static inline void local_r4k_flush_cache_page(void *args)
 	}
 
 	/*  in case of I-cache aliasing - blast it via coherent page */
-	if (exec && cpu_has_ic_aliases && (!dontflash) && !map_coherent) {
+	if (exec && cpu_has_ic_aliases && (!dontflush) && !map_coherent) {
 		vaddr = kmap_coherent(page, addr);
 		r4k_blast_icache_page((unsigned long)vaddr);
 		kunmap_coherent();
@@ -1090,7 +1090,7 @@ bypass1074:
 	     ((c->dcache.waysize / PAGE_SIZE) > FIX_N_COLOURS)) ||
 	    ((c->icache.flags & MIPS_CACHE_ALIASES) &&
 	     ((c->icache.waysize / PAGE_SIZE) > FIX_N_COLOURS)))
-		panic("PAGE_SIZE * WAYS is too small for L1 size, too much colors");
+		panic("PAGE_SIZE * WAYS is too small for L1 size, too many colors");
 #endif
 
 	switch (c->cputype) {

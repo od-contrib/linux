@@ -127,8 +127,6 @@ void *kmap_coherent(struct page *page, unsigned long addr)
 	pte_t pte;
 	int tlbidx;
 
-	/* BUG_ON(Page_dcache_dirty(page)); - removed for I-cache flush */
-
 	inc_preempt_count();
 	idx = (addr >> PAGE_SHIFT) & (FIX_N_COLOURS - 1);
 #ifdef CONFIG_MIPS_MT_SMTC
@@ -351,16 +349,6 @@ void __init paging_init(void)
 #ifdef CONFIG_HIGHMEM
 	max_zone_pfns[ZONE_HIGHMEM] = highend_pfn;
 	lastpfn = highend_pfn;
-
-#ifdef Never
-	if ((cpu_has_dc_aliases || cpu_has_ic_aliases) && (max_low_pfn != highend_pfn)) {
-		printk(KERN_ERR "No support of highmem with cache aliasing CPU."
-		       " %ldk highmem ignored\n",
-		       (highend_pfn - max_low_pfn) << (PAGE_SHIFT - 10));
-		max_zone_pfns[ZONE_HIGHMEM] = max_low_pfn;
-		lastpfn = max_low_pfn;
-	}
-#endif
 #endif
 
 	free_area_init_nodes(max_zone_pfns);
