@@ -2110,7 +2110,7 @@ config CPU_R4400_WORKAROUNDS
 config HIGHMEM
 	bool "High Memory Support"
 	depends on 32BIT && CPU_SUPPORTS_HIGHMEM && SYS_SUPPORTS_HIGHMEM
-	depends on ( NR_CPUS = 1 || NR_CPUS = 2 || NR_CPUS = 3 || NR_CPUS = 4 || NR_CPUS = 5 || NR_CPUS = 6 || NR_CPUS = 7 || NR_CPUS = 8 )
+	depends on ( !SMP || NR_CPUS = 1 || NR_CPUS = 2 || NR_CPUS = 3 || NR_CPUS = 4 || NR_CPUS = 5 || NR_CPUS = 6 || NR_CPUS = 7 || NR_CPUS = 8 )
 
 config CPU_SUPPORTS_HIGHMEM
 	bool
