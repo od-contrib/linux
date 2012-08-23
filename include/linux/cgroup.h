@@ -16,6 +16,7 @@
 #include <linux/prio_heap.h>
 #include <linux/rwsem.h>
 #include <linux/idr.h>
+#include <linux/xattr.h>
 
 #ifdef CONFIG_CGROUPS
 
@@ -235,6 +236,9 @@ struct cgroup {
 	/* List of events which userspace want to receive */
 	struct list_head event_list;
 	spinlock_t event_list_lock;
+
+	/* directory xattrs */
+	struct simple_xattrs xattrs;
 };
 
 /*
@@ -319,6 +323,9 @@ struct cftype {
 	 * be passed to write_string; defaults to 64
 	 */
 	size_t max_write_len;
+
+	/* file xattrs */
+	struct simple_xattrs xattrs;
 
 	int (*open)(struct inode *inode, struct file *file);
 	ssize_t (*read)(struct cgroup *cgrp, struct cftype *cft,
@@ -412,7 +419,7 @@ struct cgroup_scanner {
  * called by subsystems from within a populate() method
  */
 int cgroup_add_file(struct cgroup *cgrp, struct cgroup_subsys *subsys,
-		       const struct cftype *cft);
+		       struct cftype *cft);
 
 /*
  * Add a set of new files to the given cgroup directory. Should
@@ -420,7 +427,7 @@ int cgroup_add_file(struct cgroup *cgrp, struct cgroup_subsys *subsys,
  */
 int cgroup_add_files(struct cgroup *cgrp,
 			struct cgroup_subsys *subsys,
-			const struct cftype cft[],
+			struct cftype cft[],
 			int count);
 
 int cgroup_is_removed(const struct cgroup *cgrp);
