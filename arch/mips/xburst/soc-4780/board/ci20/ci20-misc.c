@@ -24,6 +24,7 @@
 #include <linux/dm9000.h>
 #include <gpio.h>
 #include <linux/input/remote.h>
+#include <soc/irq.h>
 
 #include "ci20.h"
 #include <../drivers/staging/android/timed_gpio.h>
@@ -308,6 +309,56 @@ static struct platform_device pmem_camera_device = {
 };
 #endif
 
+#ifdef CONFIG_SND_JZ4780_SOC_I2S
+
+/* I2S controller */
+static struct resource jz4780_i2s_resources[] = {
+	{
+		.start	= 0x10020000,
+		.end	= 0x10020100 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+struct platform_device jz4780_i2s_device = {
+	.name		= "jz4780-i2s",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(jz4780_i2s_resources),
+	.resource	= jz4780_i2s_resources,
+};
+
+#endif /* CONFIG_SND_JZ4780_SOC_I2S */
+
+#ifdef CONFIG_SND_JZ4780_SOC
+
+/* PCM */
+struct platform_device jz4780_pcm_device = {
+	.name		= "jz4780-pcm",
+	.id		= -1,
+};
+
+#endif /* CONFIG_SND_JZ4780_SOC */
+
+#ifdef CONFIG_SND_SOC_JZ4780_CODEC
+
+/* Codec */
+static struct resource jz4780_codec_resources[] = {
+	{
+		.start	= 0x100200a4,
+		.end	= 0x100200ac - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+struct platform_device jz4780_codec_device = {
+	.name		= "jz4780-codec",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(jz4780_codec_resources),
+	.resource	= jz4780_codec_resources,
+};
+
+#endif /* CONFIG_SND_SOC_JZ4780_CODEC */
+
 static int __init ci20_board_init(void)
 {
 /* dma */
@@ -371,6 +422,15 @@ static int __init ci20_board_init(void)
 #endif
 #ifdef CONFIG_JZ4780_INTERNAL_CODEC
 	jz_device_register(&jz_codec_device, &codec_data);
+#endif
+#ifdef CONFIG_SND_JZ4780_SOC
+	platform_device_register(&jz4780_pcm_device);
+#endif
+#ifdef CONFIG_SND_JZ4780_SOC_I2S
+	platform_device_register(&jz4780_i2s_device);
+#endif
+#ifdef CONFIG_SND_SOC_JZ4780_CODEC
+	platform_device_register(&jz4780_codec_device);
 #endif
 /* GPU */
 #ifdef CONFIG_PVR_SGX

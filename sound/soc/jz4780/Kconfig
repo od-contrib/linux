@@ -1,0 +1,31 @@
+config SND_JZ4780_SOC
+	tristate "SoC Audio for Ingenic JZ4780 SoC"
+	depends on SOC_4780 && SND_SOC
+	help
+	  Say Y or M if you want to add support for codecs attached to
+	  the JZ4780.
+
+	  The JZ4780 includes support for both audio input & output with
+	  a built-in codec, DACs & ADCs in addition to support for using
+	  a codec external to the SoC. This option only enables support
+	  for transferring data to & from the AIC block, you will also
+	  need to select the audio interfaces to support below.
+
+config SND_JZ4780_SOC_I2S
+	depends on SND_JZ4780_SOC
+	tristate "SoC Audio (I2S protocol) for Ingenic JZ4780 SoC"
+	help
+	  Say Y if you want to use the I2S protocol and I2S codec on
+	  Ingenic JZ4780 based boards.
+
+	  The I2S protocol is used to communicate with the internal
+	  codec of the JZ4780, so it is likely that you will need to
+	  enable this option.
+
+config SND_JZ4780_SOC_CI20
+	tristate "SoC Audio support for CI20"
+	depends on SND_JZ4780_SOC && BOARD_CI20
+	select SND_JZ4780_SOC_I2S
+	select SND_SOC_JZ4780_CODEC
+	help
+	  Say Y if you want to add support for ASoC audio on the CI20 board.
