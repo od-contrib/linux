@@ -369,6 +369,7 @@ static struct dma_async_tx_descriptor *jzdma_add_desc(struct dma_chan *chan, dma
 			dmac->tx_desc.flags |= DMA_CTRL_ACK;
 			/* use 8-word descriptors */
 			writel(1<<30, dmac->iomem+CH_DCS);
+			dmac->fake_cyclic = 0;
 			dmac->status = STAT_PREPED;
 		}
 		return &dmac->tx_desc;
@@ -415,6 +416,7 @@ static struct dma_async_tx_descriptor *jzdma_prep_slave_sg(struct dma_chan *chan
 
 	/* tx descriptor shouldn't reused before dma finished. */
 	dmac->tx_desc.flags |= DMA_CTRL_ACK;
+	dmac->fake_cyclic = 0;
 	dmac->status = STAT_PREPED;
 	return &dmac->tx_desc;
 }
@@ -442,6 +444,7 @@ static struct dma_async_tx_descriptor *jzdma_prep_memcpy(struct dma_chan *chan, 
 	/* tx descriptor can reused before dma finished. */
 	dmac->tx_desc.flags &= ~DMA_CTRL_ACK;
 
+	dmac->fake_cyclic = 0;
 	dmac->status = STAT_PREPED;
 	return &dmac->tx_desc;
 }
@@ -515,6 +518,9 @@ static struct dma_async_tx_descriptor *jzdma_prep_dma_cyclic(struct dma_chan *ch
 
 	/* tx descriptor can reused before dma finished. */
 	dmac->tx_desc.flags &= ~DMA_CTRL_ACK;
+
+	/* this is cyclic, may need to fake it (see jzdma_issue_pending) */
+	dmac->fake_cyclic = FAKECYCLIC_POSSIBLE;
 
 	dmac->status = STAT_PREPED;
 
@@ -591,10 +597,12 @@ static void jzdma_chan_tasklet(unsigned long data)
 	if (dcs & DCS_TT)
 		dmac->last_good = dmac->tx_desc.cookie;
 
-	dmac->status = STAT_STOPED;
-
 	dmac->last_completed = dmac->tx_desc.cookie;
-	dmac->desc_nr = 0;
+
+	if (!(dmac->fake_cyclic & FAKECYCLIC_ACTIVE)) {
+		dmac->status = STAT_STOPED;
+		dmac->desc_nr = 0;
+	}
 	spin_unlock(&dmac->lock);
 
 	if (dmac->tx_desc.callback)
@@ -621,6 +629,7 @@ static void jzdma_issue_pending(struct dma_chan *chan)
 {
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
 	struct dma_desc *desc = dmac->desc + dmac->desc_nr - 1;
+	int i;
 
 	if (dmac->status != STAT_SUBED)
 		return;
@@ -632,6 +641,28 @@ static void jzdma_issue_pending(struct dma_chan *chan)
 
 	desc->dcm &= ~DCM_LINK;
 	desc->dcm |= DCM_TIE;//bc
+
+	if ((dmac->fake_cyclic & FAKECYCLIC_POSSIBLE) &&
+		dmac->tx_desc.callback) {
+		/*
+		 * The DMA controller doesn't support triggering an interrupt
+		 * after processing each descriptor, only after processing an
+		 * entire terminated list of descriptors. For a cyclic DMA
+		 * setup the list of descriptors is not terminated so we can
+		 * never get an interrupt.
+		 *
+		 * If the user requested a callback for a cyclic DMA setup then
+		 * we workaround this hardware limitation here by degrading to
+		 * a set of unlinked descriptors which we will submit in
+		 * sequence in response to the completion of processing the
+		 * previous descriptor.
+		 */
+		for (i = 0; i < dmac->desc_nr; i++)
+			dmac->desc[i].dcm &= ~DCM_LINK;
+
+		dmac->fake_cyclic = FAKECYCLIC_ACTIVE;
+	} else
+		dmac->fake_cyclic = 0;
 
 	/*
 	 * special channel1 can not use descriptor mode
@@ -768,10 +799,23 @@ irqreturn_t jzdma_int_handler(int irq, void *dev)
 
 		dmac->dcs_saved = readl(dmac->iomem + CH_DCS);
 		writel(0, dmac->iomem + CH_DCS);
+
 		if (dmac->status != STAT_RUNNING)
 			continue;
 
 		tasklet_schedule(&dmac->tasklet);
+
+		if (dmac->fake_cyclic & FAKECYCLIC_ACTIVE) {
+			uint32_t ndesc = dmac->desc_phys;
+			int idx = (dmac->fake_cyclic & FAKECYCLIC_IDX) + 1;
+			idx %= dmac->desc_nr - 1;
+			dmac->fake_cyclic &= ~FAKECYCLIC_IDX;
+			dmac->fake_cyclic |= idx;
+			ndesc += idx * sizeof(struct dma_desc);
+			writel(ndesc, dmac->iomem + CH_DDA);
+			writel(BIT(dmac->id), dmac->master->iomem + DDRS);
+			writel((1 << 30) | (1 << 0), dmac->iomem + CH_DCS);
+		}
 	}
 	pending = readl(master->iomem + DMAC);
 	pending &= ~(DMAC_HLT | DMAC_AR);
