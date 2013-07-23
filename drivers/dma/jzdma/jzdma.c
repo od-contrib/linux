@@ -481,7 +481,7 @@ static struct dma_async_tx_descriptor *jzdma_prep_dma_cyclic(struct dma_chan *ch
 	   when call jzdma_issue_pending(); will not effect
 	   the real desc we need to use (desc[0 ~ (periods-1)])
 	 */
-	if (periods >= dmac->desc_max - 1)
+	if (periods >= dmac->desc_max)
 		return NULL;
 
 	for (i = 0; i <= periods; i++) {
