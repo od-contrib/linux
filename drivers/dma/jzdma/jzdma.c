@@ -532,11 +532,12 @@ static dma_cookie_t jzdma_tx_submit(struct dma_async_tx_descriptor *tx)
 {
 	struct jzdma_channel *dmac = to_jzdma_chan(tx->chan);
 	dma_cookie_t cookie = dmac->chan.cookie;
+	unsigned long flags;
 
 	if (dmac->status != STAT_PREPED)
 		return -EINVAL;
 
-	spin_lock_bh(&dmac->lock);
+	spin_lock_irqsave(&dmac->lock, flags);
 
 	if (++cookie < 0)
 		cookie = 1;
@@ -545,7 +546,7 @@ static dma_cookie_t jzdma_tx_submit(struct dma_async_tx_descriptor *tx)
 	dmac->status = STAT_SUBED;
 	dmac->residue = -1;
 
-	spin_unlock_bh(&dmac->lock);
+	spin_unlock_irqrestore(&dmac->lock, flags);
 
 	dev_vdbg(chan2dev(&dmac->chan),"Channel %d submit\n",dmac->chan.chan_id);
 
@@ -684,9 +685,10 @@ static void jzdma_issue_pending(struct dma_chan *chan)
 static void jzdma_terminate_all(struct dma_chan *chan)
 {
 	struct jzdma_channel *dmac = to_jzdma_chan(chan);
+	unsigned long flags;
 
 	dev_vdbg(chan2dev(chan), "terminate_all %d\n", dmac->chan.chan_id);
-	spin_lock_bh(&dmac->lock);
+	spin_lock_irqsave(&dmac->lock, flags);
 
 	dmac->status = STAT_STOPED;
 	dmac->desc_nr = 0;
@@ -695,7 +697,7 @@ static void jzdma_terminate_all(struct dma_chan *chan)
 	/* clear dma status */
 	writel(0, dmac->iomem+CH_DCS);
 
-	spin_unlock_bh(&dmac->lock);
+	spin_unlock_irqrestore(&dmac->lock, flags);
 }
 
 static int jzdma_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
