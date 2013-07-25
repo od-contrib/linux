@@ -31,6 +31,9 @@
 #include <linux/usb/composite.h>
 #include <linux/usb/gadget.h>
 
+#if defined (CONFIG_JZ4780_EFUSE) || defined (CONFIG_JZ4775_EFUSE)
+#include <mach/jz4780_efuse.h>
+#endif
 #include "gadget_chips.h"
 
 /*
@@ -55,6 +58,9 @@
 #include "f_rndis.c"
 #include "rndis.c"
 #include "u_ether.c"
+#ifdef CONFIG_USB_ANDROID_RAWBULK
+#include "f_rawbulk.c"
+#endif
 
 MODULE_AUTHOR("Mike Lockwood");
 MODULE_DESCRIPTION("Android Composite USB Driver");
@@ -532,14 +538,24 @@ static int mass_storage_function_init(struct android_usb_function *f,
 	struct mass_storage_function_config *config;
 	struct fsg_common *common;
 	int err;
+	int i, nluns;
 
 	config = kzalloc(sizeof(struct mass_storage_function_config),
 								GFP_KERNEL);
 	if (!config)
 		return -ENOMEM;
 
-	config->fsg.nluns = 1;
-	config->fsg.luns[0].removable = 1;
+	nluns = CONFIG_USB_NLUNS_NUM;
+
+	config->fsg.nluns = nluns;
+	for (i = 0; i < nluns; i++){
+		config->fsg.luns[i].removable = 1;
+
+		/*add by bcjia to use cdrom to lun2*/ 
+		if(i == 2){ 
+			config->fsg.luns[i].cdrom = 1;
+		}
+	}
 
 	common = fsg_common_init(NULL, cdev, &config->fsg);
 	if (IS_ERR(common)) {
@@ -547,9 +563,16 @@ static int mass_storage_function_init(struct android_usb_function *f,
 		return PTR_ERR(common);
 	}
 
-	err = sysfs_create_link(&f->dev->kobj,
-				&common->luns[0].dev.kobj,
-				"lun");
+	for (i = 0; i < nluns; i++) {
+		char lun_name[10] = "lun";
+		char lun_num[2];
+		sprintf(lun_num,"%d",i);
+		strcat(lun_name,lun_num);
+		err = sysfs_create_link(&f->dev->kobj,
+				&common->luns[i].dev.kobj,
+				lun_name);
+	}
+
 	if (err) {
 		kfree(config);
 		return err;
@@ -643,6 +666,38 @@ static struct android_usb_function accessory_function = {
 	.ctrlrequest	= accessory_function_ctrlrequest,
 };
 
+#ifdef CONFIG_USB_ANDROID_RAWBULK
+void rawbulk_function_unbind_config(struct android_usb_function *f, struct usb_configuration *c)
+{
+	struct rawbulk_function *fn = f->config;
+	rawbulk_free(fn);
+}
+
+static int rawbulk_function_bind_config(struct android_usb_function *f,struct usb_configuration *c)
+{
+	struct rawbulk_function *fn = rawbulk_init(c,f->name);
+	if(!fn)
+		return -ENODEV;
+	f->config = (void *)fn;
+
+	return rawbulk_bind_config(fn, c);
+}
+
+static int rawbulk_function_ctrlrequest(struct android_usb_function *f,
+		struct usb_composite_dev *cdev,
+		const struct usb_ctrlrequest *c)
+{
+	struct rawbulk_function *fn = f->config;
+	return rawbulk_function_setup(&fn->function, c);
+}
+
+static struct android_usb_function rawbulk_function = {
+	.name		= "rawbulk_bypass",
+	.bind_config	= rawbulk_function_bind_config,
+	.unbind_config	= rawbulk_function_unbind_config,
+	.ctrlrequest	= rawbulk_function_ctrlrequest,
+};
+#endif
 
 static struct android_usb_function *supported_functions[] = {
 	&adb_function,
@@ -652,9 +707,11 @@ static struct android_usb_function *supported_functions[] = {
 	&rndis_function,
 	&mass_storage_function,
 	&accessory_function,
+#ifdef CONFIG_USB_ANDROID_RAWBULK
+	&rawbulk_function,
+#endif
 	NULL
 };
-
 
 static int android_init_functions(struct android_usb_function **functions,
 				  struct usb_composite_dev *cdev)
@@ -985,6 +1042,9 @@ static int android_bind(struct usb_composite_dev *cdev)
 	struct android_dev *dev = _android_dev;
 	struct usb_gadget	*gadget = cdev->gadget;
 	int			gcnum, id, ret;
+#if defined (CONFIG_JZ4780_EFUSE) || defined (CONFIG_JZ4775_EFUSE)
+	uint32_t		chip_id[4];
+#endif
 
 	usb_gadget_disconnect(gadget);
 
@@ -1008,9 +1068,16 @@ static int android_bind(struct usb_composite_dev *cdev)
 	device_desc.iProduct = id;
 
 	/* Default strings - should be updated by userspace */
-	strncpy(manufacturer_string, "Android", sizeof(manufacturer_string) - 1);
-	strncpy(product_string, "Android", sizeof(product_string) - 1);
-	strncpy(serial_string, "0123456789ABCDEF", sizeof(serial_string) - 1);
+	strncpy(manufacturer_string, "Ingenic", sizeof(manufacturer_string) - 1);
+	strncpy(product_string, "Android Tablet", sizeof(product_string) - 1);
+#if defined (CONFIG_JZ4780_EFUSE) || defined (CONFIG_JZ4775_EFUSE)
+	jz_efuse_id_read(1, chip_id);
+	snprintf(serial_string, sizeof(serial_string) - 1,
+		 "%s-%08x-%08x-%08x-%08x", CONFIG_USB_SERIAL_NUM,
+		 chip_id[0], chip_id[1], chip_id[2], chip_id[3]);
+#else
+	strncpy(serial_string, CONFIG_USB_SERIAL_NUM, sizeof(serial_string) - 1);
+#endif
 
 	id = usb_string_id(cdev);
 	if (id < 0)

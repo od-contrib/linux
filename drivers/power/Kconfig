@@ -29,6 +29,47 @@ config APM_POWER
 	  Say Y here to enable support APM status emulation using
 	  battery class devices.
 
+config BATTERY_JZ4775
+	tristate "Ingenic JZ4775 battery"
+	depends on MFD_JZ4775_SADC
+	help
+	  Say Y to enable support for the battery on Ingenic JZ4775 based
+	  boards.
+
+config BATTERY_JZ4780
+	tristate "Ingenic JZ4780 battery"
+	depends on MFD_JZ4780_SADC
+	help
+	  Say Y to enable support for the battery on Ingenic JZ4780 based
+	  boards.
+
+config BATTERY_RICOH618
+	tristate "Ricoh RD5T618 PMIC battery driver"
+	depends on MFD_RICOH618 && I2C && GENERIC_HARDIRQS
+	help
+	  Say Y to enable support for the battery control of the Ricoh RD5T618
+	  Power Management device.
+
+config CHARGER_ACT8600
+	tristate "ACT8600 battery charger support"
+	depends on MFD_ACT8600
+	help
+	  Say Y here to enable support for the battery charger in the
+	  PMU ACT8600.
+
+config CHARGER_HAS_AC
+	bool "AC charger on the board"
+	depends on CHARGER_ACT8600
+	default y
+	help
+	  Say Y here to enable AC charger in the PMU ACT8600.
+config CHARGER_HAS_USB
+	bool "USB charger on the board"
+	depends on CHARGER_ACT8600
+	default y
+	help
+	  Say Y here to enable USB charger in the PMU ACT8600.
+
 config MAX8925_POWER
 	tristate "MAX8925 battery charger support"
 	depends on MFD_MAX8925
@@ -234,5 +275,9 @@ config CHARGER_GPIO
 
 	  This driver can be build as a module. If so, the module will be
 	  called gpio-charger.
+
+config CHARGER_LI_ION
+	tristate "JZ4780 Li-ion charger"
+	depends on GPIOLIB
 
 endif # POWER_SUPPLY

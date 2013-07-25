@@ -2205,9 +2205,13 @@ static int nl80211_send_station(struct sk_buff *msg, u32 pid, u32 seq,
 		NLA_PUT_U16(msg, NL80211_STA_BSS_PARAM_BEACON_INTERVAL,
 			    sinfo->bss_param.beacon_interval);
 
-		nla_nest_end(msg, bss_param);
+	        nla_nest_end(msg, bss_param);
 	}
 	nla_nest_end(msg, sinfoattr);
+
+	if (sinfo->filled & STATION_INFO_ASSOC_REQ_IES)
+		NLA_PUT(msg, NL80211_ATTR_IE, sinfo->assoc_req_ies_len,
+			sinfo->assoc_req_ies);
 
 	return genlmsg_end(msg, hdr);
 
@@ -3863,22 +3867,33 @@ static bool nl80211_valid_auth_type(enum nl80211_auth_type auth_type)
 static bool nl80211_valid_wpa_versions(u32 wpa_versions)
 {
 	return !(wpa_versions & ~(NL80211_WPA_VERSION_1 |
-				  NL80211_WPA_VERSION_2));
+				  NL80211_WPA_VERSION_2| 
+/*WAPI*/
+				NL80211_WAPI_VERSION_1 ));
 }
 
 static bool nl80211_valid_akm_suite(u32 akm)
 {
 	return akm == WLAN_AKM_SUITE_8021X ||
-		akm == WLAN_AKM_SUITE_PSK;
+		akm == WLAN_AKM_SUITE_PSK||
+/* WAPI */
+		akm == WLAN_AKM_SUITE_WAPI_PSK ||
+		akm == WLAN_AKM_SUITE_WAPI_CERT;
 }
 
 static bool nl80211_valid_cipher_suite(u32 cipher)
 {
+if(cipher == WLAN_CIPHER_SUITE_SMS4)
+		printk(" ** nl80211_valid_cipher_suite, is WLAN_CIPHER_SUITE_SMS4\n");
 	return cipher == WLAN_CIPHER_SUITE_WEP40 ||
 		cipher == WLAN_CIPHER_SUITE_WEP104 ||
 		cipher == WLAN_CIPHER_SUITE_TKIP ||
 		cipher == WLAN_CIPHER_SUITE_CCMP ||
-		cipher == WLAN_CIPHER_SUITE_AES_CMAC;
+		cipher == WLAN_CIPHER_SUITE_AES_CMAC||
+/*
+WAPI
+*/
+		cipher == WLAN_CIPHER_SUITE_SMS4;
 }
 
 

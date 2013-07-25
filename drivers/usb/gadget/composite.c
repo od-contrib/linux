@@ -1354,10 +1354,19 @@ void usb_composite_setup_continue(struct usb_composite_dev *cdev)
 	DBG(cdev, "%s\n", __func__);
 	spin_lock_irqsave(&cdev->lock, flags);
 
+	/* modify by slcao@20130122:
+	 * if the usb reset before setup_continue,
+	 * the delayed_status will get larger and larger, and the STATUS stage will never queued!!!
+	 * because currently only f_mass_storage use USB_GADGET_DELAYED_STATUS,
+	 * so we can ignore the delayed_status counter
+	 */
+#if 0
 	if (cdev->delayed_status == 0) {
 		WARN(cdev, "%s: Unexpected call\n", __func__);
 
 	} else if (--cdev->delayed_status == 0) {
+#endif
+
 		DBG(cdev, "%s: Completing delayed status\n", __func__);
 		req->length = 0;
 		value = usb_ep_queue(cdev->gadget->ep0, req, GFP_ATOMIC);
@@ -1366,7 +1375,9 @@ void usb_composite_setup_continue(struct usb_composite_dev *cdev)
 			req->status = 0;
 			composite_setup_complete(cdev->gadget->ep0, req);
 		}
+#if 0	/* slcao@20130122 */
 	}
+#endif
 
 	spin_unlock_irqrestore(&cdev->lock, flags);
 }

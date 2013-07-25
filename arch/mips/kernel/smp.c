@@ -124,10 +124,17 @@ asmlinkage __cpuinit void start_secondary(void)
 
 	notify_cpu_starting(cpu);
 
-	mp_ops->smp_finish();
 	set_cpu_sibling_map(cpu);
 
 	cpu_set(cpu, cpu_callin_map);
+
+	/*
+	 * Synchronize with __cpu_up()
+	 */
+	while (!cpu_isset(cpu, cpu_online_map))
+		udelay(100);
+
+	mp_ops->smp_finish();
 
 	synchronise_count_slave();
 

@@ -26,6 +26,10 @@
 #include <asm/watch.h>
 #include <asm/spram.h>
 #include <asm/uaccess.h>
+#include <asm/cacheops.h>
+#include <asm/cacheflush.h> /* for run_uncached() */
+#include <asm/rjzcache.h>
+#include <asm/r4kcache.h>
 
 /*
  * Not all of the MIPS CPUs have the "wait" instruction available. Moreover,
@@ -71,6 +75,48 @@ void r4k_wait_irqoff(void)
 	local_irq_enable();
 	__asm__(" 	.globl __pastwait	\n"
 		"__pastwait:			\n");
+	return;
+}
+
+#define cache_prefetch(label)						\
+	do{								\
+		unsigned long addr,size,end;				\
+		/* Prefetch codes from label */				\
+		addr = (unsigned long)(&&label) & ~(32 - 1);		\
+		size = 32 * 6; /* load 128 cachelines */		\
+		end = addr + size;					\
+		for (; addr < end; addr += 32) {			\
+			__asm__ volatile (				\
+				".set mips32\n\t"			\
+				" cache %0, 0(%1)\n\t"			\
+				".set mips32\n\t"			\
+				:					\
+				: "I" (Index_Prefetch_I), "r"(addr));	\
+		}							\
+	}								\
+	while(0)
+
+static void jz4780_wait_irqoff(void)
+{
+	local_irq_disable();
+	blast_dcache_jz();
+	cache_prefetch(IDLE_PROGRAM);
+
+IDLE_PROGRAM:
+	if (!need_resched())
+		__asm__ __volatile__ ("	.set	push		\n"
+				      "	.set	mips3		\n"
+				      "	sync			\n"
+				      "	lw	$0,	0(%0)	\n"
+				      "	wait			\n"
+				      "	nop			\n"
+				      "	nop			\n"
+				      "	nop			\n"
+				      "	.set	pop		\n"
+				      :: "r" (0xa0000000)
+			);
+	local_irq_enable();
+
 	return;
 }
 
@@ -191,7 +237,7 @@ void __init check_wait(void)
 	case CPU_CAVIUM_OCTEON_PLUS:
 	case CPU_CAVIUM_OCTEON2:
 	case CPU_JZRISC:
-		cpu_wait = r4k_wait;
+		cpu_wait = jz4780_wait_irqoff;
 		break;
 
 	case CPU_RM7000:
@@ -1016,13 +1062,29 @@ platform:
 
 static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 {
+	unsigned int errorpc;
+
 	decode_configs(c);
 	/* JZRISC does not implement the CP0 counter. */
 	c->options &= ~MIPS_CPU_COUNTER;
 	switch (c->processor_id & 0xff00) {
 	case PRID_IMP_JZRISC:
 		c->cputype = CPU_JZRISC;
-		__cpu_name[cpu] = "Ingenic JZRISC";
+		__cpu_name[cpu] = "Ingenic Xburst";
+		c->isa_level = MIPS_CPU_ISA_M32R1;
+		c->tlbsize = 32;
+
+		c->ases |= MIPS_ASE_XBURSTMXU;
+
+		__write_32bit_c0_register($16, 7, 0x10);
+
+
+		__asm__ __volatile__ (
+			"mfc0  %0, $30,  0   \n\t"
+			"nop                  \n\t"
+			:"=r"(errorpc)
+			:);
+		printk("CPU%d: reset EPC:%08X\n", smp_processor_id(), errorpc);
 		break;
 	default:
 		panic("Unknown Ingenic Processor ID!");
@@ -1132,6 +1194,8 @@ __cpuinit void cpu_probe(void)
 		break;
 	case PRID_COMP_NETLOGIC:
 		cpu_probe_netlogic(c, cpu);
+	default:
+		cpu_probe_ingenic(c, cpu);
 		break;
 	}
 

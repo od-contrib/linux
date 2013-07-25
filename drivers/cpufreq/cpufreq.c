@@ -342,6 +342,11 @@ out:
 	return err;
 }
 
+#ifdef CONFIG_CPU_FREQ_CHANGED
+unsigned int freq_offset = CONFIG_CPU_FREQ_OFFSET;
+#else
+unsigned int freq_offset = 0;
+#endif
 
 /**
  * cpufreq_per_cpu_attr_read() / show_##file_name() -
@@ -355,7 +360,9 @@ out:
 static ssize_t show_##file_name				\
 (struct cpufreq_policy *policy, char *buf)		\
 {							\
-	return sprintf(buf, "%u\n", policy->object);	\
+	unsigned int freq = policy->object;		\
+	freq += freq_offset;				\
+	return sprintf(buf, "%u\n", freq);	\
 }
 
 show_one(cpuinfo_min_freq, cpuinfo.min_freq);
@@ -376,15 +383,21 @@ static ssize_t store_##file_name					\
 (struct cpufreq_policy *policy, const char *buf, size_t count)		\
 {									\
 	unsigned int ret = -EINVAL;					\
+	unsigned int freq;						\
 	struct cpufreq_policy new_policy;				\
 									\
 	ret = cpufreq_get_policy(&new_policy, policy->cpu);		\
 	if (ret)							\
 		return -EINVAL;						\
 									\
-	ret = sscanf(buf, "%u", &new_policy.object);			\
+	ret = sscanf(buf, "%u", &freq);					\
 	if (ret != 1)							\
 		return -EINVAL;						\
+									\
+	freq -= freq_offset;						\
+	if(freq < freq_offset)						\
+		freq = freq_offset;					\
+	new_policy.object = freq;					\
 									\
 	ret = __cpufreq_set_policy(policy, &new_policy);		\
 	policy->user_policy.object = policy->object;			\
@@ -404,6 +417,8 @@ static ssize_t show_cpuinfo_cur_freq(struct cpufreq_policy *policy,
 	unsigned int cur_freq = __cpufreq_get(policy->cpu);
 	if (!cur_freq)
 		return sprintf(buf, "<unknown>");
+
+	cur_freq += freq_offset;
 	return sprintf(buf, "%u\n", cur_freq);
 }
 

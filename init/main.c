@@ -693,6 +693,29 @@ int __init_or_module do_one_initcall(initcall_t fn)
 	return ret;
 }
 
+#ifdef CONFIG_EARLY_INIT_RUN
+
+extern initcall_t __initcall_start[], __initcall6_start[], __initcall_end[], __early_initcall_end[];
+
+static void __init do_initcalls_before6(void)
+{
+	initcall_t *fn;
+
+	for (fn = __early_initcall_end; fn < __initcall6_start; fn++)
+		do_one_initcall(*fn);
+}
+
+static int do_initcalls_from6(void *arg)
+{
+	initcall_t *fn;
+
+	for (fn = __initcall6_start; fn < __initcall_end; fn++)
+		do_one_initcall(*fn);
+
+	return 0;
+}
+
+#else
 
 extern initcall_t __initcall_start[], __initcall_end[], __early_initcall_end[];
 
@@ -703,6 +726,8 @@ static void __init do_initcalls(void)
 	for (fn = __early_initcall_end; fn < __initcall_end; fn++)
 		do_one_initcall(*fn);
 }
+
+#endif
 
 /*
  * Ok, the machine is now initialized. None of the devices
@@ -719,7 +744,13 @@ static void __init do_basic_setup(void)
 	driver_init();
 	init_irq_proc();
 	do_ctors();
+
+#ifdef CONFIG_EARLY_INIT_RUN
+	do_initcalls_before6();
+	kernel_thread(do_initcalls_from6, NULL, CLONE_FS | CLONE_SIGHAND);
+#else
 	do_initcalls();
+#endif
 }
 
 static void __init do_pre_smp_initcalls(void)
@@ -743,7 +774,11 @@ static noinline int init_post(void)
 {
 	/* need to finish all async __init code before freeing the memory */
 	async_synchronize_full();
+
+#ifndef CONFIG_EARLY_INIT_RUN
 	free_initmem();
+#endif
+
 	mark_rodata_ro();
 	system_state = SYSTEM_RUNNING;
 	numa_default_policy();

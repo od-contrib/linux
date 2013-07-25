@@ -291,6 +291,7 @@
 #include <linux/freezer.h>
 #include <linux/utsname.h>
 
+#include <linux/wakelock.h>
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 #include <linux/usb/composite.h>
@@ -2297,7 +2298,7 @@ static int get_next_command(struct fsg_common *common)
 
 	/* Queue a request to read a Bulk-only CBW */
 	set_bulk_out_req_length(common, bh, USB_BULK_CB_WRAP_LEN);
-	bh->outreq->short_not_ok = 1;
+	bh->outreq->short_not_ok = 0;
 	if (!start_out_transfer(common, bh))
 		/* Don't know what to do if common->fsg is NULL */
 		return -EIO;
@@ -2816,6 +2817,8 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 			rc = -EINVAL;
 			goto error_luns;
 		}
+		sprintf(curlun->name,"mass_storage_lun%d",i);
+		wake_lock_init(&curlun->wake_lock,WAKE_LOCK_SUSPEND,curlun->name);
 	}
 	common->nluns = nluns;
 
@@ -2940,6 +2943,7 @@ static void fsg_common_release(struct kref *ref)
 			device_remove_file(&lun->dev, &dev_attr_file);
 			fsg_lun_close(lun);
 			device_unregister(&lun->dev);
+			wake_lock_destroy(&lun->wake_lock);
 		}
 
 		kfree(common->luns);

@@ -1,6 +1,7 @@
 menu "CPU Frequency scaling"
 
 config CPU_FREQ
+	depends on !TEST_RESET_DLL
 	bool "CPU Frequency scaling"
 	help
 	  CPU Frequency scaling allows you to change the clock speed of 
@@ -32,6 +33,15 @@ config CPU_FREQ_STAT
 	  module will be called cpufreq_stats.
 
 	  If in doubt, say N.
+
+config CPU_FREQ_CHANGED
+	bool "Change dummy CPU frequency"
+	default n
+
+config CPU_FREQ_OFFSET
+	int "CPU frequency dummy offset (KHz)"
+	depends on CPU_FREQ_CHANGED
+	default 0
 
 config CPU_FREQ_STAT_DETAILS
 	bool "CPU frequency translation statistics details"

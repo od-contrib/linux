@@ -169,6 +169,12 @@ config SPI_GPIO
 	  GPIO operations, you should be able to leverage that for better
 	  speed with a custom version of this driver; see the source code.
 
+config SPI_ZSPI
+	bool "zspi support"
+	depends on GENERIC_GPIO	
+	help
+	  This is a directly SPI.
+
 config SPI_IMX_VER_IMX1
 	def_bool y if SOC_IMX1
 
@@ -465,6 +471,78 @@ config SPI_TLE62X0
 	  such as the TLE6220, TLE6230 and TLE6240.  This provides a
 	  sysfs interface, with each line presented as a kind of GPIO
 	  exposing both switch control and diagnostic feedback.
+
+config SPI_JZ4780
+	tristate "Ingenic JZ4780 series SPI driver"
+	depends on MACH_XBURST
+	select SPI_BITBANG
+	help
+	  SPI driver for Ingenic JZ4780 series SoCs
+
+config SPI0_JZ4780
+    bool "Ingenic SoC SSI controller 0 for SPI Host driver"
+    depends on SPI_JZ4780
+
+config SPI0_PIO_ONLY
+	bool 'Disable DMA (always use PIO) on JZ4780 SSI controller 0'
+	depends on SPI0_JZ4780
+	default n
+	help
+	  All data is copied between memory and FIFO by the CPU.
+	  DMA controllers are ignored.
+
+	  Do not select 'n' here unless DMA support for your SOC or board
+	  is unavailable (or unstable).
+
+choice
+	prompt "JZ4780 SSI0 controller function pins select"
+	depends on SPI0_JZ4780
+	default SPI0_JZ4780_PB
+config SPI0_JZ4780_PB
+	bool "GPIO B"
+config SPI0_JZ4780_PD
+	bool "GPIO D"
+config SPI0_JZ4780_PE
+	bool "GPIO E"
+endchoice
+
+
+config SPI1_JZ4780
+    bool "Ingenic SoC SSI controller 1 for SPI Host driver"
+    depends on SPI_JZ4780
+
+config SPI1_PIO_ONLY
+	bool 'Disable DMA (always use PIO) on JZ4780 SSI controller 1'
+	depends on SPI1_JZ4780
+	default n
+	help
+	  All data is copied between memory and FIFO by the CPU.
+	  DMA controllers are ignored.
+
+	  Do not select 'n' here unless DMA support for your SOC or board
+	  is unavailable (or unstable).
+
+choice
+	prompt "JZ4780 SSI1 controller function pins select"
+	depends on SPI1_JZ4780
+	default SPI1_JZ4780_PB
+config SPI1_JZ4780_PB
+	bool "GPIO B"
+config SPI1_JZ4780_PD
+	bool "GPIO D"
+config SPI1_JZ4780_PE
+	bool "GPIO E"
+endchoice
+
+config JZ_SPI_BOARD_INFO_REGISTER
+    bool "Board info associated by spi master"
+    depends on SPI_JZ47XX
+    default n
+
+config JZ_SPIDEV_TEST
+    tristate "Ingenic spi test driver"
+    depends on SPI_JZ47XX
+    default n
 
 #
 # Add new SPI protocol masters in alphabetical order above this line

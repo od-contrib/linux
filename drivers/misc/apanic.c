@@ -37,6 +37,13 @@
 #include <linux/mutex.h>
 #include <linux/workqueue.h>
 #include <linux/preempt.h>
+#include <linux/kthread.h>
+#include "nand2mtd.h"
+
+
+#define PANIC_BLOCK_PATH	"/dev/block/ndapanic"
+#define PANIC_CHAR_PATH		"/dev/nand_char"
+static mm_segment_t old_fs_record;
 
 extern void ram_console_enable_console(int);
 
@@ -106,7 +113,7 @@ static void scan_bbt(struct mtd_info *mtd, unsigned int *bbt)
 	int i;
 
 	for (i = 0; i < apanic_erase_blocks; i++) {
-		if (mtd->block_isbad(mtd, i*mtd->erasesize))
+		if (mtd->_block_isbad(mtd, i*mtd->erasesize))
 			set_bb(i, apanic_bbt);
 	}
 }
@@ -131,23 +138,25 @@ static unsigned int phy_offset(struct mtd_info *mtd, unsigned int offset)
 
 	return offset + ((phy_block-logic_block)<<mtd->erasesize_shift);
 }
-
+#if 0
 static void apanic_erase_callback(struct erase_info *done)
 {
 	wait_queue_head_t *wait_q = (wait_queue_head_t *) done->priv;
 	wake_up(wait_q);
 }
-
+#endif
 static int apanic_proc_read(char *buffer, char **start, off_t offset,
 			       int count, int *peof, void *dat)
 {
 	struct apanic_data *ctx = &drv_ctx;
 	size_t file_length;
 	off_t file_offset;
-	unsigned int page_no;
-	off_t page_offset;
+	//unsigned int page_no;
+	//off_t page_offset;
 	int rc;
-	size_t len;
+	//size_t len;
+	struct file *file;
+	loff_t pos;
 
 	if (!count)
 		return 0;
@@ -173,11 +182,10 @@ static int apanic_proc_read(char *buffer, char **start, off_t offset,
 		mutex_unlock(&drv_mutex);
 		return 0;
 	}
-
+#if 0
 	/* We only support reading a maximum of a flash page */
 	if (count > ctx->mtd->writesize)
 		count = ctx->mtd->writesize;
-
 	page_no = (file_offset + offset) / ctx->mtd->writesize;
 	page_offset = (file_offset + offset) % ctx->mtd->writesize;
 
@@ -188,24 +196,98 @@ static int apanic_proc_read(char *buffer, char **start, off_t offset,
 		mutex_unlock(&drv_mutex);
 		return -EINVAL;
 	}
+	
+#endif
+	file = filp_open(PANIC_BLOCK_PATH, O_RDONLY, S_IRWXU);
+	if (NULL == file) {
+		printk("open /dev/block/ndapanic filed in %s\n",__func__);
+		return -EINVAL;
+	}
+
+	old_fs_record = get_fs();
+	set_fs(KERNEL_DS);
+
+	pos = file_offset + offset;
+	rc = vfs_read(file, ctx->bounce, count, &pos);
+	if (rc < 0) {
+		printk("read /dev/block/ndapanic failed in %s\n",__func__);
+		filp_close(file, NULL);
+		return -1;
+	}
+
+	set_fs(old_fs_record);
+	filp_close(file, NULL);
+#if 0
 	rc = ctx->mtd->read(ctx->mtd,
 		phy_offset(ctx->mtd, (page_no * ctx->mtd->writesize)),
 		ctx->mtd->writesize,
 		&len, ctx->bounce);
 
 	if (page_offset)
-		count -= page_offset;
+		count = count < (ctx->mtd->writesize - page_offset) ? 
+			count : (ctx->mtd->writesize - page_offset);
 	memcpy(buffer, ctx->bounce + page_offset, count);
+#endif
+	memcpy(buffer, ctx->bounce, rc);
 
-	*start = count;
+	*start = (char*)rc;
 
-	if ((offset + count) == file_length)
+	if ((offset + rc) == file_length)
 		*peof = 1;
 
 	mutex_unlock(&drv_mutex);
+
 	return count;
 }
+#if 1
+static void mtd_panic_erase(void)
+{
+	struct file *file;
+	int error = -ENOTTY;
+	char *panic = "ndapanic";
 
+#if 0
+	file = filp_open(PANIC_CHAR_PATH, O_RDWR, S_IRWXU);
+	if (IS_ERR(file)) {
+		printk("open /dev/char/ndapanic filed\n");	
+		return ;
+	}
+#endif
+
+	int erase_count = 100 , erase_i, erase_flag = 0;
+
+	for(erase_i = 0; erase_i < erase_count; erase_i++) {
+		file = filp_open(PANIC_CHAR_PATH, O_RDWR, 0);
+		if (IS_ERR(file)) {
+			printk("filp_open %s is %d times in %s\n", PANIC_CHAR_PATH, erase_i, __func__);
+			erase_flag++;
+			msleep(100);
+			continue;
+		}
+		break;
+	}
+
+	if(erase_flag == erase_count) {
+		printk("open /dev/char/ndapanic filed in %s\n", __func__);
+		return;
+	}
+
+	if (!file->f_op || !file->f_op->unlocked_ioctl) {
+		printk("==================no ioctl===================\n");
+		goto out;
+	}
+
+	error = file->f_op->unlocked_ioctl(file, 98, (unsigned int long)panic);
+	if (error < 0){
+		error = -EINVAL;
+		printk("erase /dev/char/ndapanic filed\n");
+	}
+
+ out:
+	filp_close(file, NULL);
+	return ;
+}
+#else
 static void mtd_panic_erase(void)
 {
 	struct apanic_data *ctx = &drv_ctx;
@@ -266,6 +348,8 @@ out:
 	return;
 }
 
+#endif
+
 static void apanic_remove_proc_work(struct work_struct *work)
 {
 	struct apanic_data *ctx = &drv_ctx;
@@ -291,16 +375,31 @@ static int apanic_proc_write(struct file *file, const char __user *buffer,
 	return count;
 }
 
-static void mtd_panic_notify_add(struct mtd_info *mtd)
+static int mtd_panic_notify(void *data);
+static void mtd_panic_notify_add(struct mtd_info *mtd) 
 {
+	struct task_struct      *tsk;
+
+	tsk = kthread_run(mtd_panic_notify, mtd, "mtd_panic");
+	if(IS_ERR(tsk)) {
+		printk("mtd_panic_notify_add error\n");
+	}
+	
+}
+static int mtd_panic_notify(void *data)
+{
+	struct mtd_info *mtd = (struct mtd_info*) data;
 	struct apanic_data *ctx = &drv_ctx;
 	struct panic_header *hdr = ctx->bounce;
-	size_t len;
+	//size_t len;
 	int rc;
 	int    proc_entry_created = 0;
+	struct file *file = NULL;
+	loff_t pos;
+	unsigned int timeout = 0;
 
 	if (strcmp(mtd->name, CONFIG_APANIC_PLABEL))
-		return;
+		return -1;
 
 	ctx->mtd = mtd;
 
@@ -309,20 +408,37 @@ static void mtd_panic_notify_add(struct mtd_info *mtd)
 
 	if (apanic_good_blocks == 0) {
 		printk(KERN_ERR "apanic: no any good blocks?!\n");
-		goto out_err;
+		goto out1_err;
 	}
 
-	rc = mtd->read(mtd, phy_offset(mtd, 0), mtd->writesize,
-			&len, ctx->bounce);
-	if (rc && rc == -EBADMSG) {
-		printk(KERN_WARNING
-		       "apanic: Bad ECC on block 0 (ignored)\n");
-	} else if (rc && rc != -EUCLEAN) {
+	timeout = 0;
+
+	do{
+		file = filp_open(PANIC_BLOCK_PATH, O_RDWR, S_IRUSR | S_IWUSR);
+		if (IS_ERR(file)) {
+			msleep(1000);
+		}
+		
+	}while(IS_ERR(file) && timeout++ < 1000);
+
+
+	if (IS_ERR(file)) {
+		printk("open /dev/block/ndapanic filed\n");
+		goto out1_err;
+	}
+
+	old_fs_record = get_fs();
+	set_fs(KERNEL_DS);
+
+	pos = 0;
+	rc = vfs_read(file, (char __user *)ctx->bounce, mtd->writesize,  &pos);
+	if (rc < 0) {
 		printk(KERN_ERR "apanic: Error reading block 0 (%d)\n", rc);
 		goto out_err;
 	}
+	set_fs(old_fs_record);
 
-	if (len != mtd->writesize) {
+	if (rc != mtd->writesize) {
 		printk(KERN_ERR "apanic: Bad read size (%d)\n", rc);
 		goto out_err;
 	}
@@ -332,14 +448,14 @@ static void mtd_panic_notify_add(struct mtd_info *mtd)
 	if (hdr->magic != PANIC_MAGIC) {
 		printk(KERN_INFO "apanic: No panic data available\n");
 		mtd_panic_erase();
-		return;
+		return -1;
 	}
 
 	if (hdr->version != PHDR_VERSION) {
 		printk(KERN_INFO "apanic: Version mismatch (%d != %d)\n",
 		       hdr->version, PHDR_VERSION);
 		mtd_panic_erase();
-		return;
+		return -1;
 	}
 
 	memcpy(&ctx->curr, hdr, sizeof(struct panic_header));
@@ -381,9 +497,13 @@ static void mtd_panic_notify_add(struct mtd_info *mtd)
 	if (!proc_entry_created)
 		mtd_panic_erase();
 
-	return;
+	filp_close(file, NULL);
+	return 0;
 out_err:
+	filp_close(file, NULL);
+out1_err:
 	ctx->mtd = NULL;
+	return -1;
 }
 
 static void mtd_panic_notify_remove(struct mtd_info *mtd)
@@ -409,10 +529,10 @@ static int apanic_writeflashpage(struct mtd_info *mtd, loff_t to,
 	size_t wlen;
 	int panic = in_interrupt() | in_atomic();
 
-	if (panic && !mtd->panic_write) {
+	if (panic && !mtd->_panic_write) {
 		printk(KERN_EMERG "%s: No panic_write available\n", __func__);
 		return 0;
-	} else if (!panic && !mtd->write) {
+	} else if (!panic && !mtd->_write) {
 		printk(KERN_EMERG "%s: No write available\n", __func__);
 		return 0;
 	}
@@ -424,9 +544,9 @@ static int apanic_writeflashpage(struct mtd_info *mtd, loff_t to,
 	}
 
 	if (panic)
-		rc = mtd->panic_write(mtd, to, mtd->writesize, &wlen, buf);
+		rc = mtd->_panic_write(mtd, to, mtd->writesize, &wlen, buf);
 	else
-		rc = mtd->write(mtd, to, mtd->writesize, &wlen, buf);
+		rc = mtd->_write(mtd, to, mtd->writesize, &wlen, buf);
 
 	if (rc) {
 		printk(KERN_EMERG
@@ -511,7 +631,7 @@ static int apanic(struct notifier_block *this, unsigned long event,
 		printk(KERN_EMERG "Crash partition in use!\n");
 		goto out;
 	}
-	console_offset = ctx->mtd->writesize;
+	console_offset = ctx->mtd->erasesize;
 
 	/*
 	 * Write out the console
@@ -535,6 +655,7 @@ static int apanic(struct notifier_block *this, unsigned long event,
 
 	log_buf_clear();
 	show_state_filter(0);
+
 	threads_len = apanic_write_console(ctx->mtd, threads_offset);
 	if (threads_len < 0) {
 		printk(KERN_EMERG "Error writing threads to panic log! (%d)\n",
@@ -592,15 +713,15 @@ DEFINE_SIMPLE_ATTRIBUTE(panic_dbg_fops, panic_dbg_get, panic_dbg_set, "%llu\n");
 
 int __init apanic_init(void)
 {
+	memset(&drv_ctx, 0, sizeof(drv_ctx));
+	drv_ctx.bounce = (void *) __get_free_page(GFP_KERNEL);
 	register_mtd_user(&mtd_panic_notifier);
 	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
 	debugfs_create_file("apanic", 0644, NULL, NULL, &panic_dbg_fops);
-	memset(&drv_ctx, 0, sizeof(drv_ctx));
-	drv_ctx.bounce = (void *) __get_free_page(GFP_KERNEL);
 	INIT_WORK(&proc_removal_work, apanic_remove_proc_work);
 	printk(KERN_INFO "Android kernel panic handler initialized (bind=%s)\n",
 	       CONFIG_APANIC_PLABEL);
 	return 0;
 }
 
-module_init(apanic_init);
+late_initcall(apanic_init);

@@ -19,6 +19,39 @@
 
 struct usb_ep;
 
+#ifdef DWC_UTE_PER_IO
+
+struct dwc_ute_iso_packet_descriptor {
+        uint32_t offset;
+        uint32_t length;                /* expected length */
+        uint32_t actual_length;
+        uint32_t status;
+};
+
+struct dwc_ute_iso_req_ext {
+        /** transfer/submission flag */
+        uint32_t tr_sub_flags;
+/** Start the request ASAP */
+#define DWC_UTE_TF_ASAP         0x00000002
+/** Just enqueue the request w/o initiating a transfer */
+#define DWC_UTE_TF_ENQUEUE      0x00000004
+
+        /** 
+ *  *          * Count of ISO packet descriptors attached to this request - shall 
+ *   *                   * not exceed the pio_alloc_pkt_count 
+ *    *                            */
+        uint32_t pio_pkt_count;
+        /** count of ISO packet descriptors allocated for this request */
+        uint32_t pio_alloc_pkt_count;
+        /** number of ISO packet errors */
+        uint32_t error_count;
+        /** reserved for future extension */
+        uint32_t res;
+        /** Will be allocated and freed in the UTE gadget and based on the CFC value */
+        struct dwc_ute_iso_packet_descriptor *per_io_frame_descs;
+};
+#endif
+
 /**
  * struct usb_request - describes one i/o request
  * @buf: Buffer used for data.  Always provide this; some controllers
@@ -92,6 +125,12 @@ struct usb_request {
 
 	int			status;
 	unsigned		actual;
+
+/* The SNPS UTE specific extension for the periodic transfers */
+#ifdef DWC_UTE_PER_IO
+        struct dwc_ute_iso_req_ext ext_req;
+#endif
+
 };
 
 /*-------------------------------------------------------------------------*/
@@ -430,6 +469,7 @@ struct usb_gadget_ops {
 	int	(*pullup) (struct usb_gadget *, int is_on);
 	int	(*ioctl)(struct usb_gadget *,
 				unsigned code, unsigned long param);
+	int	(*lpm_support) (struct usb_gadget *);
 };
 
 /**
@@ -698,6 +738,19 @@ static inline int usb_gadget_disconnect(struct usb_gadget *gadget)
 	return gadget->ops->pullup(gadget, 0);
 }
 
+/**
+ * usb_gadget_test_lpm_support - Is LPM (Linked Power Menegment) supported.
+ * @gadget:the device to check for LPM support
+ *
+ * Returns 1 if LPM is supported 0 otherwise
+ */
+static inline int
+usb_gadget_test_lpm_support (struct usb_gadget *gadget)
+{
+	if (!gadget->ops->lpm_support)
+		return -EOPNOTSUPP;
+	return gadget->ops->lpm_support (gadget);
+}
 
 /*-------------------------------------------------------------------------*/
 

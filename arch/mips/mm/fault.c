@@ -115,7 +115,7 @@ good_area:
 	} else {
 		if (kernel_uses_smartmips_rixi) {
 			if (address == regs->cp0_epc && !(vma->vm_flags & VM_EXEC)) {
-#if 0
+#if 1
 				pr_notice("Cpu%d[%s:%d:%0*lx:%ld:%0*lx] XI violation\n",
 					  raw_smp_processor_id(),
 					  current->comm, current->pid,
@@ -125,7 +125,7 @@ good_area:
 				goto bad_area;
 			}
 			if (!(vma->vm_flags & VM_READ)) {
-#if 0
+#if 1
 				pr_notice("Cpu%d[%s:%d:%0*lx:%ld:%0*lx] RI violation\n",
 					  raw_smp_processor_id(),
 					  current->comm, current->pid,
@@ -179,7 +179,7 @@ bad_area_nosemaphore:
 	if (user_mode(regs)) {
 		tsk->thread.cp0_badvaddr = address;
 		tsk->thread.error_code = write;
-#if 0
+#if 1
 		printk("do_page_fault() #2: sending SIGSEGV to %s for "
 		       "invalid %s\n%0*lx (epc == %0*lx, ra == %0*lx)\n",
 		       tsk->comm,
@@ -236,7 +236,7 @@ do_sigbus:
 	 * Send a sigbus, regardless of whether we were in kernel
 	 * or user mode.
 	 */
-#if 0
+#if 1
 		printk("do_page_fault() #3: sending SIGBUS to %s for "
 		       "invalid %s\n%0*lx (epc == %0*lx, ra == %0*lx)\n",
 		       tsk->comm,

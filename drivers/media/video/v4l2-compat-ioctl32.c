@@ -922,6 +922,7 @@ long v4l2_compat_ioctl32(struct file *file, unsigned int cmd, unsigned long arg)
 	case VIDIOC_DQEVENT:
 	case VIDIOC_SUBSCRIBE_EVENT:
 	case VIDIOC_UNSUBSCRIBE_EVENT:
+	case VIDIOC_SET_TLB_BASE:
 		ret = do_video_ioctl(file, cmd, arg);
 		break;
 

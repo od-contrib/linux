@@ -76,6 +76,7 @@ endif
 all-$(CONFIG_BOOT_ELF32)	:= $(vmlinux-32)
 all-$(CONFIG_BOOT_ELF64)	:= $(vmlinux-64)
 all-$(CONFIG_SYS_SUPPORTS_ZBOOT)+= vmlinuz
+all-y				+= zImage
 
 #
 # GCC uses -G 0 -mabicalls -fpic as default.  We don't want PIC in the kernel
@@ -276,6 +277,15 @@ all:	$(all-y)
 vmlinux.bin vmlinux.ecoff vmlinux.srec: $(vmlinux-32) FORCE
 	$(Q)$(MAKE) $(build)=arch/mips/boot VMLINUX=$(vmlinux-32) arch/mips/boot/$@
 
+# zImage
+zImage: $(vmlinux-32) FORCE
+	$(Q)$(MAKE) $(build)=arch/mips/boot/zcompressed VMLINUX=$(vmlinux-32) $@
+	@cp arch/mips/boot/zcompressed/$@ arch/mips/boot/compressed/$@ 
+	@echo '  Kernel: arch/mips/boot/compressed/$@ is ready'
+uImage: $(vmlinux-32) FORCE
+	$(Q)$(MAKE) $(build)=arch/mips/boot/zcompressed VMLINUX=$(vmlinux-32) $@
+	@cp arch/mips/boot/zcompressed/$@ arch/mips/boot/compressed/$@ 
+	@echo '  Kernel: arch/mips/boot/compressed/$@ is ready'
 # boot/compressed
 vmlinuz vmlinuz.bin vmlinuz.ecoff vmlinuz.srec: $(vmlinux-32) FORCE
 	$(Q)$(MAKE) $(build)=arch/mips/boot/compressed \

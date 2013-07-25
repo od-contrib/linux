@@ -34,11 +34,11 @@
 #include <linux/platform_device.h>
 #include <linux/irq.h>
 #include <linux/slab.h>
-
+#include <linux/gpio.h>
 #include <asm/delay.h>
 #include <asm/irq.h>
 #include <asm/io.h>
-
+#include <linux/regulator/consumer.h>
 #include "dm9000.h"
 
 /* Board/System/Debug information/definition ---------------- */
@@ -82,6 +82,10 @@ enum dm9000_type {
 	TYPE_DM9000A,
 	TYPE_DM9000B
 };
+struct dm9000_gpio{
+	int reset;
+	int irq;
+};
 
 /* Structure/enum declaration ------------------------------- */
 typedef struct board_info {
@@ -110,8 +114,9 @@ typedef struct board_info {
 	void (*outblk)(void __iomem *port, void *data, int length);
 	void (*dumpblk)(void __iomem *port, int length);
 
+	struct dm9000_gpio gpio;
 	struct device	*dev;	     /* parent device */
-
+	struct regulator *power;
 	struct resource	*addr_res;   /* resources found */
 	struct resource *data_res;
 	struct resource	*addr_req;   /* resources requested */
@@ -656,7 +661,7 @@ dm9000_poll_work(struct work_struct *w)
 		}
 	} else
 		mii_check_media(&db->mii, netif_msg_link(db), 0);
-	
+
 	if (netif_running(ndev))
 		dm9000_schedule_poll(db);
 }
@@ -1173,7 +1178,7 @@ dm9000_open(struct net_device *dev)
 
 	mii_check_media(&db->mii, netif_msg_link(db), 1);
 	netif_start_queue(dev);
-	
+
 	dm9000_schedule_poll(db);
 
 	return 0;
@@ -1363,9 +1368,35 @@ dm9000_probe(struct platform_device *pdev)
 
 	/* setup board info structure */
 	db = netdev_priv(ndev);
+	db->power = regulator_get(NULL, "vethnet");
+
+	if (IS_ERR(db->power)) {
+		printk("DM9000 regulator missing\n");
+	} else {
+		if (!regulator_is_enabled(db->power)) {
+			regulator_enable(db->power);
+			printk("dm9000 power on\n");
+		}
+	}
+
+	db->gpio.reset = pdata->gpio[0];
+	db->gpio.irq = pdata->gpio[1];
 
 	db->dev = &pdev->dev;
 	db->ndev = ndev;
+        ret = gpio_request(db->gpio.reset,"dm9000_reset");
+	if(ret < 0){
+		printk("gpio requrest fail %d\n",db->gpio.reset);
+        }
+	gpio_direction_output(db->gpio.reset, 0);
+	msleep(10);
+	gpio_direction_output(db->gpio.reset, 1);
+	msleep(10);
+
+	ret = gpio_request(db->gpio.irq,"dm9000_irq");
+	if(ret < 0){
+		printk("gpio requrest fail %d\n",db->gpio.irq);
+        }
 
 	spin_lock_init(&db->lock);
 	mutex_init(&db->addr_lock);
@@ -1444,7 +1475,7 @@ dm9000_probe(struct platform_device *pdev)
 
 	/* fill in parameters for net-dev structure */
 	ndev->base_addr = (unsigned long)db->io_addr;
-	ndev->irq	= db->irq_res->start;
+	ndev->irq	= gpio_to_irq(db->gpio.irq);
 
 	/* ensure at least we have a default set of IO routines */
 	dm9000_set_io(db, iosize);
@@ -1556,7 +1587,7 @@ dm9000_probe(struct platform_device *pdev)
 
 	if (!is_valid_ether_addr(ndev->dev_addr)) {
 		/* try reading from mac */
-		
+
 		mac_src = "chip";
 		for (i = 0; i < 6; i++)
 			ndev->dev_addr[i] = ior(db, i+DM9000_PAR);

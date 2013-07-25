@@ -187,7 +187,18 @@ static const struct soc_mbus_lookup mbus_fmt[] = {
 		.packing		= SOC_MBUS_PACKING_1_5X8,
 		.order			= SOC_MBUS_ORDER_LE,
 	},
-}, {
+},
+	{
+	.code = V4L2_MBUS_FMT_JZYUYV8_1_5X8,
+	.fmt = {
+		.fourcc			= V4L2_PIX_FMT_JZ420B,
+		.name			= "JZ 4:2:0:B",
+		.bits_per_sample	= 8,
+		.packing		= SOC_MBUS_PACKING_1_5X8,
+		.order			= SOC_MBUS_ORDER_LE,
+	},
+},
+	{
 	.code = V4L2_MBUS_FMT_YVYU8_1_5X8,
 	.fmt = {
 		.fourcc			= V4L2_PIX_FMT_YVU420,

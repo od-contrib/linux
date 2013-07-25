@@ -86,6 +86,13 @@ config LCD_PLATFORM
 	  This driver provides a platform-device registered LCD power
 	  control interface.
 
+config LCD_PANEL_RESET_ENABLE
+	bool "LCD panel reset enable"
+	default n
+	help
+	  This option provides a software reset control interface for the panel.
+	  Don't choose it, if you need to continue display logo when boot.
+
 config LCD_TOSA
 	tristate "Sharp SL-6000 LCD Driver"
 	depends on SPI && MACH_TOSA
@@ -117,6 +124,161 @@ config LCD_LD9040
 	  If you have an LD9040 Panel, say Y to enable its
 	  control driver.
 
+config LCD_AT070TN93
+	tristate "AT070TN93 LCD Driver"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have an AT070TN93 Panel, say Y to enable its
+	  control driver.
+
+config LCD_AUO_A043FL01V2
+	tristate "AUO_A043FL01V2 LCD Driver"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have an AUO_A043FL01V2 Panel, say Y to enable its
+	  control driver.
+
+config LCD_KD50G2_40NM_A2
+	tristate "KD50G2_40NM_A2 panel(800x480)"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+
+config LCD_BYD_BM8766U
+	tristate "BYD BM8766U panel(800x480)"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+
+config LCD_KR070LA0S_270
+	tristate "KR070LA0S_270 LVDS TFT panel(1024x600)"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have a KR070LA0S_270 Panel, say Y to enable its
+	  control driver. The panel's model is 20810700240110.
+
+config LCD_TM080TDH01
+	tristate "TM080TDH01 LVDS TFT panel(1024x768)"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have a TM080TDH01 Panel, say Y to enable its
+	  control driver.
+
+config LCD_SL007DC18B05
+	tristate "LCD_SL007DC18B05 LVDS TFT panel(1024x600)"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have a KR080LA4S_250 Panel, say Y to enable its
+	  control driver. The panel's model is 20810800300029.
+
+
+config LCD_KR080LA4S_250
+	tristate "KR080LA4S_250 LVDS TFT panel(1024x768)"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have a KR080LA4S_250 Panel, say Y to enable its
+	  control driver. The panel's model is 20810800300029.
+
+config LCD_CRD080TI01_40NM01
+	tristate "LCD_CRD080TI01_40NM01 LVDS TFT panel(1024x768)"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have a LCD_CRD080TI01_40NM01 Panel, say Y to enable its
+	  control driver.
+
+config LCD_HSD101PWW1
+	tristate "HSD101PWW1 LVDS TFT panel(1280x800)"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have a HSD101PWW1 Panel, say Y to enable its
+	  control driver.
+
+config LCD_LP101WX1_SLN2
+	tristate "LP101WX1_SLN2 LVDS TFT panel(1280x800)"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have a LP101WX1_SLN2 Panel, say Y to enable its
+	  control driver.
+
+config LCD_EK070TN93
+	tristate "EK070TN93 LCD Driver"
+	depends on BACKLIGHT_CLASS_DEVICE 
+	default n
+	help
+	  If you have an EK070TN93 Panel, say Y to enable its
+	  control driver.
+
+config LCD_AT065TN14
+	tristate "AT065TN14 LCD Driver"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have an AT065TN14 Panel, say Y to enable its
+	  control driver.
+
+config LCD_JZLCD
+	tristate "JZLCD LCD Driver"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have an JZLCD Panel, say Y to enable its
+	  control driver.
+
+config LCD_JCMT070T115A18
+	tristate "JCMT070T115A18 LCD Driver(800x480)"
+	depends on LCD_JZLCD
+	default n
+	help
+	  If you have an JCMT070T115A18 Panel, say Y to enable its
+	  control driver.
+
+config LCD_LXJC070WHM_280_24A1
+	tristate "LXJC070WHM_280_24A1 LCD Driver(1024x600)"
+	depends on LCD_JZLCD
+	default n
+	help
+	  If you have an LXJC070WHM_280_24A1 Panel, say Y to enable its
+	  control driver.
+
+config LCD_HSD070IDW1
+	tristate "HSD070IDW1 LCD Driver"
+	depends on BACKLIGHT_CLASS_DEVICE && DISABLE_LVDS_FUNCTION
+	default n
+	help
+	  If you have an HSD070IDW1 Panel, say Y to enable its
+	  control driver.
+
+config LCD_KFM701A21_1A
+	tristate "KFM701A21_1A TFT Smart LCD panel(400x240)"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If you have an KFM701A21_1A Panel, say Y to enable its
+	  control driver. The driver IC of this module is SPFD5420A.
+
+config LCD_DRVIER_TL2796
+	bool 
+	depends on SPI && BACKLIGHT_CLASS_DEVICE
+	default n
+	help
+	  If your lcd is driving by ic tl2796, select it 
+
+config LCD_S369FG06
+	tristate "S369FG06 AMOLED LCD Driver, panel(480x800)"
+	depends on SPI && BACKLIGHT_CLASS_DEVICE
+	select LCD_DRVIER_TL2796
+	default n
+	help
+	  If you have an S369FG06 LCD Panel, say Y to enable its
+	  LCD control driver.
+	  
 endif # LCD_CLASS_DEVICE
 
 #
@@ -225,9 +387,31 @@ config BACKLIGHT_CARILLO_RANCH
 
 config BACKLIGHT_PWM
 	tristate "Generic PWM based Backlight Driver"
-	depends on HAVE_PWM
+	depends on HAVE_PWM && JZ_PWM
 	help
 	  If you have a LCD backlight adjustable by PWM, say Y to enable
+	  this driver. Choice JZ PWM driver and the PWM channel.
+
+config CLEAR_PWM_OUTPUT
+	tristate "Clear PWM output level"
+	depends on HAVE_PWM && JZ_PWM && BACKLIGHT_PWM
+	help
+	  If you have a LCD backlight adjustable by PWM and early suspend
+	  is don't close the backlight, say Y to enable this driver.
+	  Choice JZ PWM driver and the PWM channel.
+
+config BACKLIGHT_PWM_ZPAD80
+	tristate "Generic PWM based Backlight Driver for zapad80"
+	depends on HAVE_PWM && JZ_PWM
+	help
+	  If you have a LCD backlight adjustable by PWM, say Y to enable
+	  this driver. Choice JZ PWM driver and the PWM channel.
+
+config BACKLIGHT_DIGITAL_PULSE
+	tristate "Generic Digital pulse based Backlight Driver"
+	default n
+	help
+	  If you have a LCD backlight adjustable by Digital pulse, say Y to enable
 	  this driver.
 
 config BACKLIGHT_DA903X

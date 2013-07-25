@@ -55,8 +55,18 @@ NESTED(except_vec3_generic, 0, sp)
 #ifdef CONFIG_64BIT
 	dsll	k1, k1, 1
 #endif
+#ifdef CONFIG_TRAPS_USE_TCSM
+	la      k0, exception_handlers_tcsm
+	lw      k0,0(k0)
+	addu    k0,k0,k1
+	lw      k0,0(k0)
+	lui     k1,0x8000
+	jr	k0
+	pref    0,0(k1)
+#else
 	PTR_L	k0, exception_handlers(k1)
 	jr	k0
+#endif
 	.set	pop
 	END(except_vec3_generic)
 

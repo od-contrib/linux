@@ -216,6 +216,14 @@
 #define UART_EMSR_ALT_COUNT	0x02  /* Alternating count select */
 
 /*
+ * The Ingenic xburst on-chip UARTs define these bits
+ */
+#define UART_FCR_JZ47XX_R1	0x00	/* receive FIFO threshold = 1 */
+#define UART_FCR_JZ47XX_R16	0x40	/* receive FIFO threshold = 16 */
+#define UART_FCR_JZ47XX_R32	0x80	/* receive FIFO threshold = 32 */
+#define UART_FCR_JZ47XX_R60	0xc0	/* receive FIFO threshold = 60 */
+
+/*
  * The Intel XScale on-chip UARTs define these bits
  */
 #define UART_IER_DMAE	0x80	/* DMA Requests Enable */

@@ -401,6 +401,15 @@ static int alarm_suspend(struct platform_device *pdev, pm_message_t state)
 				hrtimer_get_expires(&tmp_queue->timer).tv64 <
 				hrtimer_get_expires(&wakeup_queue->timer).tv64))
 		wakeup_queue = tmp_queue;
+#ifdef CONFIG_SUSPEND_TEST
+	rtc_read_time(alarm_rtc_dev, &rtc_current_rtc_time);
+	rtc_tm_to_time(&rtc_current_rtc_time, &rtc_current_time);
+	rtc_time_to_tm(rtc_current_time + 5, &rtc_alarm.time);
+	rtc_alarm.enabled = 1;
+	rtc_set_alarm(alarm_rtc_dev, &rtc_alarm);
+	pr_info("rtc alarm set at %ld, now %ld\n",rtc_current_time + 5, rtc_current_time);
+	return 0;
+#endif
 	if (wakeup_queue) {
 		rtc_read_time(alarm_rtc_dev, &rtc_current_rtc_time);
 		getnstimeofday(&wall_time);
@@ -418,7 +427,7 @@ static int alarm_suspend(struct platform_device *pdev, pm_message_t state)
 		rtc_set_alarm(alarm_rtc_dev, &rtc_alarm);
 		rtc_read_time(alarm_rtc_dev, &rtc_current_rtc_time);
 		rtc_tm_to_time(&rtc_current_rtc_time, &rtc_current_time);
-		pr_alarm(SUSPEND,
+		pr_info(
 			"rtc alarm set at %ld, now %ld, rtc delta %ld.%09ld\n",
 			rtc_alarm_time, rtc_current_time,
 			rtc_delta.tv_sec, rtc_delta.tv_nsec);

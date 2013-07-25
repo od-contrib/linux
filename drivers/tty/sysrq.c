@@ -499,6 +499,7 @@ void __handle_sysrq(int key, bool check_mask)
 	int i;
 	unsigned long flags;
 
+	dump_stack();
 	spin_lock_irqsave(&sysrq_key_table_lock, flags);
 	/*
 	 * Raise the apparent loglevel to maximum so that the sysrq header

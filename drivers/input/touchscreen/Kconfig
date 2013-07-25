@@ -10,6 +10,252 @@ menuconfig INPUT_TOUCHSCREEN
 	  If unsure, say Y.
 
 if INPUT_TOUCHSCREEN
+############-ingenic-touchscreen-############
+
+config JZ4780_SUPPORT_TSC
+	bool "Touchscreen Supported on JZ4780"
+	depends on SOC_4780 && INPUT_TOUCHSCREEN
+	help
+	  This selects the touchscreen that Ingenic XBurst JZ4780 support,
+	  say Y or N here.
+
+	  If unsure, say N.
+
+config JZ4775_SUPPORT_TSC
+	bool "Touchscreen Supported on JZ4775"
+	depends on SOC_4775 && INPUT_TOUCHSCREEN
+	help
+	  This selects the touchscreen that Ingenic XBurst JZ4780 support,
+	  say Y or N here.
+
+	  If unsure, say N.
+
+
+config TOUCHSCREEN_XY_YX                                                                                                                                
+      tristate "Touchscreen is used as vertical"
+      depends on JZ4780_SUPPORT_TSC
+      help
+      touchscreen is used as vertical
+
+config TOUCHSCREEN_X_FLIP                                                                                                                                
+      tristate "Touchscreen x axis flip"
+      depends on JZ4780_SUPPORT_TSC
+      help
+      X axis flip for touchscreen.
+
+config TOUCHSCREEN_Y_FLIP
+      tristate "Touchscreen y axis flip"
+      depends on JZ4780_SUPPORT_TSC
+      help
+      Y axis flip for touchscreen.
+
+config TOUCHSCREEN_HD_LCM
+      tristate "Touchscreen HD LCM"
+      depends on JZ4780_SUPPORT_TSC
+      help
+      High-Definition screen for same size LCM 
+			
+config TOUCHSCREEN_FT5306
+      tristate "Touchscreen ft5306"
+      depends on I2C && JZ4780_SUPPORT_TSC
+      help
+      ft5306 a CTP controller,support panel 7"~8.9"
+			
+config TOUCHSCREEN_FT5X06
+      tristate "Touchscreen ft5x06"
+      depends on I2C && JZ4780_SUPPORT_TSC
+      help
+      ft5306 a CTP controller,support panel 7"~8.9"
+
+config TOUCHSCREEN_MG_KS0700H_S
+      tristate "Touchscreen MG-KS0700H-S"
+      depends on I2C && JZ4780_SUPPORT_TSC
+      help
+      	none
+
+config TOUCHSCREEN_MG8698S
+      tristate "Touchscreen mg8698s"
+      depends on I2C && JZ4780_SUPPORT_TSC
+      help
+      mg8698s a CTP controller,support panel 7"~10.1"
+
+config GSlX680_CAPACITIVE_TOUCHSCREEN
+      tristate "Touchscreen GSlX680"
+      depends on I2C && JZ4780_SUPPORT_TSC
+      help
+      GSlX680 a CTP controller,support panel 7"
+
+config TOUCHSCREEN_ZET6221
+      tristate "Touchscreen zet6221"
+      depends on I2C && JZ4780_SUPPORT_TSC
+      help
+      zet6221 a CTP controller,support panel 7"~10.1"
+
+config TOUCHSCREEN_FT5X0X
+      tristate "Touchscreen ft5X0X"
+      depends on I2C && JZ4780_SUPPORT_TSC
+      help
+      ft5X0X a CTP controller,support panel 7"~8.9"
+config FT5X0X_MULTITOUCH
+		bool "Enable multi-touch on FocalTech FT5X0X "
+		depends on TOUCHSCREEN_FT5306 || TOUCHSCREEN_FT5X0X
+		default y
+		help
+			ft5306 or 5406 support multi-touch (two or five),
+			if you want , say Y here.
+if FT5X0X_MULTITOUCH
+comment "At least one of the touch point's number must be selected!"
+endif
+
+choice
+	prompt "FT5X06 TOUCH POINT NUMBER"
+	depends on FT5X0X_MULTITOUCH
+	default FT5X0X_MULTITOUCH_TWO_POINT
+	
+config FT5X0X_MULTITOUCH_TWO_POINT
+		bool "FT5x0x CTP SUPPORT TWO POINT "
+
+config FT5X0X_MULTITOUCH_FIVE_POINT
+		bool "FT5x0x CTP SUPPORT FIVE POINT"
+endchoice
+
+config TOUCHSCREEN_FT5X0X_TOUCH_KEY
+	tristate "Touchscreen ft5x0x has touch key"
+	depends on TOUCHSCREEN_FT5306 || TOUCHSCREEN_FT5X0X
+	help
+	  ft5x0x  CTP touch key controller
+
+if TOUCHSCREEN_FT5X0X_TOUCH_KEY
+comment "At least one of the touch key'product name  must be selected!"
+endif
+
+choice
+	prompt "FT5X0x touch key product type"
+	depends on TOUCHSCREEN_FT5X0X
+	default CONFIG_TOUCHKEY_INGENIC
+
+config FT5X0X_TOUCHKEY_INGENIC
+		bool "product: INGENIC (LINDEN)"
+			
+config FT5X0X_TOUCHKEY_PISCES
+		bool "product: INGENIC (PISCES)"
+
+config FT5X0X_TOUCHKEY_JB01
+		bool "product: HaiWeiXun "
+
+config FT5X0X_TOUCHKEY_706
+		bool "product: YouYiYue(706) "
+endchoice
+
+config 	TSC_SWAP_XY
+		bool "swap x and y "
+		depends on INPUT_TOUCHSCREEN
+		default n
+		help
+			say Y here if you need flip x y.
+config 	TSC_SWAP_X
+		bool "swap x"
+		depends on INPUT_TOUCHSCREEN
+		default n
+		help
+			say Y here if you need flip x y.
+config 	TSC_SWAP_Y
+		bool "swap y "
+		depends on INPUT_TOUCHSCREEN
+		default n
+		help
+			say Y here if you need flip x y.
+		  
+config FT5X0X_DEBUG
+		bool "Enable FT5X0X TouchScreen driver Debug output"
+		depends on TOUCHSCREEN_FT5306 || TOUCHSCREEN_FT5X0X
+		default n
+		help
+			say Y here if you are trying to debug cft5306
+
+config TOUCHSCREEN_GWTC9XXXB
+	tristate "Touchscreen GWTC9XXXB"
+	depends on I2C && (JZ4780_SUPPORT_TSC || JZ4775_SUPPORT_TSC)
+	help
+	  gwtc9xxxb a CTP controller
+
+config GWTC9XXXB_MULTITOUCH
+	bool "Enable GWTC9xxxB TouchScreen Multitouch "
+	depends on TOUCHSCREEN_GWTC9XXXB && ANDROID
+	default y
+	help
+
+config GWTC9XXXB_DEBUG
+	bool "Enable GWTC9xxxB TouchScreen driver Debug output"
+	depends on TOUCHSCREEN_GWTC9XXXB 
+	default n
+	help
+		say Y here if you are trying to debug gwtc9xxxb
+
+config TOUCHSCREEN_CT36X
+	tristate "Touchscreen CT36X"
+	depends on I2C && JZ4780_SUPPORT_TSC
+	help
+	  ct36x a CTP controller
+
+config TOUCHSCREEN_CT360
+	tristate "Touchscreen CT360"
+	depends on I2C && JZ4780_SUPPORT_TSC
+	help
+	  ct36x a CTP controller
+
+config CT36X_FWUPDATE
+	tristate "Touchscreen CT36X Firmware update"
+	depends on TOUCHSCREEN_CT36X||TOUCHSCREEN_CT360
+	default n
+	help
+	  ct36x CTP controller Firmware update. Before the upgrade, 
+	  you need to be copied *.dat file to the dir, each controller
+	  only need to update one time.
+
+config TOUCHSCREEN_JZ_SSD253X
+	tristate "Touchscreen SSD253X"
+	depends on I2C && JZ4780_SUPPORT_TSC
+	help
+	  Ingenic touchscreen controller dricer with SSD253X
+
+config TOUCHSCREEN_JZ_GT801
+	tristate "Touchscreen GT801"
+	depends on I2C && JZ4780_SUPPORT_TSC
+	help
+	  Ingenic touchscreen controller dricer with gt801
+
+config TOUCHSCREEN_JZ_GT801_MULTI_TOUCH
+	tristate "Gt801 mulit points touch"
+	depends on TOUCHSCREEN_JZ_GT801
+	help
+	  Ingenic touchscreen controller dricer with gt801
+	  gt801 support mulit points touch
+	  
+config TOUCHSCREEN_LDWZIC
+	tristate "Touchscreen LDWZIC"
+	depends on I2C && JZ4780_SUPPORT_TSC
+	help
+	  LDWZIC a CTP controller
+config LDWZIC_MULTI_TOUCH
+	tristate "ldwzic mulit points touch"
+	depends on TOUCHSCREEN_LDWZIC
+	help
+	  ldwzic mulit points touch
+
+config TOUCHSCREEN_CTP_IT7260
+        tristate "TouchScreen IT7260 driver"
+        depends on I2C && JZ4780_SUPPORT_TSC
+        help
+          tablet_p2 IT7260 TouchSreen Driver implemented by Ingenic.
+
+config TOUCHSCREEN_GOODIX
+       tristate "Touchscreen goodix"
+       depends on I2C && JZ4780_SUPPORT_TSC
+       help
+        The touchscreen driver is added for GPS touchscreen.
+
+#############################################
 
 config TOUCHSCREEN_88PM860X
 	tristate "Marvell 88PM860x touchscreen"

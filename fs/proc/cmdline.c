@@ -26,4 +26,9 @@ static int __init proc_cmdline_init(void)
 	proc_create("cmdline", 0, NULL, &cmdline_proc_fops);
 	return 0;
 }
+
+#ifdef CONFIG_EARLY_INIT_RUN
+rootfs_initcall(proc_cmdline_init);
+#else
 module_init(proc_cmdline_init);
+#endif

@@ -32,11 +32,13 @@ modules.builtin
 *.lzo
 *.patch
 *.gcno
+*Image
+*.img
 
 #
 # Top-level generic files
 #
-/tags
+*tags
 /TAGS
 /linux
 /vmlinux
@@ -44,6 +46,7 @@ modules.builtin
 /System.map
 /Module.markers
 /Module.symvers
+drivers/dma/jzdma/firmware.hex
 
 #
 # git files that we don't want to ignore even it they are dot-files

@@ -602,7 +602,11 @@ static void __cpuinit build_tlb_write_entry(u32 **p, struct uasm_label **l,
 static __cpuinit __maybe_unused void build_convert_pte_to_entrylo(u32 **p,
 								  unsigned int reg)
 {
+#ifdef CONFIG_JZRISC_PEP
+	if (1) {
+#else
 	if (kernel_uses_smartmips_rixi) {
+#endif
 		UASM_i_SRL(p, reg, reg, ilog2(_PAGE_NO_EXEC));
 		UASM_i_ROTR(p, reg, reg, ilog2(_PAGE_GLOBAL) - ilog2(_PAGE_NO_EXEC));
 	} else {
@@ -1077,6 +1081,13 @@ static void __cpuinit build_update_entries(u32 **p, unsigned int tmp,
 		UASM_i_MTC0(p, tmp, C0_ENTRYLO0); /* load it */
 		UASM_i_ROTR(p, ptep, ptep, ilog2(_PAGE_GLOBAL) - ilog2(_PAGE_NO_EXEC));
 	} else {
+#ifdef CONFIG_JZRISC_PEP
+		UASM_i_SRL(p, tmp, tmp, ilog2(_PAGE_NO_EXEC)); /* convert to entrylo0 */
+		UASM_i_ROTR(p, tmp, tmp, ilog2(_PAGE_GLOBAL) - ilog2(_PAGE_NO_EXEC));
+		UASM_i_MTC0(p, tmp, C0_ENTRYLO0); /* load it */
+		UASM_i_SRL(p, ptep, ptep, ilog2(_PAGE_NO_EXEC)); /* convert to entrylo1 */
+		UASM_i_ROTR(p, ptep, ptep, ilog2(_PAGE_GLOBAL) - ilog2(_PAGE_NO_EXEC));
+#else
 		UASM_i_SRL(p, tmp, tmp, ilog2(_PAGE_GLOBAL)); /* convert to entrylo0 */
 		if (r4k_250MHZhwbug())
 			UASM_i_MTC0(p, 0, C0_ENTRYLO0);
@@ -1084,6 +1095,7 @@ static void __cpuinit build_update_entries(u32 **p, unsigned int tmp,
 		UASM_i_SRL(p, ptep, ptep, ilog2(_PAGE_GLOBAL)); /* convert to entrylo1 */
 		if (r45k_bvahwbug())
 			uasm_i_mfc0(p, tmp, C0_INDEX);
+#endif
 	}
 	if (r4k_250MHZhwbug())
 		UASM_i_MTC0(p, 0, C0_ENTRYLO1);
@@ -1234,7 +1246,11 @@ build_fast_tlb_refill_handler (u32 **p, struct uasm_label **l,
 		UASM_i_LW(p, even, 0, ptr); /* get even pte */
 		UASM_i_LW(p, odd, sizeof(pte_t), ptr); /* get odd pte */
 	}
+#ifdef CONFIG_JZRISC_PEP
+	if(1) {
+#else
 	if (kernel_uses_smartmips_rixi) {
+#endif
 		uasm_i_dsrl_safe(p, even, even, ilog2(_PAGE_NO_EXEC));
 		uasm_i_dsrl_safe(p, odd, odd, ilog2(_PAGE_NO_EXEC));
 		uasm_i_drotr(p, even, even,
@@ -1445,7 +1461,6 @@ static void __cpuinit build_r4000_tlb_refill_handler(void)
 	uasm_resolve_relocs(relocs, labels);
 	pr_debug("Wrote TLB refill handler (%u instructions).\n",
 		 final_len);
-
 	memcpy((void *)ebase, final_handler, 0x100);
 
 	dump_handler((u32 *)ebase, 64);
@@ -2039,7 +2054,15 @@ static void __cpuinit build_r4000_tlb_load_handler(void)
 		uasm_i_jr(&p, K0);
 	} else
 #endif
+#ifdef CONFIG_TRAPS_USE_TCSM
+	{
+		uasm_i_lui(&p, K0, uasm_rel_hi((long)tlb_do_page_fault_0));
+		uasm_i_addiu(&p, K0, K0, uasm_rel_lo((long)tlb_do_page_fault_0));
+		uasm_i_jr(&p, K0);
+	}
+#else
 		uasm_i_j(&p, (unsigned long)tlb_do_page_fault_0 & 0x0fffffff);
+#endif
 	uasm_i_nop(&p);
 
 	if ((p - handle_tlbl) > FASTPATH_SIZE)
@@ -2093,7 +2116,15 @@ static void __cpuinit build_r4000_tlb_store_handler(void)
 		uasm_i_jr(&p, K0);
 	} else
 #endif
+#ifdef CONFIG_TRAPS_USE_TCSM
+	{
+		uasm_i_lui(&p, K0, uasm_rel_hi((long)tlb_do_page_fault_1));
+		uasm_i_addiu(&p, K0, K0, uasm_rel_lo((long)tlb_do_page_fault_1));
+		uasm_i_jr(&p, K0);
+	}
+#else
 		uasm_i_j(&p, (unsigned long)tlb_do_page_fault_1 & 0x0fffffff);
+#endif	
 	uasm_i_nop(&p);
 
 	if ((p - handle_tlbs) > FASTPATH_SIZE)
@@ -2148,7 +2179,16 @@ static void __cpuinit build_r4000_tlb_modify_handler(void)
 		uasm_i_jr(&p, K0);
 	} else
 #endif
+#ifdef CONFIG_TRAPS_USE_TCSM
+	{
+		uasm_i_lui(&p, K0, uasm_rel_hi((long)tlb_do_page_fault_1));
+		uasm_i_addiu(&p, K0, K0, uasm_rel_lo((long)tlb_do_page_fault_1));
+		uasm_i_jr(&p, K0);
+	}
+#else
 		uasm_i_j(&p, (unsigned long)tlb_do_page_fault_1 & 0x0fffffff);
+#endif
+
 	uasm_i_nop(&p);
 
 	if ((p - handle_tlbm) > FASTPATH_SIZE)

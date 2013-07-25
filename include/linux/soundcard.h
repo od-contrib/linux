@@ -574,6 +574,9 @@ typedef struct {
 #	define AFMT_MPEG		0x00000200	/* MPEG (2) audio */
 #	define AFMT_AC3		0x00000400	/* Dolby Digital AC3 */
 
+#define SNDCTL_MIXER_LOOP_TEST_ON		_SIO  ('S', 0)
+#define SNDCTL_MIXER_LOOP_TEST_OFF		_SIO  ('S', 1)
+
 /*
  * Buffer status queries.
  */

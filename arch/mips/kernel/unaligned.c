@@ -106,6 +106,409 @@ static u32 unaligned_action;
 #endif
 extern void show_registers(struct pt_regs *regs);
 
+void set_float_register(unsigned int v, int reg)
+{
+	switch (reg)
+	{
+	case 0:
+		__asm__ __volatile__ (
+			"mtc1   %0, $0 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 1:
+		__asm__ __volatile__ (
+			"mtc1   %0, $1 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 2:
+		__asm__ __volatile__ (
+			"mtc1   %0, $2 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 3:
+		__asm__ __volatile__ (
+			"mtc1   %0, $3 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 4:
+		__asm__ __volatile__ (
+			"mtc1   %0, $4 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 5:
+		__asm__ __volatile__ (
+			"mtc1   %0, $5 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 6:
+		__asm__ __volatile__ (
+			"mtc1   %0, $6 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 7:
+		__asm__ __volatile__ (
+			"mtc1   %0, $7 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 8:
+		__asm__ __volatile__ (
+			"mtc1   %0, $8 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 9:
+		__asm__ __volatile__ (
+			"mtc1   %0, $9 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 10:
+		__asm__ __volatile__ (
+			"mtc1   %0, $10 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 11:
+		__asm__ __volatile__ (
+			"mtc1   %0, $11 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 12:
+		__asm__ __volatile__ (
+			"mtc1   %0, $12 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 13:
+		__asm__ __volatile__ (
+			"mtc1   %0, $13 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 14:
+		__asm__ __volatile__ (
+			"mtc1   %0, $14 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 15:
+		__asm__ __volatile__ (
+			"mtc1   %0, $15 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 16:
+		__asm__ __volatile__ (
+			"mtc1   %0, $16 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 17:
+		__asm__ __volatile__ (
+			"mtc1   %0, $17 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 18:
+		__asm__ __volatile__ (
+			"mtc1   %0, $18 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 19:
+		__asm__ __volatile__ (
+			"mtc1   %0, $19 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 20:
+		__asm__ __volatile__ (
+			"mtc1   %0, $20 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 21:
+		__asm__ __volatile__ (
+			"mtc1   %0, $21 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 22:
+		__asm__ __volatile__ (
+			"mtc1   %0, $22 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 23:
+		__asm__ __volatile__ (
+			"mtc1   %0, $23 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 24:
+		__asm__ __volatile__ (
+			"mtc1   %0, $24 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 25:
+		__asm__ __volatile__ (
+			"mtc1   %0, $25 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 26:
+		__asm__ __volatile__ (
+			"mtc1   %0, $26 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 27:
+		__asm__ __volatile__ (
+			"mtc1   %0, $27 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 28:
+		__asm__ __volatile__ (
+			"mtc1   %0, $28 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 29:
+		__asm__ __volatile__ (
+			"mtc1   %0, $29 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 30:
+		__asm__ __volatile__ (
+			"mtc1   %0, $30 \n\t"
+			: 
+			: "r" (v));
+		break;
+	case 31:
+		__asm__ __volatile__ (
+			"mtc1   %0, $31 \n\t"
+			: 
+			: "r" (v));
+		break;
+
+	}
+}
+
+
+unsigned int get_float_register(int reg)
+{
+	unsigned int v = 0;
+
+	switch (reg)
+	{
+	case 0:
+		__asm__ __volatile__ (
+			"mfc1   %0, $0 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 1:
+		__asm__ __volatile__ (
+			"mfc1   %0, $1 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 2:
+		__asm__ __volatile__ (
+			"mfc1   %0, $2 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 3:
+		__asm__ __volatile__ (
+			"mfc1   %0, $3 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 4:
+		__asm__ __volatile__ (
+			"mfc1   %0, $4 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 5:
+		__asm__ __volatile__ (
+			"mfc1   %0, $5 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 6:
+		__asm__ __volatile__ (
+			"mfc1   %0, $6 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 7:
+		__asm__ __volatile__ (
+			"mfc1   %0, $7 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 8:
+		__asm__ __volatile__ (
+			"mfc1   %0, $8 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 9:
+		__asm__ __volatile__ (
+			"mfc1   %0, $9 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 10:
+		__asm__ __volatile__ (
+			"mfc1   %0, $10 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 11:
+		__asm__ __volatile__ (
+			"mfc1   %0, $11 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 12:
+		__asm__ __volatile__ (
+			"mfc1   %0, $12 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 13:
+		__asm__ __volatile__ (
+			"mfc1   %0, $13 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 14:
+		__asm__ __volatile__ (
+			"mfc1   %0, $14 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 15:
+		__asm__ __volatile__ (
+			"mfc1   %0, $15 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 16:
+		__asm__ __volatile__ (
+			"mfc1   %0, $16 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 17:
+		__asm__ __volatile__ (
+			"mfc1   %0, $17 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 18:
+		__asm__ __volatile__ (
+			"mfc1   %0, $18 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 19:
+		__asm__ __volatile__ (
+			"mfc1   %0, $19 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 20:
+		__asm__ __volatile__ (
+			"mfc1   %0, $20 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 21:
+		__asm__ __volatile__ (
+			"mfc1   %0, $21 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 22:
+		__asm__ __volatile__ (
+			"mfc1   %0, $22 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 23:
+		__asm__ __volatile__ (
+			"mfc1   %0, $23 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 24:
+		__asm__ __volatile__ (
+			"mfc1   %0, $24 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 25:
+		__asm__ __volatile__ (
+			"mfc1   %0, $25 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 26:
+		__asm__ __volatile__ (
+			"mfc1   %0, $26 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 27:
+		__asm__ __volatile__ (
+			"mfc1   %0, $27 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 28:
+		__asm__ __volatile__ (
+			"mfc1   %0, $28 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 29:
+		__asm__ __volatile__ (
+			"mfc1   %0, $29 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 30:
+		__asm__ __volatile__ (
+			"mfc1   %0, $30 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	case 31:
+		__asm__ __volatile__ (
+			"mfc1   %0, $31 \n\t"
+			: "=r" (v)
+			: );
+		break;
+	}
+	return v;
+}
+
 #ifdef __BIG_ENDIAN
 #define     LoadHW(addr, value, res)  \
 		__asm__ __volatile__ (".set\tnoat\n"        \
@@ -425,11 +828,10 @@ static void emulate_load_store_insn(struct pt_regs *regs,
 				    unsigned int __user *pc)
 {
 	union mips_instruction insn;
-	unsigned long value;
+	unsigned long value, valuelow, valuehigh;
 	unsigned int res;
 	unsigned long origpc;
 	unsigned long orig31;
-	void __user *fault_addr = NULL;
 
 	origpc = (unsigned long)pc;
 	orig31 = regs->regs[31];
@@ -600,25 +1002,123 @@ static void emulate_load_store_insn(struct pt_regs *regs,
 		/* Cannot handle 64-bit instructions in 32-bit kernel */
 		goto sigill;
 
-	case lwc1_op:
-	case ldc1_op:
 	case swc1_op:
+		if (!access_ok(VERIFY_WRITE, addr, 4))
+			goto sigbus;
+
+		value = get_float_register(insn.i_format.rt);
+		__asm__ __volatile__ (
+#ifdef __BIG_ENDIAN
+			"1:\tswl\t%1,(%2)\n"
+			"2:\tswr\t%1, 3(%2)\n\t"
+#endif
+#ifdef __LITTLE_ENDIAN
+			"1:\tswl\t%1, 3(%2)\n"
+			"2:\tswr\t%1, (%2)\n\t"
+#endif
+			"li\t%0, 0\n"
+			"3:\n\t"
+			".section\t.fixup,\"ax\"\n\t"
+			"4:\tli\t%0, %3\n\t"
+			"j\t3b\n\t"
+			".previous\n\t"
+			".section\t__ex_table,\"a\"\n\t"
+			STR(PTR)"\t1b, 4b\n\t"
+			STR(PTR)"\t2b, 4b\n\t"
+			".previous"
+		: "=r" (res)
+		: "r" (value), "r" (addr), "i" (-EFAULT));
+		if (res)
+			goto fault;
+		compute_return_epc(regs);
+		break;
+
+	case lwc1_op:
+		if (!access_ok(VERIFY_READ, addr, 4))
+			goto sigbus;
+
+		__asm__ __volatile__ (
+#ifdef __BIG_ENDIAN
+			"1:\tlwl\t%0, (%2)\n"
+			"2:\tlwr\t%0, 3(%2)\n\t"
+#endif
+#ifdef __LITTLE_ENDIAN
+			"1:\tlwl\t%0, 3(%2)\n"
+			"2:\tlwr\t%0, (%2)\n\t"
+#endif
+			"li\t%1, 0\n"
+			"3:\t.section\t.fixup,\"ax\"\n\t"
+			"4:\tli\t%1, %3\n\t"
+			"j\t3b\n\t"
+			".previous\n\t"
+			".section\t__ex_table,\"a\"\n\t"
+			STR(PTR)"\t1b, 4b\n\t"
+			STR(PTR)"\t2b, 4b\n\t"
+			".previous"
+			: "=&r" (value), "=r" (res)
+			: "r" (addr), "i" (-EFAULT));
+		if (res)
+			goto fault;
+		compute_return_epc(regs);
+		set_float_register(value, insn.i_format.rt);
+		break;
+
+	case ldc1_op:
+		if (!access_ok(VERIFY_READ, addr, 8))
+			goto sigbus;
+		
+		__asm__ __volatile__ (
+			"1:\tlw \t%0, 0(%3)\n"
+			"2:\tlw \t%1, 4(%3)\n\t"
+			"li\t%2, 0\n"
+			"3:\t.section\t.fixup,\"ax\"\n\t"
+			"4:\tli\t%2, %4\n\t"
+			"j\t3b\n\t"
+			".previous\n\t"
+			".section\t__ex_table,\"a\"\n\t"
+			STR(PTR)"\t1b, 4b\n\t"
+			STR(PTR)"\t2b, 4b\n\t"
+			".previous"
+			: "=&r" (valuelow), "=&r" (valuehigh), "=r" (res)
+			: "r" (addr), "i" (-EFAULT));
+		if (res)
+			goto fault;
+		compute_return_epc(regs);
+
+		/* setting paired floating register */
+		set_float_register(valuelow, insn.i_format.rt);
+		set_float_register(valuehigh, insn.i_format.rt + 1);
+
+		break;
+
 	case sdc1_op:
-		die_if_kernel("Unaligned FP access in kernel code", regs);
-		BUG_ON(!used_math());
-		BUG_ON(!is_fpu_owner());
+		if (!access_ok(VERIFY_WRITE, addr, 8))
+			goto sigbus;
 
-		lose_fpu(1);	/* save the FPU state for the emulator */
-		res = fpu_emulator_cop1Handler(regs, &current->thread.fpu, 1,
-					       &fault_addr);
-		own_fpu(1);	/* restore FPU state */
+		valuelow = get_float_register(insn.i_format.rt);
+		valuehigh = get_float_register(insn.i_format.rt + 1);
 
-		/* If something went wrong, signal */
-		process_fpemu_return(res, fault_addr);
+		__asm__ __volatile__ (
+			"1:\tsw \t%1, 0(%3)\n"
+			"2:\tsw \t%2, 4(%3)\n\t"
+			"li\t%0, 0\n"
+			"3:\n\t"
+			".section\t.fixup,\"ax\"\n\t"
+			"4:\tli\t%0, %4\n\t"
+			"j\t3b\n\t"
+			".previous\n\t"
+			".section\t__ex_table,\"a\"\n\t"
+			STR(PTR)"\t1b, 4b\n\t"
+			STR(PTR)"\t2b, 4b\n\t"
+			".previous"
+		: "=r" (res)
+		: "r" (valuelow), "r" (valuehigh), "r" (addr), "i" (-EFAULT));
 
-		if (res == 0)
-			break;
-		return;
+		if (res)
+			goto fault;
+		compute_return_epc(regs);
+		break;
+		//printk("ldc1 or sdc1 unaligned access! need to fix!\n");
 
 	/*
 	 * COP2 is available to implementor for application specific use.

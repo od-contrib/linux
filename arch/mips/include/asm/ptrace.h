@@ -21,6 +21,7 @@
 #define DSP_BASE	71		/* 3 more hi / lo register pairs */
 #define DSP_CONTROL	77
 #define ACX		78
+#define MXU_BASE    80   /*  16 regs */
 
 /*
  * This struct defines the way the registers are stored on the stack during a
@@ -135,7 +136,12 @@ extern int ptrace_set_watch_regs(struct task_struct *child,
 /*
  * Does the process account for user or for system time?
  */
+
+#if defined(CONFIG_JZRISC)
+#define user_mode(regs) ((((regs)->cp0_status & KU_MASK) == KU_USER) || (((regs)->cp0_status & 0x08000000) == 0x08000000))
+# else
 #define user_mode(regs) (((regs)->cp0_status & KU_MASK) == KU_USER)
+#endif
 
 #define regs_return_value(_regs) ((_regs)->regs[2])
 #define instruction_pointer(regs) ((regs)->cp0_epc)

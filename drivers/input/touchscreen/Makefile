@@ -6,6 +6,21 @@
 
 wm97xx-ts-y := wm97xx-core.o
 
+##########-ingenic-touchscreen-###########
+
+obj-$(CONFIG_TOUCHSCREEN_JZ_GT801)	+= tsc_gt801.o
+obj-$(CONFIG_TOUCHSCREEN_LDWZIC)        += ldwzic_ts.o
+obj-$(CONFIG_TOUCHSCREEN_JZ_SSD253X)	+= ssd253x-ts.o
+obj-$(CONFIG_TOUCHSCREEN_FT5X0X)        += ft5x0x_ts.o
+obj-$(CONFIG_TOUCHSCREEN_FT5X06)        += ft5x06_ts.o
+obj-$(CONFIG_TOUCHSCREEN_MG8698S)        += mg8698s_ts.o
+obj-$(CONFIG_GSlX680_CAPACITIVE_TOUCHSCREEN)	+= gslX680.o
+obj-$(CONFIG_TOUCHSCREEN_ZET6221)        += zet6221_ts.o zet6221_downloader.o
+obj-$(CONFIG_TOUCHSCREEN_FT5306)        += ft5306_ts.o
+obj-$(CONFIG_TOUCHSCREEN_CTP_IT7260)    += ctp_it7260.o
+obj-$(CONFIG_TOUCHSCREEN_GWTC9XXXB)     += gwtc9xxxb_ts.o
+obj-$(CONFIG_TOUCHSCREEN_GOODIX)	+= goodix_ts.o
+##########################################
 obj-$(CONFIG_TOUCHSCREEN_88PM860X)	+= 88pm860x-ts.o
 obj-$(CONFIG_TOUCHSCREEN_AD7877)	+= ad7877.o
 obj-$(CONFIG_TOUCHSCREEN_AD7879)	+= ad7879.o
@@ -61,3 +76,6 @@ obj-$(CONFIG_TOUCHSCREEN_WM97XX_MAINSTONE)	+= mainstone-wm97xx.o
 obj-$(CONFIG_TOUCHSCREEN_WM97XX_ZYLONITE)	+= zylonite-wm97xx.o
 obj-$(CONFIG_TOUCHSCREEN_W90X900)	+= w90p910_ts.o
 obj-$(CONFIG_TOUCHSCREEN_TPS6507X)	+= tps6507x-ts.o
+obj-$(CONFIG_TOUCHSCREEN_CT36X)   	+= ct36x_i2c_ts.o
+obj-$(CONFIG_TOUCHSCREEN_CT360)         += ct360_i2c_ts.o
+obj-$(CONFIG_TOUCHSCREEN_MG_KS0700H_S) += mg-i2c-ks0700h.o

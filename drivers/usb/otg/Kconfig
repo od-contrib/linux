@@ -138,4 +138,12 @@ config FSL_USB2_OTG
 	help
 	  Enable this to support Freescale USB OTG transceiver.
 
+config USB_SNPS_DWC_OTG2
+        boolean "OTG 2.0 support for Synopsys HSOTG"
+        depends on USB
+        select USB_OTG
+        select USB_GADGET_SNPS_DWC_OTG
+        help
+           Enables support for the Synopsys for DWC_otg controller
+
 endif # USB || OTG

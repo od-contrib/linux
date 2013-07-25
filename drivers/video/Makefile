@@ -156,6 +156,10 @@ obj-$(CONFIG_FB_BFIN_7393)        += bfin_adv7393fb.o
 obj-$(CONFIG_FB_MX3)		  += mx3fb.o
 obj-$(CONFIG_FB_DA8XX)		  += da8xx-fb.o
 obj-$(CONFIG_FB_MXS)		  += mxsfb.o
+obj-$(CONFIG_FB_JZ4780_LCDC0)     += jz4780-fb/
+obj-$(CONFIG_FB_JZ4780_LCDC1)     += jz4780-fb/
+obj-$(CONFIG_HDMI_JZ4780)	  += jz4780-hdmi/
+obj-$(CONFIG_JZ4780_IPU)  	  += jz4780-ipu/
 
 # the test framebuffer is last
 obj-$(CONFIG_FB_VIRTUAL)          += vfb.o

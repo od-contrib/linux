@@ -5,7 +5,7 @@
  *
  * Inline assembly cache operations.
  *
- * Copyright (C) 1996 David S. Miller (davem@davemloft.net)
+ * Copyright (C) 1996 David S. Miller (dm@engr.sgi.com)
  * Copyright (C) 1997 - 2002 Ralf Baechle (ralf@gnu.org)
  * Copyright (C) 2004 Ralf Baechle (ralf@linux-mips.org)
  */
@@ -16,6 +16,29 @@
 #include <asm/cacheops.h>
 #include <asm/cpu-features.h>
 #include <asm/mipsmtregs.h>
+
+#ifdef CONFIG_JZRISC
+
+#define INVALIDATE_BTB()			\
+do {						\
+	unsigned long tmp;			\
+	__asm__ __volatile__(			\
+	"	.set mips32		\n"	\
+	"	mfc0 %0, $16, 7		\n"	\
+	"	nop			\n"	\
+	"	ori %0, 2		\n"	\
+	"	mtc0 %0, $16, 7		\n"	\
+	"	nop			\n"	\
+	: "=&r" (tmp));				\
+} while (0)
+#define SYNC_WB() __asm__ __volatile__ ("sync")
+
+#else /* CONFIG_JZRISC */
+
+#define INVALIDATE_BTB() do { } while (0)
+#define SYNC_WB() do { } while (0)
+
+#endif /* CONFIG_JZRISC */
 
 /*
  * This macro return a properly sign-extended address suitable as base address
@@ -127,6 +150,19 @@ extern void mt_cflush_release(void);
 
 #else /* CONFIG_MIPS_MT */
 
+#ifdef CONFIG_JZRISC
+#define __iflush_prologue
+#define __iflush_epilogue	INVALIDATE_BTB();
+#define __dflush_prologue
+#define __dflush_epilogue	SYNC_WB();
+#define __inv_dflush_prologue
+#define __inv_dflush_epilogue	SYNC_WB();
+#define __sflush_prologue {
+#define __sflush_epilogue }
+#define __inv_sflush_prologue {
+#define __inv_sflush_epilogue }
+
+#else
 #define __iflush_prologue {
 #define __iflush_epilogue }
 #define __dflush_prologue {
@@ -137,6 +173,8 @@ extern void mt_cflush_release(void);
 #define __sflush_epilogue }
 #define __inv_sflush_prologue {
 #define __inv_sflush_epilogue }
+
+#endif /* !CONFIG_JZRISC */
 
 #endif /* CONFIG_MIPS_MT */
 
@@ -209,6 +247,7 @@ static inline void flush_scache_line(unsigned long addr)
 static inline void protected_flush_icache_line(unsigned long addr)
 {
 	protected_cache_op(Hit_Invalidate_I, addr);
+	INVALIDATE_BTB();
 }
 
 /*
@@ -220,6 +259,7 @@ static inline void protected_flush_icache_line(unsigned long addr)
 static inline void protected_writeback_dcache_line(unsigned long addr)
 {
 	protected_cache_op(Hit_Writeback_Inv_D, addr);
+	SYNC_WB();
 }
 
 static inline void protected_writeback_scache_line(unsigned long addr)

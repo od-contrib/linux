@@ -93,9 +93,13 @@ extern unsigned int vced_count, vcei_count;
 
 
 #define NUM_FPU_REGS	32
+#define NUM_MXU_REGS	16
 
 typedef __u64 fpureg_t;
 
+struct xburst_mxu_struct {
+	unsigned int regs[NUM_MXU_REGS];
+};
 /*
  * It would be nice to add some more fields for emulator statistics, but there
  * are a number of fixed offsets in offset.h and elsewhere that would have to
@@ -219,6 +223,15 @@ struct thread_struct {
 
 	/* Saved state of the DSP ASE, if available. */
 	struct mips_dsp_state dsp;
+
+	/* Saved registers of the MXU, if available. */
+	struct xburst_mxu_struct mxu;
+
+	/* for magicode cpuinfo */
+#define CPU_MIPS             0
+#define CPU_ARM              1
+#define CPU_ARM_NEON         2
+	unsigned int mcflags;
 
 	/* Saved watch register state, if available. */
 	union mips_watch_reg_state watch;

@@ -38,6 +38,7 @@ enum {
 struct early_suspend {
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct list_head link;
+	int state;
 	int level;
 	void (*suspend)(struct early_suspend *h);
 	void (*resume)(struct early_suspend *h);

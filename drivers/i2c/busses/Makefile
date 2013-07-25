@@ -66,6 +66,14 @@ obj-$(CONFIG_I2C_VERSATILE)	+= i2c-versatile.o
 obj-$(CONFIG_I2C_OCTEON)	+= i2c-octeon.o
 obj-$(CONFIG_I2C_XILINX)	+= i2c-xiic.o
 obj-$(CONFIG_I2C_EG20T)         += i2c-eg20t.o
+obj-$(CONFIG_I2C0_JZ4775)       += i2c-jz4775.o
+obj-$(CONFIG_I2C1_JZ4775)       += i2c-jz4775.o
+obj-$(CONFIG_I2C2_JZ4775)       += i2c-jz4775.o
+obj-$(CONFIG_I2C0_JZ4780)       += i2c-jz4780.o
+obj-$(CONFIG_I2C1_JZ4780)       += i2c-jz4780.o
+obj-$(CONFIG_I2C2_JZ4780)       += i2c-jz4780.o
+obj-$(CONFIG_I2C3_JZ4780)       += i2c-jz4780.o
+obj-$(CONFIG_I2C4_JZ4780)       += i2c-jz4780.o
 
 # External I2C/SMBus adapter drivers
 obj-$(CONFIG_I2C_DIOLAN_U2C)	+= i2c-diolan-u2c.o

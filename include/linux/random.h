@@ -65,9 +65,16 @@ unsigned int get_random_int(void);
 unsigned long randomize_range(unsigned long start, unsigned long end, unsigned long len);
 
 u32 random32(void);
+u32 prandom_u32(void);
+
 void srandom32(u32 seed);
+void prandom_seed(u32 seed);
 
 u32 prandom32(struct rnd_state *);
+u32 prandom_u32_state(struct rnd_state *);
+
+void prandom_bytes_state(struct rnd_state *state, void *buf, int bytes);
+void prandom_bytes(void *buf, int bytes);
 
 /*
  * Handle minimum values for seeds
@@ -91,6 +98,17 @@ static inline void prandom32_seed(struct rnd_state *state, u64 seed)
 	state->s3 = __seed(i, 15);
 }
 
+static inline void prandom_seed_state(struct rnd_state *state, u64 seed)
+{
+	return prandom32_seed(state, seed);
+}
+
 #endif /* __KERNEL___ */
+
+/* Pseudo random number generator from numerical recipes. */
+static inline u32 next_pseudo_random32(u32 seed)
+{
+	return seed * 1664525 + 1013904223;
+}
 
 #endif /* _LINUX_RANDOM_H */

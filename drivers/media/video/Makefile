@@ -82,6 +82,14 @@ obj-$(CONFIG_SOC_CAMERA_OV6650)		+= ov6650.o
 obj-$(CONFIG_SOC_CAMERA_OV772X)		+= ov772x.o
 obj-$(CONFIG_SOC_CAMERA_OV9640)		+= ov9640.o
 obj-$(CONFIG_SOC_CAMERA_OV9740)		+= ov9740.o
+
+obj-$(CONFIG_SOC_CAMERA_GC0308)		+= gc0308.o
+obj-$(CONFIG_SOC_CAMERA_HI253)		+= hi253.o
+obj-$(CONFIG_SOC_CAMERA_GC2015)		+= gc2015.o
+obj-$(CONFIG_SOC_CAMERA_SP0838)		+= sp0838.o
+obj-$(CONFIG_SOC_CAMERA_OV7675)		+= ov7675.o
+obj-$(CONFIG_SOC_CAMERA_OV2650)		+= ov2650.o
+
 obj-$(CONFIG_SOC_CAMERA_RJ54N1)		+= rj54n1cb0c.o
 obj-$(CONFIG_SOC_CAMERA_TW9910)		+= tw9910.o
 
@@ -163,6 +171,7 @@ obj-$(CONFIG_VIDEO_MX1)			+= mx1_camera.o
 obj-$(CONFIG_VIDEO_MX2)			+= mx2_camera.o
 obj-$(CONFIG_VIDEO_MX3)			+= mx3_camera.o
 obj-$(CONFIG_VIDEO_PXA27x)		+= pxa_camera.o
+obj-$(CONFIG_VIDEO_JZ4780_CIM_HOST)		+= jz4780_camera.o
 obj-$(CONFIG_VIDEO_SH_MOBILE_CSI2)	+= sh_mobile_csi2.o
 obj-$(CONFIG_VIDEO_SH_MOBILE_CEU)	+= sh_mobile_ceu_camera.o
 obj-$(CONFIG_VIDEO_OMAP1)		+= omap1_camera.o

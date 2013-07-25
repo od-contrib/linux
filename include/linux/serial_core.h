@@ -206,6 +206,9 @@
 /* Xilinx PSS UART */
 #define PORT_XUARTPS	98
 
+/* Ingenic uart */
+#define PORT_JZ47XX	99
+
 #ifdef __KERNEL__
 
 #include <linux/compiler.h>

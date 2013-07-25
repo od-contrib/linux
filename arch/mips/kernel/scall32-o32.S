@@ -41,7 +41,12 @@ NESTED(handle_sys, PT_SIZE, sp)
 	beqz	t0, illegal_syscall
 
 	sll	t0, v0, 3
+#ifndef CONFIG_TRAPS_USE_TCSM
 	la	t1, sys_call_table
+#else
+	la      t1, sys_call_table_tcsm
+	lw      t1, 0(t1)
+#endif
 	addu	t1, t0
 	lw	t2, (t1)		# syscall routine
 	lw	t3, 4(t1)		# >= 0 if we need stack arguments
@@ -205,8 +210,14 @@ illegal_syscall:
 	beqz	t0, einval		# do not recurse
 	sll	t1, t0, 3
 	beqz	v0, einval
+#ifndef CONFIG_TRAPS_USE_TCSM
 	lw	t2, sys_call_table(t1)		# syscall routine
-
+#else
+	la	t2, sys_call_table_tcsm
+	lw	t2, 0(t2)
+	addu	t2, t2,t1
+	lw	t2, 0(t2)
+#endif
 	/* Some syscalls like execve get their arguments from struct pt_regs
 	   and claim zero arguments in the syscall table. Thus we have to
 	   assume the worst case and shuffle around all potential arguments.

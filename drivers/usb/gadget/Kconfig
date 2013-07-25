@@ -594,6 +594,31 @@ config USB_CI13XXX_MSM
 	default USB_GADGET
 	select USB_GADGET_SELECTED
 
+config USB_GADGET_DWC2
+	boolean "DesignWare USB 2.0 Hi-Speed OTG Controller"
+	depends on USB_DWC2
+	select USB_OTG
+	select USB_GADGET_DUALSPEED
+	select USB_GADGET_SELECTED
+	help
+	    Select Synopsys DesignWare USB 2.0 Hi-Speed OTG Controller
+	
+
+config USB_GADGET_SNPS_DWC_OTG
+	boolean "Synopsys Driver for DWC_otg Controller"
+	depends on USB && EXPERIMENTAL
+	select USB_OTG
+	select USB_GADGET_DUALSPEED
+	select USB_GADGET_SELECTED
+	help
+	   Selects the Synopsys Driver for the DWC_otg Controller.
+
+config USB_DWC_OTG_LPM
+	boolean "Enable LPM support"
+	depends on USB && EXPERIMENTAL
+	help
+	   Enables LPM support.
+
 #
 # LAST -- dummy/emulated controller
 #
@@ -942,6 +967,25 @@ config USB_G_ANDROID
 	  The Android gadget driver supports multiple USB functions.
 	  The functions can be configured via a board file and may be
 	  enabled and disabled dynamically.
+
+if USB_G_ANDROID
+config USB_ANDROID_RAWBULK
+	boolean "Android rawbulk framework function support"
+	depends on USB_G_ANDROID
+
+config  USB_SERIAL_NUM
+	string "SN(Serial Number of Device)"
+	default "Ingenic"
+	help
+          The USB device's Serial Number
+
+config  USB_NLUNS_NUM
+	int "how many disk mounted on PC"
+	default 2
+	range 1 8
+	help
+          The number of disk mounted on PC
+endif
 
 config USB_CDC_COMPOSITE
 	tristate "CDC Composite Device (Ethernet and ACM)"

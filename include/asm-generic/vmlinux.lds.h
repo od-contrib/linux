@@ -632,6 +632,7 @@
   	*(.initcall5.init)						\
   	*(.initcall5s.init)						\
 	*(.initcallrootfs.init)						\
+	VMLINUX_SYMBOL(__initcall6_start) = .;	\
   	*(.initcall6.init)						\
   	*(.initcall6s.init)						\
   	*(.initcall7.init)						\

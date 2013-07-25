@@ -687,6 +687,129 @@ config I2C_EG20T
 	  ML7213/ML7223 is companion chip for Intel Atom E6xx series.
 	  ML7213/ML7223 is completely compatible for Intel EG20T PCH.
 
+comment "Xburst soc 4775 internal i2c controller"
+	depends on SOC_4775
+
+config I2C0_JZ4775
+	tristate "jz4775 i2c controler 0 Interface support"
+	depends on SOC_4775
+
+config I2C1_JZ4775
+	tristate "jz4775 i2c controler 1 Interface support"
+	depends on SOC_4775
+
+config I2C2_JZ4775
+	tristate "jz4775 i2c controler 2 Interface support"
+	depends on SOC_4775
+
+config I2C_JZ4775_SPEED
+	int "Jz4775 i2c speed in KHZ"
+	range 100 400
+	default 350
+    depends on I2C0_JZ4775 || I2C1_JZ4775 || I2C2_JZ4775
+	help
+	  Select Jz4775 i2c speed.
+	  Examples:
+                 300 =>  300 KHZ
+
+config I2C_JZ4775_WAIT_MS
+	int "Jz4775 i2c bus wait time in ms"
+	range 10 1000
+	default 100
+    depends on I2C0_JZ4775 || I2C1_JZ4775 || I2C2_JZ4775
+	help
+	  Select Jz4775 bus wait time in ms.
+	  Examples:
+		100 => 100 ms
+
+comment "Xburst soc 4780 internal i2c controller"
+	depends on SOC_4780
+
+config I2C0_JZ4780
+	tristate "jz4780 i2c controler 0 Interface support"
+	depends on SOC_4780
+
+config I2C0_SPEED
+	int "Jz4780 i2c0 speed in KHZ"
+	range 100 400
+	default 400
+    depends on I2C0_JZ4780
+
+config I2C1_JZ4780
+	tristate "jz4780 i2c controler 1 Interface support"
+	depends on SOC_4780
+
+config I2C1_SPEED
+	int "Jz4780 i2c1 speed in KHZ"
+	range 100 400
+	default 400
+    depends on I2C1_JZ4780
+
+config I2C2_JZ4780
+	tristate "jz4780 i2c controler 2 Interface support"
+	depends on SOC_4780
+
+config I2C2_SPEED
+	int "Jz4780 i2c2 speed in KHZ"
+	range 100 400
+	default 100
+    depends on I2C2_JZ4780
+
+config I2C3_JZ4780
+	tristate "jz4780 i2c controler 3 Interface support"
+	depends on SOC_4780
+
+config I2C3_SPEED
+	int "Jz4780 i2c3 speed in KHZ"
+	range 100 400
+	default 300
+    depends on I2C3_JZ4780
+
+config I2C4_JZ4780
+	tristate "jz4780 i2c controler 4 Interface support"
+	depends on SOC_4780
+
+config I2C4_SPEED
+	int "Jz4780 i2c4 speed in KHZ"
+	range 100 400
+	default 100
+    depends on I2C4_JZ4780
+	help
+	  Select Jz4780 i2c speed.
+	  Examples:
+	             100 => 100 KHZ
+	             200 => 200 KHZ
+                 300 =>  300 KHZ
+
+config I2C_JZ4780_WAIT_MS
+	int "Jz4780 i2c bus wait time in ms"
+	range 10 1000
+	default 1000
+    depends on I2C0_JZ4780 || I2C1_JZ4780 || I2C2_JZ4780 || I2C3_JZ4780 || I2C4_JZ4780
+	help
+	  Select Jz4780 bus wait time in ms.
+	  Examples:
+	             100 => 100 ms
+	             200 => 200 ms
+                 300 =>  300 ms
+
+config I2C_DEBUG
+	tristate "jzsoc i2c debug"
+	depends on SOC_4780 || SOC_4775
+choice
+	prompt "jz4780 i2c controler 4 function pins select"
+	depends on I2C4_JZ4780
+	default I2C4_JZ4780_PE3
+config I2C4_JZ4780_PE3
+	bool "gpe3 & gpe4"
+config I2C4_JZ4780_PE12
+	bool "gpe12 & gpe13"
+config I2C4_JZ4780_PF
+	bool "gpf24 & gpf25"
+endchoice
+
+
+
 comment "External I2C/SMBus adapter drivers"
 
 config I2C_DIOLAN_U2C

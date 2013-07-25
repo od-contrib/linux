@@ -12,7 +12,19 @@
 #define __MTD_NAND_BCH_H__
 
 struct mtd_info;
-struct nand_bch_control;
+/**
+ * struct nand_bch_control - private NAND BCH control structure
+ * @bch:       BCH control structure
+ * @ecclayout: private ecc layout for this BCH configuration
+ * @errloc:    error location array
+ * @eccmask:   XOR ecc mask, allows erased pages to be decoded as valid
+ */
+struct nand_bch_control {
+	struct bch_control   *bch;
+	struct nand_ecclayout ecclayout;
+	unsigned int         *errloc;
+	unsigned char        *eccmask;
+};
 
 #if defined(CONFIG_MTD_NAND_ECC_BCH)
 

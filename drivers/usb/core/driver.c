@@ -656,6 +656,9 @@ EXPORT_SYMBOL_GPL(usb_match_one_id);
 const struct usb_device_id *usb_match_id(struct usb_interface *interface,
 					 const struct usb_device_id *id)
 {
+	struct usb_device *usb_dev;
+	usb_dev = interface_to_usbdev(interface);
+
 	/* proc_connectinfo in devio.c may call us with id == NULL. */
 	if (id == NULL)
 		return NULL;
@@ -667,6 +670,13 @@ const struct usb_device_id *usb_match_id(struct usb_interface *interface,
 	   device and interface. */
 	for (; id->idVendor || id->idProduct || id->bDeviceClass ||
 	       id->bInterfaceClass || id->driver_info; id++) {
+		if (usb_dev->descriptor.idVendor == 0x1c9e
+		    && usb_dev->descriptor.idProduct == 0x6061
+		    && id->bInterfaceClass == 8) {
+			//printk("Ingore interface of mess storage for 3G Modeom with VID=0x1c9e, PID=0x6061 !\n");
+			continue;
+		}
+
 		if (usb_match_one_id(interface, id))
 			return id;
 	}

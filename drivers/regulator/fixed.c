@@ -188,6 +188,9 @@ static int __devinit reg_fixed_voltage_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, drvdata);
 
+	if (drvdata->is_enabled)
+		drvdata->dev->use_count++;
+
 	dev_dbg(&pdev->dev, "%s supplying %duV\n", drvdata->desc.name,
 		drvdata->microvolts);
 

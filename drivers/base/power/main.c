@@ -647,7 +647,9 @@ void dpm_resume(pm_message_t state)
 			int error;
 
 			mutex_unlock(&dpm_list_mtx);
-
+#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
+			printk("resume device - (%s)\n",dev_name(dev));
+#endif
 			error = device_resume(dev, state, false);
 			if (error)
 				pm_dev_err(dev, state, "", error);

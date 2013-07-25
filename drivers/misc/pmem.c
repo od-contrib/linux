@@ -32,7 +32,7 @@
 #define PMEM_MAX_ORDER 128
 #define PMEM_MIN_ALLOC PAGE_SIZE
 
-#define PMEM_DEBUG 1
+#define PMEM_DEBUG 0
 
 /* indicates that a refernce to this file has been taken via get_pmem_file,
  * the file should not be released until put_pmem_file is called */
@@ -334,11 +334,19 @@ static int pmem_open(struct inode *inode, struct file *file)
 	int id = get_id(file);
 	int ret = 0;
 
-	DLOG("current %u file %p(%d)\n", current->pid, file, file_count(file));
+	DLOG("current %u file %p(%ld)\n", current->pid, file, file_count(file));
 	/* setup file->private_data to indicate its unmapped */
 	/*  you can only open a pmem device one time */
+#if 0
 	if (file->private_data != NULL)
 		return -1;
+#else
+	if (file_count(file) > 1)
+	{
+		printk("you can only open a pmem device one time!\n");
+		return -1;
+	}
+#endif
 	data = kmalloc(sizeof(struct pmem_data), GFP_KERNEL);
 	if (!data) {
 		printk("pmem: unable to allocate memory for pmem metadata.");
@@ -802,7 +810,11 @@ void flush_pmem_file(struct file *file, unsigned long offset, unsigned long len)
 	vaddr = pmem_start_vaddr(id, data);
 	/* if this isn't a submmapped file, flush the whole thing */
 	if (unlikely(!(data->flags & PMEM_FLAGS_CONNECTED))) {
+#ifdef CONFIG_MIPS
+		dma_cache_wback((unsigned long)vaddr, pmem_len(id, data));
+#else
 		dmac_flush_range(vaddr, vaddr + pmem_len(id, data));
+#endif
 		goto end;
 	}
 	/* otherwise, flush the region of the file we are drawing */
@@ -813,7 +825,11 @@ void flush_pmem_file(struct file *file, unsigned long offset, unsigned long len)
 			region_node->region.len))) {
 			flush_start = vaddr + region_node->region.offset;
 			flush_end = flush_start + region_node->region.len;
+#ifdef CONFIG_MIPS
+			dma_cache_wback((unsigned long)flush_start, region_node->region.len);
+#else
 			dmac_flush_range(flush_start, flush_end);
+#endif
 			break;
 		}
 	}
@@ -1087,8 +1103,10 @@ static long pmem_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				region.offset = pmem_start_addr(id, data);
 				region.len = pmem_len(id, data);
 			}
+#if PMEM_DEBUG
 			printk(KERN_INFO "pmem: request for physical address of pmem region "
 					"from process %d.\n", current->pid);
+#endif
 			if (copy_to_user((void __user *)arg, &region,
 						sizeof(struct pmem_region)))
 				return -EFAULT;
@@ -1272,8 +1290,13 @@ int pmem_setup(struct android_pmem_platform_data *pdata,
 	}
 
 	if (pmem[id].cached)
+#ifdef CONFIG_MIPS
+		pmem[id].vbase = ioremap_cachable(pmem[id].base,
+						pmem[id].size);
+#else
 		pmem[id].vbase = ioremap_cached(pmem[id].base,
 						pmem[id].size);
+#endif	/* CONFIG_MIPS */
 #ifdef ioremap_ext_buffered
 	else if (pmem[id].buffered)
 		pmem[id].vbase = ioremap_ext_buffered(pmem[id].base,

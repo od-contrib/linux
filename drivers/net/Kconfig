@@ -251,6 +251,15 @@ config AX88796_93CX6
 	help
 	  Select this if your platform comes with an external 93CX6 eeprom.
 
+config AX88796C
+	tristate "ASIX AX88796c NE2000 clone support"
+	depends on ARM || MIPS || SUPERH
+	select PHYLIB
+	select MDIO_BITBANG
+	help
+	  AX88796c driver, using platform bus to provide
+	  chip detection and resources
+	  
 config MACE
 	tristate "MACE (Power Mac ethernet) support"
 	depends on PPC_PMAC && PPC32
@@ -984,6 +993,13 @@ config DM9000
 
 	  To compile this driver as a module, choose M here.  The module
 	  will be called dm9000.
+
+config NEMC_CS6
+         bool "NEMC_CS6"
+
+config DM9000_CDM_SA2
+	bool "set dm9000 CMD to SA2"
+        depends on DM9000 && !NAND_JZ4780_FUNCTION 
 
 config DM9000_DEBUGLEVEL
 	int "DM9000 maximum debug level"
@@ -2023,6 +2039,21 @@ config LANTIQ_ETOP
 	help
 	  Support for the MII0 inside the Lantiq SoC
 
+config JZ_MAC
+	tristate "JZ on-chip MAC support"
+	depends on NET_ETHERNET && MACH_XBURST
+	select CRC32
+	select MII
+	select PHYLIB
+	help
+	  This is the driver for JZ on-chip mac device. 
+
+config JZ_MAC_RMII
+	bool "RMII PHY Interface"
+	depends on JZ_MAC
+	default n
+        help
+          Use Reduced PHY MII Interface for JZ ethernet MAC
 
 source "drivers/net/fs_enet/Kconfig"
 
@@ -2567,6 +2598,50 @@ config PCH_GBE
 	  ML7223 IOH is for MP(Media Phone) use.
 	  ML7223 is companion chip for Intel Atom E6xx series.
 	  ML7223 is completely compatible for Intel EG20T PCH.
+
+config JZ4775_MAC
+	tristate "JZ4775 on-chip MAC support"
+	depends on NET_ETHERNET
+	select CRC32
+	select MII
+	select PHYLIB
+	select PHY_RESET
+	help
+	  This is the driver for JZ4775 on-chip mac device.
+
+choice
+	prompt "JZSOC MAC mode"
+	depends on JZ4775_MAC
+	default CONFIG_JZ4775_MAC_MII
+
+config JZ4775_MAC_MII
+	bool "MII"
+	help
+	  Select Media Independent Interface
+
+config JZ4775_MAC_GMII
+	bool "GMII"
+	help
+	  Select Gigabit Media Independent Interface
+
+config JZ4775_MAC_RMII
+	bool "RMII"
+	help
+	  Select Reduced Media Independent Interface
+
+config JZ4775_MAC_RGMII
+	bool "RGMII"
+	help
+	  Select Reduced Gigabit Media Independent Interface
+endchoice
+
+config JZGPIO_PHY_RESET
+	bool "PHY_RESET"
+	depends on JZ4775_MAC
+	help
+	  This is the gpio for phy reset for 4775 net
+	  if there is no special porpose
+	  do open this item
 
 endif # NETDEV_1000
 

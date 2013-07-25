@@ -580,9 +580,32 @@ static const struct file_operations kallsyms_operations = {
 	.release = seq_release_private,
 };
 
+static ssize_t showsym_write(struct file *file,
+			const char __user *buffer, size_t count, loff_t *pos) {
+	static const size_t addr_cl = sizeof("0x12345678");
+	char sym_addr[addr_cl];
+	int cplen = min(addr_cl, count);
+	unsigned long addr;
+
+	if (copy_from_user(sym_addr, buffer, cplen))
+		return -EFAULT;
+
+	sym_addr[addr_cl - 1] = '\0';
+	addr = simple_strtoull(sym_addr, NULL, 16);
+	printk("[%08lx] %pS\n", addr, (void *)addr);
+
+	return count;
+}
+
+static const struct file_operations showsym_operations = {
+	.write = showsym_write,
+	.llseek = noop_llseek,
+};
+
 static int __init kallsyms_init(void)
 {
 	proc_create("kallsyms", 0444, NULL, &kallsyms_operations);
+	proc_create("showsym",  0444, NULL, &showsym_operations);
 	return 0;
 }
 device_initcall(kallsyms_init);

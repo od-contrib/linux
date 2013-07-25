@@ -319,6 +319,9 @@ struct usb_bus {
 					 * for control transfers?
 					 */
 	u8 otg_port;			/* 0, or number of OTG/HNP port */
+#ifdef CONFIG_USB_OTG
+	u16 otg_version;		/* OTG version supported by HCD - SNPS*/	
+#endif
 	unsigned is_b_host:1;		/* true during some HNP roleswitches */
 	unsigned b_hnp_enable:1;	/* OTG: did A-Host enable HNP? */
 	unsigned sg_tablesize;		/* 0 or largest number of sg list entries */
@@ -491,6 +494,9 @@ struct usb_device {
 #endif
 	struct wusb_dev *wusb_dev;
 	int slot_id;
+#ifdef CONFIG_USB_SNPS_DWC_OTG2
+	struct delayed_work hnp_poll_work;  /* Drives HNP polling */
+#endif
 };
 #define	to_usb_device(d) container_of(d, struct usb_device, dev)
 

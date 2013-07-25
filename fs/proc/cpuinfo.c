@@ -21,4 +21,9 @@ static int __init proc_cpuinfo_init(void)
 	proc_create("cpuinfo", 0, NULL, &proc_cpuinfo_operations);
 	return 0;
 }
+
+#ifdef CONFIG_EARLY_INIT_RUN
+rootfs_initcall(proc_cpuinfo_init);
+#else
 module_init(proc_cpuinfo_init);
+#endif

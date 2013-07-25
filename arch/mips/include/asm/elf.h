@@ -178,6 +178,9 @@ typedef elf_fpreg_t elf_fpregset_t[ELF_NFPREG];
 /*
  * This is used to ensure we don't load something for the wrong architecture.
  */
+#ifdef CONFIG_ARM_ELF_SUPPORT
+/* 2012-12-14 change for AKIM ot run ARM executable */
+#define EM_ARM	40
 #define elf_check_arch(hdr)						\
 ({									\
 	int __res = 1;							\
@@ -192,9 +195,29 @@ typedef elf_fpreg_t elf_fpregset_t[ELF_NFPREG];
 	if (((__h->e_flags & EF_MIPS_ABI) != 0) &&			\
 	    ((__h->e_flags & EF_MIPS_ABI) != EF_MIPS_ABI_O32))		\
 		__res = 0;						\
-									\
+	if (__h->e_machine == EM_ARM &&					\
+	    __h->e_ident[EI_CLASS] == ELFCLASS32)			\
+		__res = 1;						\
 	__res;								\
 })
+#else
+#define elf_check_arch(hdr)						\
+({									\
+	int __res = 1;							\
+	struct elfhdr *__h = (hdr);					\
+									\
+	if (__h->e_machine != EM_MIPS)					\
+		__res = 0;						\
+	if (__h->e_ident[EI_CLASS] != ELFCLASS32)			\
+		__res = 0;						\
+	if ((__h->e_flags & EF_MIPS_ABI2) != 0)				\
+		__res = 0;						\
+	if (((__h->e_flags & EF_MIPS_ABI) != 0) &&			\
+	    ((__h->e_flags & EF_MIPS_ABI) != EF_MIPS_ABI_O32))		\
+		__res = 0;						\
+	__res;								\
+})
+#endif									
 
 /*
  * These are used to set parameters in the core dumps.

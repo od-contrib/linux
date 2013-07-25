@@ -89,6 +89,23 @@ config DW_DMAC
 	  Support the Synopsys DesignWare AHB DMA controller.  This
 	  can be integrated in chips such as the Atmel AT32ap7000.
 
+config XBURST_DMAC
+       tristate "XBURST DMA support"
+       depends on SOC_4770 || SOC_4780 || SOC_4775
+       select DMA_ENGINE
+       help
+         Support the XBURST DMA controller. This support the
+         jz4770 || jz4780 || 4775 chip.
+choice
+	prompt "firmware select"
+	depends on XBURST_DMAC
+	default XBURST_DMAC_COMMON
+config XBURST_DMAC_COMMON
+        bool "common firmwave"
+config XBURST_DMAC_TOGGLE
+        bool "toggle firmware"
+endchoice
+
 config AT_HDMAC
 	tristate "Atmel AHB DMA support"
 	depends on ARCH_AT91SAM9RL || ARCH_AT91SAM9G45

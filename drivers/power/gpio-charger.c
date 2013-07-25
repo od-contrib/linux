@@ -28,22 +28,39 @@
 struct gpio_charger {
 	const struct gpio_charger_platform_data *pdata;
 	unsigned int irq;
-
+	struct delayed_work work;
+	int flag;
 	struct power_supply charger;
 };
-
-static irqreturn_t gpio_charger_irq(int irq, void *devid)
-{
-	struct power_supply *charger = devid;
-
-	power_supply_changed(charger);
-
-	return IRQ_HANDLED;
-}
 
 static inline struct gpio_charger *psy_to_gpio_charger(struct power_supply *psy)
 {
 	return container_of(psy, struct gpio_charger, charger);
+}
+
+static void gpio_charger_work(struct work_struct *work)
+{
+	struct gpio_charger *gpio_charger;
+	int flag;
+	gpio_charger = container_of(work, struct gpio_charger, work.work);
+	flag = gpio_get_value(gpio_charger->pdata->gpio);
+	if (flag != gpio_charger->flag) {
+		power_supply_changed(&gpio_charger->charger);
+		gpio_charger->flag = flag;
+	}
+	enable_irq(gpio_charger->irq);
+}
+
+static irqreturn_t gpio_charger_irq(int irq, void *devid)
+{
+	struct power_supply *charger = devid;
+	struct gpio_charger *gpio_charger = psy_to_gpio_charger(charger);
+
+	disable_irq_nosync(gpio_charger->irq);
+	printk("%s %s %d\n",__FILE__,__func__,__LINE__);
+	schedule_delayed_work(&gpio_charger->work, msecs_to_jiffies(200));
+
+	return IRQ_HANDLED;
 }
 
 static int gpio_charger_get_property(struct power_supply *psy,
@@ -112,6 +129,9 @@ static int __devinit gpio_charger_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to set gpio to input: %d\n", ret);
 		goto err_gpio_free;
 	}
+
+	gpio_charger->flag = -1;
+	INIT_DELAYED_WORK(&gpio_charger->work, gpio_charger_work);
 
 	gpio_charger->pdata = pdata;
 

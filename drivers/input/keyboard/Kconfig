@@ -12,6 +12,23 @@ menuconfig INPUT_KEYBOARD
 
 if INPUT_KEYBOARD
 
+config JZ_REMOTE
+	tristate "JZ Rremote Buttons"
+	depends on SOC_4780
+	default n
+	help
+
+config JZ_REMOTE_SUPPORT_LONGPRESS
+	tristate "JZ Rremote Buttons support long press"
+	depends on JZ_REMOTE
+	default n
+	help
+
+config KEYBOARD_SKYTC_IR_REMOTE
+	tristate "Skytc IR remote controller"
+	default n
+	help
+
 config KEYBOARD_ADP5520
 	tristate "Keypad Support for ADP5520 PMIC"
 	depends on PMIC_ADP5520
@@ -171,6 +188,36 @@ config KEYBOARD_EP93XX
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called ep93xx_keypad.
+
+config HDMI_80_KEY
+	tristate "HDMI_80_KEY"
+	depends on GENERIC_GPIO
+	help
+	  This driver implements support for buttons connected
+	  to GPIO pins of various CPUs (and some other chips).
+
+	  Say Y here if your device has buttons connected
+	  directly to such GPIO pins.  Your board-specific
+	  setup logic must also provide a platform device,
+	  with configuration data saying which GPIOs are used.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called gpio_keys.
+
+config VGA_DONGLE_KEY
+	tristate "VGA Dongle Keys"
+	depends on GENERIC_GPIO
+	help
+	  This driver implements support for buttons connected
+	  to GPIO pins of various CPUs (and some other chips).
+
+	  Say Y here if your device has buttons connected
+	  directly to such GPIO pins.  Your board-specific
+	  setup logic must also provide a platform device,
+	  with configuration data saying which GPIOs are used.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called gpio_keys.
 
 config KEYBOARD_GPIO
 	tristate "GPIO Buttons"

@@ -556,6 +556,11 @@ static unsigned long randomize_stack_top(unsigned long stack_top)
 #endif
 }
 
+#define CONFIG_MIPS_EXECUTE_ARM
+#ifdef CONFIG_MIPS_EXECUTE_ARM
+/* #define EM_ARM	40 */
+#define elf_check_arm(hdr)	((hdr)->e_machine != 40)
+#endif
 static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 {
 	struct file *interpreter = NULL; /* to shut gcc up */
@@ -573,6 +578,9 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 	unsigned long reloc_func_desc __maybe_unused = 0;
 	int executable_stack = EXSTACK_DEFAULT;
 	unsigned long def_flags = 0;
+#ifdef CONFIG_MIPS_EXECUTE_ARM
+	int is_arm_exec = 0;
+#endif
 	struct {
 		struct elfhdr elf_ex;
 		struct elfhdr interp_elf_ex;
@@ -594,8 +602,15 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 
 	if (loc->elf_ex.e_type != ET_EXEC && loc->elf_ex.e_type != ET_DYN)
 		goto out;
+#ifdef CONFIG_MIPS_EXECUTE_ARM
+	if (!elf_check_arm(&loc->elf_ex))
+		is_arm_exec = 1;
+	else if (!elf_check_arch(&loc->elf_ex))
+		goto out;
+#else
 	if (!elf_check_arch(&loc->elf_ex))
 		goto out;
+#endif
 	if (!bprm->file->f_op || !bprm->file->f_op->mmap)
 		goto out;
 
@@ -685,6 +700,33 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 		}
 		elf_ppnt++;
 	}
+#ifdef CONFIG_MIPS_EXECUTE_ARM
+	if (!elf_interpreter && is_arm_exec) {
+		/* Same to above */
+		const char *armlinker = "/system/bin/linker";
+		elf_interpreter = kmalloc(strlen(armlinker) + 1,
+					  GFP_KERNEL);
+		if (!elf_interpreter)
+			goto out_free_ph;
+		strcpy(elf_interpreter, armlinker);
+		interpreter = open_exec(elf_interpreter);
+		retval = PTR_ERR(interpreter);
+		if (IS_ERR(interpreter))
+			goto out_free_interp;
+
+		if (file_permission(interpreter, MAY_READ) < 0)
+			bprm->interp_flags |= BINPRM_FLAGS_ENFORCE_NONDUMP;
+
+		retval = kernel_read(interpreter, 0, bprm->buf,
+				     BINPRM_BUF_SIZE);
+		if (retval != BINPRM_BUF_SIZE) {
+			if (retval >= 0)
+				retval = -EIO;
+			goto out_free_dentry;
+		}
+		loc->interp_elf_ex = *((struct elfhdr *)bprm->buf);
+	}
+#endif
 
 	elf_ppnt = elf_phdata;
 	for (i = 0; i < loc->elf_ex.e_phnum; i++, elf_ppnt++)

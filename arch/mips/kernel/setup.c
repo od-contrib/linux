@@ -572,6 +572,16 @@ void __init setup_arch(char **cmdline_p)
 	plat_smp_setup();
 }
 
+static int __init mxu_disable(char *s)
+{
+	cpu_data[0].ases &= ~MIPS_ASE_XBURSTMXU;
+
+	return 1;
+}
+
+__setup("nodsp", mxu_disable);
+
+
 unsigned long kernelsp[NR_CPUS];
 unsigned long fw_arg0, fw_arg1, fw_arg2, fw_arg3;
 

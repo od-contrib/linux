@@ -248,6 +248,11 @@ struct fsg_lun {
 	u32		unit_attention_data;
 
 	struct device	dev;
+
+#ifdef CONFIG_USB_G_ANDROID
+	struct wake_lock wake_lock;
+#endif
+	char name[32];
 };
 
 #define fsg_lun_is_open(curlun)	((curlun)->filp != NULL)
@@ -266,7 +271,7 @@ static struct fsg_lun *fsg_lun_from_dev(struct device *dev)
 #define FSG_NUM_BUFFERS	2
 
 /* Default size of buffer length. */
-#define FSG_BUFLEN	((u32)16384)
+#define FSG_BUFLEN	((u32)65536)
 
 /* Maximal number of LUNs supported in mass storage function */
 #define FSG_MAX_LUNS	8
@@ -353,6 +358,9 @@ fsg_otg_desc = {
 	.bDescriptorType =	USB_DT_OTG,
 
 	.bmAttributes =		USB_OTG_SRP,
+#ifdef CONFIG_USB_SNPS_DWC_OTG2
+	.bcdOTG =	0x200,
+#endif
 };
 #endif
 
@@ -606,6 +614,10 @@ static int fsg_lun_open(struct fsg_lun *curlun, const char *filename)
 	LDBG(curlun, "open backing file: %s\n", filename);
 	rc = 0;
 
+#ifdef CONFIG_USB_G_ANDROID
+	wake_lock(&curlun->wake_lock);
+#endif
+
 out:
 	filp_close(filp, current->files);
 	return rc;
@@ -618,6 +630,9 @@ static void fsg_lun_close(struct fsg_lun *curlun)
 		LDBG(curlun, "close backing file\n");
 		fput(curlun->filp);
 		curlun->filp = NULL;
+#ifdef CONFIG_USB_G_ANDROID
+		wake_unlock(&curlun->wake_lock);
+#endif
 	}
 }
 

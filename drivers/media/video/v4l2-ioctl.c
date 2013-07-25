@@ -2196,6 +2196,15 @@ static long __video_do_ioctl(struct file *file,
 		dbgarg(cmd, "type=0x%8.8x", sub->type);
 		break;
 	}
+	case VIDIOC_SET_TLB_BASE:
+	{
+		unsigned int *tlb_base = arg;
+
+		ret = ops->vidioc_s_tlb_base(file, fh, tlb_base);
+		if (ret < 0)
+			dbgarg(cmd, "failed, ret=%ld", ret);
+		break;
+	}
 	default:
 	{
 		bool valid_prio = true;

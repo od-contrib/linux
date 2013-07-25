@@ -100,6 +100,24 @@
 #include "check.h"
 #include "efi.h"
 
+#define MAKE_SIGNATURE32( a, b, c, d ) \
+        (((u32)(u8)(d)       ) | \
+        ( (u32)(u8)(c) << 8  ) | \
+        ( (u32)(u8)(b) << 16 ) | \
+        ( (u32)(u8)(a) << 24 ) )
+
+#define INGENIC_SIGNATURE  (MAKE_SIGNATURE32('I','N','G','E'))
+
+typedef struct _custom_mbr {
+	u8 boot_code[432];
+	u32 custom_signature;
+	u32 gpt_header_lba;  // gpt header position
+	__le32 unique_mbr_signature;
+	__le16 unknown;
+	struct partition partition_record[4];
+	__le16 signature;
+} __attribute__ ((packed)) custom_mbr;
+
 /* This allows a kernel command line option 'gpt' to override
  * the test for invalid PMBR.  Not __initdata because reloading
  * the partition tables happens after init too.
@@ -529,6 +547,7 @@ static int find_valid_gpt(struct parsed_partitions *state, gpt_header **gpt,
 	gpt_entry *pptes = NULL, *aptes = NULL;
 	legacy_mbr *legacymbr;
 	u64 lastlba;
+	u64 gpt_header_lba = GPT_PRIMARY_PARTITION_TABLE_LBA;
 
 	if (!ptes)
 		return 0;
@@ -541,13 +560,24 @@ static int find_valid_gpt(struct parsed_partitions *state, gpt_header **gpt,
                         read_lba(state, 0, (u8 *) legacymbr,
 				 sizeof (*legacymbr));
                         good_pmbr = is_pmbr_valid(legacymbr);
+
+                        if (good_pmbr) {
+                            custom_mbr * tmp_mbr = (custom_mbr*)legacymbr;
+                            if (tmp_mbr->custom_signature == INGENIC_SIGNATURE) {
+                                gpt_header_lba = tmp_mbr->gpt_header_lba;
+                                if (gpt_header_lba == 0) {
+                                    gpt_header_lba = GPT_PRIMARY_PARTITION_TABLE_LBA;
+                                }
+                            }
+                        }
+
                         kfree(legacymbr);
                 }
                 if (!good_pmbr)
                         goto fail;
         }
 
-	good_pgpt = is_gpt_valid(state, GPT_PRIMARY_PARTITION_TABLE_LBA,
+	good_pgpt = is_gpt_valid(state, gpt_header_lba,
 				 &pgpt, &pptes);
         if (good_pgpt)
 		good_agpt = is_gpt_valid(state,

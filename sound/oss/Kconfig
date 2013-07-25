@@ -1,7 +1,10 @@
+
 # 18 Apr 1998, Michael Elizabeth Chastain, <mailto:mec@shout.net>
 # More hacking for modularisation.
 #
 # Prompt user for primary drivers.
+
+source "sound/oss/jzsound/Kconfig"
 
 config SOUND_BCM_CS4297A
 	tristate "Crystal Sound CS4297a (for Swarm)"

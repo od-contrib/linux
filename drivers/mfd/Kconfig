@@ -24,6 +24,44 @@ config MFD_CORE
 	tristate
 	default n
 
+config MFD_ACT8600
+	bool "Support PMU ACT8600"
+	depends on I2C=y && MACH_XBURST
+	select MFD_CORE
+	help
+	  This supports for ACT8600 Power Management IC.
+	  This includes the I2C driver and the core APIs _only_, you have to
+	  select individual components like voltage regulators, RTC and
+	  battery-charger under the corresponding menus.
+
+config MFD_RICOH618
+	bool "Ricoh RC5T618 Power Management system device"
+	depends on I2C && GPIOLIB && GENERIC_HARDIRQS
+	select MFD_CORE
+	default n
+	help
+	  If you say yes here you get support for the RICOH618 Power
+	  Management system device.
+	  This driver provides common support for accessing the device,
+	  additional drivers must be enabled in order to use the
+	  functionality of the device.
+
+config MFD_JZ4775_SADC
+	tristate "Support for the JZ4775 SADC core"
+	select MFD_CORE
+	depends on SOC_4775
+	help
+	  Say yes here if you want support for the SADC unit in the JZ4775 SoC.
+	  This driver is necessary for jz4775-battery driver.
+
+config MFD_JZ4780_SADC
+	tristate "Support for the JZ4780 SADC core"
+	select MFD_CORE
+	depends on SOC_4780
+	help
+	  Say yes here if you want support for the SADC unit in the JZ4780 SoC.
+	  This driver is necessary for jz4780-battery driver.
+
 config MFD_88PM860X
 	bool "Support Marvell 88PM8606/88PM8607"
 	depends on I2C=y && GENERIC_HARDIRQS

@@ -1101,6 +1101,16 @@ static const struct usb_device_id option_ids[] = {
 	{ USB_DEVICE(YUGA_VENDOR_ID, YUGA_PRODUCT_CLU516) },
 	{ USB_DEVICE(YUGA_VENDOR_ID, YUGA_PRODUCT_CLU528) },
 	{ USB_DEVICE(YUGA_VENDOR_ID, YUGA_PRODUCT_CLU526) },
+	{ USB_DEVICE(0x1c9e,0x6061) },
+	{ USB_DEVICE(0x19d2,0x0079) },
+	{ USB_DEVICE(0x12d1,0x1404) },
+	{ USB_DEVICE(0x1c9e,0x9800) },
+	{ USB_DEVICE(0x12d1,0x9e00) },
+	{ USB_DEVICE(0x1c9e,0x9e00) },
+	{ USB_DEVICE(0x23a2,0x0001) },
+        { USB_DEVICE(0x21f5,0x2012) },
+        { USB_DEVICE(0x19d2,0xffeb) },
+
 	{ } /* Terminating entry */
 };
 MODULE_DEVICE_TABLE(usb, option_ids);

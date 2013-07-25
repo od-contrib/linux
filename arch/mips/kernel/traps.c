@@ -56,7 +56,9 @@
 #include <asm/types.h>
 #include <asm/stacktrace.h>
 #include <asm/uasm.h>
+#include <asm/r4kcache.h>
 
+#include <tcsm.h>
 extern void check_wait(void);
 extern asmlinkage void r4k_wait(void);
 extern asmlinkage void rollback_handle_int(void);
@@ -91,7 +93,67 @@ void (*board_ejtag_handler_setup)(void);
 void (*board_bind_eic_interrupt)(int irq, int regset);
 
 static void mt_ase_fp_affinity(void);
+#ifdef CONFIG_TRAPS_USE_TCSM
 
+struct tcsm_handler_data
+{
+	int		index;
+	int		len;
+	char		name[20];
+	void		*handler;
+};
+
+static u32 handle_tlbrefill[64];
+
+struct tcsm_handler_data tcsm_handlers[] = {
+	{0,     80 * 4, "interrupt",handle_int},
+	{1, 	56 * 4,	"tlbm",	handle_tlbm},
+	{2, 	56 * 4,	"tlbl",	handle_tlbl},
+	{3, 	56 * 4,	"tlbs",	handle_tlbs},
+};
+static inline void __cpuinit handler_immigration(
+	int index, int size, unsigned int *to, void *from);
+static inline void __cpuinit syscall_table_immigration(int cpu);
+
+static inline void __cpuinit traps_to_tcsm(int cpu)
+{
+	int i;
+	struct tcsm_handler_data *th;
+	unsigned int addr;
+	for (i = 0; i < ARRAY_SIZE(tcsm_handlers); i++) {
+		th = &tcsm_handlers[i];
+		addr = get_cpu_tcsm(cpu, th->len, th->name);
+		handler_immigration(th->index, th->len,
+				    (unsigned int *)addr, th->handler);
+	}
+	syscall_table_immigration(cpu);
+}
+
+static inline void tlbrefill_to_tcsm(int cpu) {
+	int addr;
+	u32 *p = (u32*)ebase;
+	u32 *p1 = (u32*)ebase;
+	int K0 = 26;
+	int K1 = 27;
+	addr = get_cpu_tcsm(cpu, 32*4,"tlbrefill");
+	memcpy((void*)addr,(void*)handle_tlbrefill,32*4);
+	uasm_i_lui(&p, K0, uasm_rel_hi((long)addr));
+	uasm_i_addiu(&p, K0, K0, uasm_rel_lo((long)addr));
+	addr = 0x80000180;
+	uasm_i_lui(&p, K1, uasm_rel_hi((long)addr));
+	uasm_i_addiu(&p, K1, K1, uasm_rel_lo((long)addr));
+	uasm_i_jr(&p, K0);
+	uasm_i_pref(&p, 0, 0, K1);
+	pr_debug("================================\n");
+	pr_debug(".word 0x%08x\n",*p1++);
+	pr_debug(".word 0x%08x\n",*p1++);
+	pr_debug(".word 0x%08x\n",*p1++);
+	pr_debug(".word 0x%08x\n",*p1++);
+	pr_debug(".word 0x%08x\n",*p1++);
+	pr_debug(".word 0x%08x\n",*p1++);
+	pr_debug("================================\n");
+}
+#endif
 static void show_raw_backtrace(unsigned long reg29)
 {
 	unsigned long *sp = (unsigned long *)(reg29 & ~3);
@@ -231,32 +293,123 @@ static void show_code(unsigned int __user *pc)
 		printk("%c%0*x%c", (i?' ':'<'), pc16 ? 4 : 8, insn, (i?' ':'>'));
 	}
 }
+static void __show_cause(unsigned int cause)
+{
+        unsigned int exc_code = (cause & CAUSEF_EXCCODE) >> CAUSEB_EXCCODE;
+
+	printk("Cause : %08x\n", cause);
+	printk("This is ");
+        switch (exc_code) {
+        case 0:
+                printk("Interrupt\n");
+                break;
+
+        case 1:
+                printk("TLB modification exception\n");
+                break;
+
+        case 2:
+                printk("TLB exception (load or instruction fetch)\n");
+                break;
+
+        case 3:
+                printk("TLB exception (store)\n");
+                break;
+
+        case 4:
+                printk("Address error exception (load or instruction fetch)\n");
+                break;
+
+        case 5:
+                printk("Address error exception (store)\n");
+                break;
+
+        case 6:
+                printk("Bus error exception (instruction fetch)\n");
+                break;
+
+        case 7:
+                printk("Bus error exception (data reference: load or store)\n");
+                break;
+
+        case 8:
+                printk("Syscall exception\n");
+                break;
+
+        case 9:
+                printk("Breakpoint exception\n");
+                break;
+
+        case 10:
+                printk("Reserved instruction exception\n");
+                break;
+
+        case 11:
+                printk("Coprocessor Unusable exception\n");
+                break;
+
+        case 12:
+                printk("Arithmetic Overflow exception\n");
+                break;
+
+        case 13:
+                printk("Trap exception\n");
+                break;
+
+        case 16:
+                printk("Implementation-Specific Exception 1\n");
+                break;
+
+        case 17:
+                printk("Implementation-Specific Exception 2\n");
+                break;
+
+        case 18:
+                printk("Coprocessor 2 exceptions\n");
+                break;
+
+        case 23:
+                printk("Reference to WatchHi/WatchLo address\n");
+                break;
+
+        case 24:
+                printk("Machine check\n");
+                break;
+
+        default:
+                printk("Reserved Bit\n");
+                break;
+        }
+}
+
 
 static void __show_regs(const struct pt_regs *regs)
 {
 	const int field = 2 * sizeof(unsigned long);
 	unsigned int cause = regs->cp0_cause;
-	int i;
 
 	printk("Cpu %d\n", smp_processor_id());
 
 	/*
 	 * Saved main processor registers
 	 */
-	for (i = 0; i < 32; ) {
-		if ((i % 4) == 0)
-			printk("$%2d   :", i);
-		if (i == 0)
-			printk(" %0*lx", field, 0UL);
-		else if (i == 26 || i == 27)
-			printk(" %*s", field, "");
-		else
-			printk(" %0*lx", field, regs->regs[i]);
+	printk("zero[$0]=%08lx    at[$1]=%08lx   v0[$2]=%08lx   v1[$3]=%08lx\n",
+			regs->regs[0], regs->regs[1], regs->regs[2], regs->regs[3]);
+        printk("  a0[$4]=%08lx    a1[$5]=%08lx   a2[$6]=%08lx   a3[$7]=%08lx\n",
+                        regs->regs[4], regs->regs[5], regs->regs[6], regs->regs[7]);
+	printk("  t0[$8]=%08lx    t1[$9]=%08lx  t2[$10]=%08lx  t3[$11]=%08lx\n",
+	                regs->regs[8], regs->regs[9], regs->regs[10], regs->regs[11]);
+        printk("  t4[$12]=%08lx  t5[$13]=%08lx  t6[$14]=%08lx  t7[$15]=%08lx\n",
+                        regs->regs[12], regs->regs[13], regs->regs[14], regs->regs[15]);
+        printk("  s0[$16]=%08lx  s1[$17]=%08lx  s2[$18]=%08lx  s3[$19]=%08lx\n",
+                        regs->regs[16], regs->regs[17], regs->regs[18], regs->regs[19]);
+        printk("  s4[$20]=%08lx  s5[$21]=%08lx  s6[$22]=%08lx  s7[$23]=%08lx\n",
+                        regs->regs[20], regs->regs[21], regs->regs[22], regs->regs[23]);
+        printk("  t8[$24]=%08lx  t9[$25]=%08lx  k0[$26]=%08lx  k1[$27]=%08lx\n",
+                        regs->regs[24], regs->regs[25], regs->regs[26], regs->regs[27]);
+        printk("  gp[$28]=%08lx  sp[$29]=%08lx  s8[$30]=%08lx  ra[$31]=%08lx\n",
+                        regs->regs[28], regs->regs[29], regs->regs[30], regs->regs[31]);
 
-		i++;
-		if ((i % 4) == 0)
-			printk("\n");
-	}
 
 #ifdef CONFIG_CPU_HAS_SMARTMIPS
 	printk("Acx    : %0*lx\n", field, regs->acx);
@@ -318,7 +471,7 @@ static void __show_regs(const struct pt_regs *regs)
 	}
 	printk("\n");
 
-	printk("Cause : %08x\n", cause);
+        __show_cause(cause);
 
 	cause = (cause & CAUSEF_EXCCODE) >> CAUSEB_EXCCODE;
 	if (1 <= cause && cause <= 5)
@@ -943,7 +1096,7 @@ asmlinkage void do_ri(struct pt_regs *regs)
 	unsigned long old31 = regs->regs[31];
 	unsigned int opcode = 0;
 	int status = -1;
-	unsigned short mmop[2];
+	unsigned short mmop[2] = {0};
 
 	if (notify_die(DIE_RI, "RI Fault", regs, 0, regs_to_trapnr(regs), SIGILL)
 	    == NOTIFY_STOP)
@@ -1057,7 +1210,7 @@ asmlinkage void do_cpu(struct pt_regs *regs)
 	unsigned int cpid;
 	int status;
 	unsigned long __maybe_unused flags;
-	unsigned short mmop[2];
+	unsigned short mmop[2] = {0};
 
 	die_if_kernel("do_cpu invoked from kernel context!", regs);
 
@@ -1443,6 +1596,28 @@ NORET_TYPE void ATTRIB_NORET nmi_exception_handler(struct pt_regs *regs)
 
 unsigned long ebase;
 unsigned long exception_handlers[32];
+#ifdef CONFIG_TRAPS_USE_TCSM
+unsigned long *exception_handlers_tcsm;
+unsigned int *sys_call_table_tcsm;
+extern void *sys_call_table;
+
+static inline void __cpuinit handler_immigration(
+	int index, int size, unsigned int *to, void *from)
+{
+	memcpy(to, (unsigned int *)from, size);
+	exception_handlers_tcsm[index] = (unsigned long)to;
+}
+
+#define SYSCALL_TABLE_SIZE 2800
+static inline void __cpuinit syscall_table_immigration(int cpu)
+{
+	sys_call_table_tcsm = (unsigned int *)get_cpu_tcsm(cpu,
+							   SYSCALL_TABLE_SIZE,
+							   "sys_call_table");
+	memcpy(sys_call_table_tcsm, &sys_call_table, SYSCALL_TABLE_SIZE);
+}
+
+#endif
 unsigned long vi_handlers[64];
 
 /* Install CPU exception handler */
@@ -1494,7 +1669,19 @@ void __init *set_except_vector(int n, void *addr)
 {
 	unsigned long handler = (unsigned long) addr;
 	unsigned long old_handler = exception_handlers[n];
-
+#ifdef CONFIG_TRAPS_USE_TCSM
+	old_handler = exception_handlers_tcsm[n];
+	exception_handlers_tcsm[n] = handler;
+	exception_handlers[n] = handler;
+	if (n == 0 && cpu_has_divec) {
+		u32 *buf = (u32 *)(ebase + 0x200);
+		unsigned int k0 = 26;
+		UASM_i_LA(&buf, k0, handler);
+		uasm_i_jr(&buf, k0);
+		uasm_i_nop(&buf);
+		local_flush_icache_range(ebase + 0x200, (unsigned long)buf);
+	}
+#else
 	exception_handlers[n] = handler;
 	if (n == 0 && cpu_has_divec) {
 		unsigned long jump_mask = ~((1 << 28) - 1);
@@ -1510,6 +1697,7 @@ void __init *set_except_vector(int n, void *addr)
 		}
 		local_flush_icache_range(ebase + 0x200, (unsigned long)buf);
 	}
+#endif
 	return (void *)old_handler;
 }
 
@@ -1563,7 +1751,7 @@ static void *set_vi_srs_handler(int n, vi_handler_t addr, int srs)
 		 * MicroMIPS requires some additional instructions for each of
 		 * the exceptions to make sure that we are in MicroMIPS mode.
 		 * This is necessary for situations where the boot loader may
-		 * use MIPS32 instructions instead of MicroMIPS. 
+		 * use MIPS32 instructions instead of MicroMIPS.
 		 */
 #ifdef CONFIG_CPU_MICROMIPS
 # ifdef CONFIG_CPU_LITTLE_ENDIAN
@@ -1774,7 +1962,8 @@ void __cpuinit per_cpu_trap_init(void)
 	}
 #endif /* CONFIG_MIPS_MT_SMTC */
 
-	cpu_data[cpu].asid_cache = ASID_FIRST_VERSION;
+	if(!cpu_data[cpu].asid_cache)
+		cpu_data[cpu].asid_cache = ASID_FIRST_VERSION;
 
 	atomic_inc(&init_mm.mm_count);
 	current->active_mm = &init_mm;
@@ -1797,6 +1986,16 @@ void __cpuinit per_cpu_trap_init(void)
 	}
 #endif /* CONFIG_MIPS_MT_SMTC */
 	TLBMISS_HANDLER_SETUP();
+#ifdef CONFIG_TRAPS_USE_TCSM
+	exception_handlers_tcsm = (unsigned long *)get_cpu_tcsm(cpu, 128, "exception_handle");
+	if (cpu != 0) {
+		memcpy(exception_handlers_tcsm, exception_handlers, 32 * 4);
+		traps_to_tcsm(cpu);
+	}else{
+		memcpy((void*)handle_tlbrefill,(void*)ebase,32*4);
+	}
+	tlbrefill_to_tcsm(cpu);
+#endif
 }
 
 static int __initdata rdhwr_noopt;
@@ -1951,8 +2150,14 @@ void __init trap_init(void)
 	else
 		set_handler(0x080, &except_vec3_generic, 0x80);
 
+#ifdef CONFIG_TRAPS_USE_TCSM
+	traps_to_tcsm(0);
+#endif
 	local_flush_icache_range(ebase, ebase + 0x400);
 	flush_tlb_handlers();
+
+	blast_dcache32();
+	blast_icache32();
 
 	sort_extable(__start___dbe_table, __stop___dbe_table);
 

@@ -60,9 +60,18 @@
 	beqz	t2, 1f
 	nor	t1, zero, t1
 
+#if 0 	/* zpzhong debug 2012/02/15 */
 	and	t0, t0, t1
 	LONG_S	t0, TI_FLAGS(t3)
-
+#else
+2:	
+	ll	t0, TI_FLAGS(t3)
+	and	t0, t0, t1
+	sc	t0, TI_FLAGS(t3)
+	beqz	t0, 2b
+	nop
+#endif
+	
 	/*
 	 * clear saved user stack CU1 bit
 	 */

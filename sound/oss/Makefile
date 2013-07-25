@@ -29,6 +29,8 @@ obj-$(CONFIG_SOUND_BCM_CS4297A)	+= swarm_cs4297a.o
 
 obj-$(CONFIG_DMASOUND)		+= dmasound/
 
+obj-$(CONFIG_SOUND_OSS_XBURST)	+= jzsound/
+
 # Declare multi-part drivers.
 
 sound-objs	:= 							\

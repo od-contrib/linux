@@ -32,6 +32,8 @@ struct gpio_button_data {
 	struct timer_list timer;
 	struct work_struct work;
 	int timer_debounce;	/* in msecs */
+	u64 lock_jiffies_64;
+	bool is_locked;
 	bool disabled;
 };
 
@@ -328,7 +330,18 @@ static void gpio_keys_report_event(struct gpio_button_data *bdata)
 		if (state)
 			input_event(input, type, button->code, button->value);
 	} else {
-		input_event(input, type, button->code, !!state);
+		if ((button->lock_interval) &&
+		    (get_jiffies_64() - bdata->lock_jiffies_64
+		     > msecs_to_jiffies(button->lock_interval)) && state)
+			    bdata->is_locked = 0;
+
+		if (!bdata->is_locked)
+			input_event(input, type, button->code, !!state);
+
+	        if (button->lock_interval && !bdata->is_locked && !state) {
+			bdata->is_locked = 1;
+			bdata->lock_jiffies_64 = get_jiffies_64();
+		}
 	}
 	input_sync(input);
 }
@@ -398,6 +411,9 @@ static int __devinit gpio_keys_setup_key(struct platform_device *pdev,
 		if (error < 0)
 			bdata->timer_debounce = button->debounce_interval;
 	}
+
+        bdata->is_locked = 0;
+        bdata->lock_jiffies_64 = get_jiffies_64();
 
 	irq = gpio_to_irq(button->gpio);
 	if (irq < 0) {
@@ -578,15 +594,19 @@ static int __devexit gpio_keys_remove(struct platform_device *pdev)
 static int gpio_keys_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
+	struct gpio_keys_drvdata *ddata = platform_get_drvdata(pdev);
 	struct gpio_keys_platform_data *pdata = pdev->dev.platform_data;
 	int i;
 
 	if (device_may_wakeup(&pdev->dev)) {
 		for (i = 0; i < pdata->nbuttons; i++) {
 			struct gpio_keys_button *button = &pdata->buttons[i];
+			struct gpio_button_data *bdata = &ddata->data[i];
 			if (button->wakeup) {
 				int irq = gpio_to_irq(button->gpio);
 				enable_irq_wake(irq);
+				if (button->lock_interval)
+					bdata->is_locked = 0;
 			}
 		}
 	}

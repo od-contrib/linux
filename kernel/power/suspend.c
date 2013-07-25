@@ -1,5 +1,5 @@
 /*
- * kernel/power/suspend.c - Suspend to RAM and standby functionality.
+ * kernel/power/sspend.c - Suspend to RAM and standby functionality.
  *
  * Copyright (c) 2003 Patrick Mochel
  * Copyright (c) 2003 Open Source Development Lab
@@ -34,6 +34,102 @@ const char *const pm_states[PM_SUSPEND_MAX] = {
 	[PM_SUSPEND_STANDBY]	= "standby",
 	[PM_SUSPEND_MEM]	= "mem",
 };
+
+#ifdef CONFIG_TEST_RESET_DLL
+#include <asm/rjzcache.h>
+/*
+ * although the kernel already has something stuff
+ * to test PM operations, but it's not very it for us,
+ * so i fill these ugly here. it with final sealed then to be dust.
+ */
+
+static const size_t buf_size = 2 * 1024 * 1024;
+static const u32 pattern = 0xaaaaaaaa;
+static u32 *buf;
+
+static void prepare_buf_once(void)
+{
+	u32 pos;
+	u32 remainder;
+
+	memset(buf, 0, buf_size);
+
+	/* generate a LATD waves */
+	for (pos = 0; pos < buf_size / sizeof(u32); pos++) {
+		remainder = pos & 0x1f;
+		buf[pos] = ((pattern << remainder) | (pattern >> (32 - remainder)));
+	}
+}
+
+static void verify_buf(void)
+{
+	u32 pos;
+	u32 remainder;
+
+	for (pos = 0; pos < buf_size / sizeof(u32); pos++) {
+		remainder = pos & 0x1f;
+		if (buf[pos] !=
+				((pattern << remainder) | (pattern >> (32 - remainder)))) {
+
+			/* 1st access */
+			printk("1st: a memory access error was detected at [0x%x]=0x%x\n",
+					(u32)&buf[pos], buf[pos]);
+
+			/* 2nd */
+			blast_dcache32();
+			if (buf[pos] !=
+					((pattern << remainder) | (pattern >> (32 - remainder)))) {
+
+				printk("2nd: a memory access error was detected at [0x%x]=0x%x\n",
+						(u32)&buf[pos], buf[pos]);
+
+				/* 3rd */
+				blast_dcache32();
+				if (buf[pos] !=
+						((pattern << remainder) | (pattern >> (32 - remainder)))) {
+
+					printk("3rd: a memory access error was detected at [0x%x]=0x%x\n",
+							(u32)&buf[pos], buf[pos]);
+
+					printk("!!! a corrupt memory word was detected at [0x%x]=0x%x\n",
+							(u32)&buf[pos], buf[pos]);
+
+				}
+			}
+
+			while (1)
+				continue;
+		}
+	}
+}
+
+static int __init alloc_mem_to_test_reset_dll(void)
+{
+	buf = (u32 *)kzalloc(buf_size, GFP_KERNEL);
+
+	if (!buf) {
+		printk("Zhe yang dou gao bu dao nei cun! wo kao!!!!!\n");
+		while(1)
+			continue;
+	}
+
+	return 0;
+}
+subsys_initcall(alloc_mem_to_test_reset_dll);
+
+static int __init start_test_reset_dll(void)
+{
+#ifdef CONFIG_EARLYSUSPEND
+	request_suspend_state(PM_SUSPEND_MEM);
+#else
+	pm_suspend(PM_SUSPEND_MEM);
+#endif
+
+	return 0;
+}
+late_initcall_sync(start_test_reset_dll);
+
+#endif
 
 static const struct platform_suspend_ops *suspend_ops;
 
@@ -150,6 +246,12 @@ static int suspend_enter(suspend_state_t state)
 		goto Platform_finish;
 	}
 
+#ifdef CONFIG_TEST_RESET_DLL
+while (1) {
+	static u64 i = 0;
+	prepare_buf_once();
+#endif
+
 	if (suspend_ops->prepare_late) {
 		error = suspend_ops->prepare_late();
 		if (error)
@@ -159,9 +261,11 @@ static int suspend_enter(suspend_state_t state)
 	if (suspend_test(TEST_PLATFORM))
 		goto Platform_wake;
 
+#ifndef CONFIG_EARLYSUSPEND_CPU
 	error = disable_nonboot_cpus();
 	if (error || suspend_test(TEST_CPUS))
 		goto Enable_cpus;
+#endif
 
 	arch_suspend_disable_irqs();
 	BUG_ON(!irqs_disabled());
@@ -178,8 +282,16 @@ static int suspend_enter(suspend_state_t state)
 	arch_suspend_enable_irqs();
 	BUG_ON(irqs_disabled());
 
+#ifndef CONFIG_EARLYSUSPEND_CPU
  Enable_cpus:
 	enable_nonboot_cpus();
+#endif
+
+#ifdef CONFIG_TEST_RESET_DLL
+	verify_buf();
+	printk("T%llu\n", ++i);
+}
+#endif
 
  Platform_wake:
 	if (suspend_ops->wake)

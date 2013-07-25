@@ -45,6 +45,9 @@ static LIST_HEAD(inactive_locks);
 static struct list_head active_wake_locks[WAKE_LOCK_TYPE_COUNT];
 static int current_event_num;
 struct workqueue_struct *suspend_work_queue;
+#ifdef CONFIG_SUSPEND_TEST
+struct wake_lock resume_wake_lock;
+#endif
 struct wake_lock main_wake_lock;
 suspend_state_t requested_suspend_state = PM_SUSPEND_MEM;
 static struct wake_lock unknown_wakeup;
@@ -311,7 +314,7 @@ static void suspend(struct work_struct *work)
 	if (current_event_num == entry_event_num) {
 		if (debug_mask & DEBUG_SUSPEND)
 			pr_info("suspend: pm_suspend returned with no event\n");
-		wake_lock_timeout(&unknown_wakeup, HZ / 2);
+		wake_lock_timeout(&unknown_wakeup, HZ);
 	}
 }
 static DECLARE_WORK(suspend_work, suspend);
@@ -345,7 +348,18 @@ static int power_suspend_late(struct device *dev)
 	return ret;
 }
 
+#ifdef CONFIG_SUSPEND_TEST
+int power_resume(struct device *dev)
+{
+	wake_lock_timeout(&resume_wake_lock,msecs_to_jiffies(3000));
+	return 0;
+}
+#endif
+
 static struct dev_pm_ops power_driver_pm_ops = {
+#ifdef CONFIG_SUSPEND_TEST
+	.resume = power_resume,
+#endif
 	.suspend_noirq = power_suspend_late,
 };
 
@@ -572,6 +586,9 @@ static int __init wakelocks_init(void)
 			"deleted_wake_locks");
 #endif
 	wake_lock_init(&main_wake_lock, WAKE_LOCK_SUSPEND, "main");
+#ifdef CONFIG_SUSPEND_TEST
+	wake_lock_init(&resume_wake_lock, WAKE_LOCK_SUSPEND, "resume");
+#endif
 	wake_lock(&main_wake_lock);
 	wake_lock_init(&unknown_wakeup, WAKE_LOCK_SUSPEND, "unknown_wakeups");
 	wake_lock_init(&suspend_backoff_lock, WAKE_LOCK_SUSPEND,

@@ -86,3 +86,21 @@ config RTL8187_LEDS
 	depends on RTL8187 && MAC80211_LEDS && (LEDS_CLASS = y || LEDS_CLASS = RTL8187)
 	default y
 
+config RTL8188EU
+        tristate "Realtek 8188EU USB support"
+        depends on MAC80211 && USB
+        select WIRELESS_EXT 
+        select WEXT_PRIV
+        select CRYPTO
+        ---help---
+          This is a driver for RTL8188EU based cards.
+
+config RTL8192CU
+        tristate "Realtek 8188CU USB support"
+        depends on MAC80211 && USB
+        select EEPROM_93CX6
+        ---help---
+          This is a driver for RTL8188CU based cards.
+          These are USB based chips found in devices such as:
+
+          Thanks to Realtek for their support!

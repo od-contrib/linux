@@ -48,6 +48,8 @@ obj-$(CONFIG_USB_ATM)		+= atm/
 obj-$(CONFIG_USB_SPEEDTOUCH)	+= atm/
 
 obj-$(CONFIG_USB_MUSB_HDRC)	+= musb/
+obj-$(CONFIG_USB_DWC_OTG)	+= dwc/
+obj-$(CONFIG_USB_DWC2)		+= dwc2/
 obj-$(CONFIG_USB_RENESAS_USBHS)	+= renesas_usbhs/
 obj-$(CONFIG_USB_OTG_UTILS)	+= otg/
 obj-$(CONFIG_USB_GADGET)	+= gadget/

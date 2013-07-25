@@ -140,6 +140,13 @@ int setup_sigcontext(struct pt_regs *regs, struct sigcontext __user *sc)
 		 */
 		err |= protected_save_fp_context(sc);
 	}
+	if (cpu_has_mxu) {
+		unsigned int *regs;
+		regs = __get_mxu_regs(current);
+		for (i = 0; i < NUM_MXU_REGS; i++){
+			err |= __put_user(regs[i], &sc->sc_mxu[i]);
+		}
+	}
 	return err;
 }
 
@@ -214,6 +221,14 @@ int restore_sigcontext(struct pt_regs *regs, struct sigcontext __user *sc)
 	} else {
 		/* signal handler may have used FPU.  Give it up. */
 		lose_fpu(0);
+	}
+	
+	if (cpu_has_mxu) {
+		unsigned int regs[NUM_MXU_REGS];
+		for (i = 0; i < NUM_MXU_REGS; i++){
+			err |= __get_user(regs[i], &sc->sc_mxu[i]);
+		}
+		__let_mxu_regs(current,regs);
 	}
 
 	return err;

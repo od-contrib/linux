@@ -32,7 +32,24 @@
  * unpredictable things.  The code (when it is written) to deal with
  * this problem will be in the update_mmu_cache() code for the r4k.
  */
-#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32)
+#if defined(CONFIG_JZRISC_PEP) && defined(CONFIG_CPU_MIPS32)
+#define _PAGE_PRESENT		(1 << 0)
+#define _PAGE_READ 		(1 << 1)
+#define _PAGE_WRITE		(1 << 2)
+#define _PAGE_ACCESSED		(1 << 3)
+#define _PAGE_MODIFIED		(1 << 4)
+#define _PAGE_FILE		(1 << 4)
+#define _PAGE_NO_EXEC		(1 << 5)
+#define _PAGE_GLOBAL		(1 << 6)
+#define _PAGE_VALID		(1 << 7)
+#define _PAGE_SILENT_READ	(1 << 7)
+#define _PAGE_DIRTY		(1 << 8)
+#define _PAGE_SILENT_WRITE	(1 << 8)
+#define _CACHE_SHIFT		(9)
+#define _CACHE_MASK		(7 << _CACHE_SHIFT)
+#define _PFN_SHIFT		(PAGE_SHIFT - 12 + _CACHE_SHIFT + 3)
+
+#elif defined(CONFIG_CPU_R3000) || defined(CONFIG_CPU_TX39XX)
 
 #define _PAGE_PRESENT               (1<<6)  /* implemented in software */
 #define _PAGE_READ                  (1<<7)  /* implemented in software */
@@ -171,6 +188,10 @@ static inline uint64_t pte_to_entrylo(unsigned long pte_val)
 			((pte_val & (_PAGE_NO_EXEC | _PAGE_NO_READ)) << sa);
 	}
 
+#if defined(CONFIG_JZRISC_PEP) && defined(CONFIG_CPU_MIPS32)
+	if(pte_val & _PAGE_NO_EXEC)
+		return (pte_val >> _PAGE_GLOBAL_SHIFT) | (0x1 << 31);
+#endif
 	return pte_val >> _PAGE_GLOBAL_SHIFT;
 }
 #endif

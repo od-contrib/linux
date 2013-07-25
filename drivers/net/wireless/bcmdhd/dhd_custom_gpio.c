@@ -20,7 +20,7 @@
 * software in any way with any other Broadcom software provided under a license
 * other than the GPL, without Broadcom's express prior written consent.
 *
-* $Id: dhd_custom_gpio.c,v 1.2.42.1 2010-10-19 00:41:09 Exp $
+* $Id: dhd_custom_gpio.c 280266 2011-08-28 04:18:20Z $
 */
 
 #include <typedefs.h>
@@ -33,6 +33,8 @@
 
 #include <wlioctl.h>
 #include <wl_iw.h>
+#define RESET  0
+#define NORMAL 1
 
 #define WL_ERROR(x) printf x
 #define WL_TRACE(x)
@@ -44,6 +46,7 @@ extern  void bcm_wlan_power_on(int);
 #if defined(CUSTOMER_HW2)
 #ifdef CONFIG_WIFI_CONTROL_FUNC
 int wifi_set_power(int on, unsigned long msec);
+int wifi_set_reset(int on, unsigned long msec);
 int wifi_get_irq_number(unsigned long *irq_flags_ptr);
 int wifi_get_mac_addr(unsigned char *buf);
 void *wifi_get_country_code(char *ccode);
@@ -54,6 +57,8 @@ int wifi_get_mac_addr(unsigned char *buf) { return -1; }
 void *wifi_get_country_code(char *ccode) { return NULL; }
 #endif /* CONFIG_WIFI_CONTROL_FUNC */
 #endif /* CUSTOMER_HW2 */
+extern  int IW8101_wlan_power_off(int flag);
+extern  int IW8101_wlan_power_on(int flag);
 
 #if defined(OOB_INTR_ONLY)
 
@@ -122,6 +127,7 @@ int dhd_customer_oob_irq_map(unsigned long *irq_flags_ptr)
 void
 dhd_customer_gpio_wlan_ctrl(int onoff)
 {
+	int ret;
 	switch (onoff) {
 		case WLAN_RESET_OFF:
 			WL_TRACE(("%s: call customer specific GPIO to insert WLAN RESET\n",
@@ -130,9 +136,14 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 			bcm_wlan_power_off(2);
 #endif /* CUSTOMER_HW */
 #ifdef CUSTOMER_HW2
-			wifi_set_power(0, 0);
+			//wifi_set_power(0, 0);
+//			wifi_set_reset(0, 0);
 #endif
 			WL_ERROR(("=========== WLAN placed in RESET ========\n"));
+			ret = IW8101_wlan_power_off(RESET);
+			if(ret < 0){
+				printk("IW8101_wlan_power_off reset failed");
+			}
 		break;
 
 		case WLAN_RESET_ON:
@@ -142,9 +153,15 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 			bcm_wlan_power_on(2);
 #endif /* CUSTOMER_HW */
 #ifdef CUSTOMER_HW2
-			wifi_set_power(1, 0);
+			//wifi_set_power(1, 0);
+			//wifi_set_reset(1, 0);
 #endif
 			WL_ERROR(("=========== WLAN going back to live  ========\n"));
+			
+			ret = IW8101_wlan_power_on(RESET);
+			if(ret < 0){
+				printk("IW8101_wlan_power_on reset failed");
+			}
 		break;
 
 		case WLAN_POWER_OFF:
@@ -153,6 +170,10 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 #ifdef CUSTOMER_HW
 			bcm_wlan_power_off(1);
 #endif /* CUSTOMER_HW */
+			ret = IW8101_wlan_power_off(NORMAL);
+			if(ret < 0){
+				printk("IW8101_wlan_power_off failed");
+			}
 		break;
 
 		case WLAN_POWER_ON:
@@ -163,6 +184,11 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 			/* Lets customer power to get stable */
 			OSL_DELAY(200);
 #endif /* CUSTOMER_HW */
+			ret = IW8101_wlan_power_on(NORMAL);
+			if(ret < 0){
+				printk("IW8101_wlan_power_on failed");
+			}
+			OSL_DELAY(300);
 		break;
 	}
 }
@@ -289,5 +315,5 @@ void get_customized_country_code(char *country_iso_code, wl_country_t *cspec)
 	cspec->rev = translate_custom_table[0].custom_locale_rev;
 #endif /* EXMAPLE_TABLE */
 	return;
-#endif /* defined(CUSTOMER_HW2) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 39)) */
+#endif /* defined(CUSTOMER_HW2) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36)) */
 }

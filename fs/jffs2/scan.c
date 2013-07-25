@@ -96,18 +96,16 @@ int jffs2_scan_medium(struct jffs2_sb_info *c)
 #ifndef __ECOS
 	size_t pointlen, try_size;
 
-	if (c->mtd->point) {
-		ret = c->mtd->point(c->mtd, 0, c->mtd->size, &pointlen,
-				    (void **)&flashbuf, NULL);
-		if (!ret && pointlen < c->mtd->size) {
-			/* Don't muck about if it won't let us point to the whole flash */
-			D1(printk(KERN_DEBUG "MTD point returned len too short: 0x%zx\n", pointlen));
-			c->mtd->unpoint(c->mtd, 0, pointlen);
-			flashbuf = NULL;
-		}
-		if (ret)
-			D1(printk(KERN_DEBUG "MTD point failed %d\n", ret));
+	ret = mtd_point(c->mtd, 0, c->mtd->size, &pointlen,
+			(void **)&flashbuf, NULL);
+	if (!ret && pointlen < c->mtd->size) {
+		/* Don't muck about if it won't let us point to the whole flash */
+		D1(printk(KERN_DEBUG "MTD point returned len too short: 0x%zx\n", pointlen));
+		mtd_unpoint(c->mtd, 0, pointlen);
+		flashbuf = NULL;
 	}
+	if (ret && ret != -EOPNOTSUPP)
+		D1(printk(KERN_DEBUG "MTD point failed %d\n", ret));
 #endif
 	if (!flashbuf) {
 		/* For NAND it's quicker to read a whole eraseblock at a time,
@@ -273,7 +271,7 @@ int jffs2_scan_medium(struct jffs2_sb_info *c)
 		kfree(flashbuf);
 #ifndef __ECOS
 	else
-		c->mtd->unpoint(c->mtd, 0, c->mtd->size);
+		mtd_unpoint(c->mtd, 0, c->mtd->size);
 #endif
 	if (s)
 		kfree(s);
@@ -457,7 +455,7 @@ static int jffs2_scan_eraseblock (struct jffs2_sb_info *c, struct jffs2_eraseblo
 	if (jffs2_cleanmarker_oob(c)) {
 		int ret;
 
-		if (c->mtd->block_isbad(c->mtd, jeb->offset))
+		if (mtd_block_isbad(c->mtd, jeb->offset))
 			return BLK_STATE_BADBLOCK;
 
 		ret = jffs2_check_nand_cleanmarker(c, jeb);

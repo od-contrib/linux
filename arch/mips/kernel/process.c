@@ -25,6 +25,7 @@
 #include <linux/completion.h>
 #include <linux/kallsyms.h>
 #include <linux/random.h>
+#include <linux/cpu.h>
 
 #include <asm/asm.h>
 #include <asm/bootinfo.h>
@@ -56,6 +57,7 @@ void __noreturn cpu_idle(void)
 
 	/* endless idle loop with no priority at all */
 	while (1) {
+		idle_notifier_call_chain(IDLE_START);
 		tick_nohz_stop_sched_tick(1);
 		while (!need_resched() && cpu_online(cpu)) {
 #ifdef CONFIG_MIPS_MT_SMTC
@@ -73,11 +75,12 @@ void __noreturn cpu_idle(void)
 		}
 #ifdef CONFIG_HOTPLUG_CPU
 		if (!cpu_online(cpu) && !cpu_isset(cpu, cpu_callin_map) &&
-		    (system_state == SYSTEM_RUNNING ||
+		    (system_state == SYSTEM_RUNNING || SYSTEM_POWER_OFF ||
 		     system_state == SYSTEM_BOOTING))
 			play_dead();
 #endif
 		tick_nohz_restart_sched_tick();
+		idle_notifier_call_chain(IDLE_END);
 		preempt_enable_no_resched();
 		schedule();
 		preempt_disable();
@@ -101,6 +104,8 @@ void start_thread(struct pt_regs * regs, unsigned long pc, unsigned long sp)
 	clear_fpu_owner();
 	if (cpu_has_dsp)
 		__init_dsp();
+	if (cpu_has_mxu)
+		__init_mxu();
 	regs->cp0_epc = pc;
 	regs->regs[29] = sp;
 	current_thread_info()->addr_limit = USER_DS;
@@ -131,6 +136,9 @@ int copy_thread(unsigned long clone_flags, unsigned long usp,
 
 	if (cpu_has_dsp)
 		save_dsp(p);
+	
+	if (cpu_has_mxu)
+		save_mxu(p);
 
 	preempt_enable();
 
@@ -176,6 +184,8 @@ int copy_thread(unsigned long clone_flags, unsigned long usp,
 
 	if (clone_flags & CLONE_SETTLS)
 		ti->tp_value = regs->regs[7];
+
+	smp_wmb();
 
 	return 0;
 }

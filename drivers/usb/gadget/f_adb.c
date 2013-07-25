@@ -305,6 +305,8 @@ requeue_req:
 		pr_debug("adb_read: failed to queue req %p (%d)\n", req, ret);
 		r = -EIO;
 		dev->error = 1;
+		if (ret == -ESHUTDOWN)
+			dev->online = 0;
 		goto done;
 	} else {
 		pr_debug("rx %p queue\n", req);
@@ -384,6 +386,8 @@ static ssize_t adb_write(struct file *fp, const char __user *buf,
 			if (ret < 0) {
 				pr_debug("adb_write: xfer error %d\n", ret);
 				dev->error = 1;
+				if (ret == -ESHUTDOWN)
+					dev->online = 0;
 				r = -EIO;
 				break;
 			}

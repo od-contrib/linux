@@ -318,4 +318,7 @@ static inline void unlock_system_sleep(void)
 }
 #endif
 
+#ifdef CONFIG_QUICK_POWEROFF
+extern bool suspend_type_is_quick_poweroff(void);
+#endif
 #endif /* _LINUX_SUSPEND_H */

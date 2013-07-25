@@ -19,6 +19,7 @@
 #include <media/videobuf-core.h>
 #include <media/videobuf2-core.h>
 #include <media/v4l2-device.h>
+#include <linux/regulator/consumer.h>
 
 extern struct bus_type soc_camera_bus_type;
 
@@ -60,6 +61,7 @@ struct soc_camera_host {
 	void *priv;
 	const char *drv_name;
 	struct soc_camera_host_ops *ops;
+	struct regulator *regul;
 };
 
 struct soc_camera_host_ops {
@@ -99,6 +101,8 @@ struct soc_camera_host_ops {
 	int (*get_parm)(struct soc_camera_device *, struct v4l2_streamparm *);
 	int (*set_parm)(struct soc_camera_device *, struct v4l2_streamparm *);
 	int (*enum_fsizes)(struct soc_camera_device *, struct v4l2_frmsizeenum *);
+	int (*enum_frameintervals)(struct soc_camera_device *, struct v4l2_frmivalenum *fival);
+	int (*set_tlb_base)(struct soc_camera_host *, unsigned int *);
 	unsigned int (*poll)(struct file *, poll_table *);
 	const struct v4l2_queryctrl *controls;
 	int num_controls;

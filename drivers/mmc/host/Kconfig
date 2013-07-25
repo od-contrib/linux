@@ -4,6 +4,246 @@
 
 comment "MMC/SD/SDIO Host Controller Drivers"
 
+config MMC_JZ4780
+	tristate "Ingenic(XBurst) JZ4780 MMC/SD Card Controller(MSC) support"
+	depends on SOC_4780
+	help
+	  This selects the Ingenic XBurst SD/MMC Card Controller
+	  for JZ4780 support. If you have an JZ4780
+	  platform with a SD/Multimedia Card slot, say Y or M here.
+
+	  If unsure, say N.
+
+config MMC0_JZ4780
+	bool "MSC0"
+	depends on MMC_JZ4780
+	help
+	  If you want enable MSC0, say Y or M here.
+
+	  If unsure, say N.
+choice
+	prompt "JZ4780 MSC0 function pins select"
+	depends on MMC0_JZ4780
+	default MMC0_JZ4780_PA_4BIT
+config MMC0_JZ4780_PA_4BIT
+	bool "GPIO A, Data width 4 bit"
+config MMC0_JZ4780_PA_8BIT
+	bool "GPIO A, Data width 8 bit"
+config MMC0_JZ4780_PE_4BIT
+	bool "GPIO E, Data width 4 bit"
+config MMC0_JZ4780_PA_4BIT_RESET
+	bool "GPIO A, Data width 4 bit, use Reset pin(eMMC)"
+config MMC0_JZ4780_PA_8BIT_RESET
+	bool "GPIO A, Data width 8 bit, use Reset pin(eMMC)"
+endchoice
+
+config MMC0_MAX_FREQ
+	int "MSC0 max frequency"
+	depends on MMC0_JZ4780
+	default 24000000
+	help
+	  The max frequency of msc0, it should NOT be higher than 50mHz.
+
+	  If unsure, say N.
+
+config MMC0_PIO_MODE
+	bool "Use PIO mode for MSC0"
+	depends on MMC0_JZ4780 && MMC_BLOCK_BOUNCE
+	default n
+	help
+	  Use PIO mode to transfer data for MSC0, say Y or N here.
+
+	  If unsure, say N.
+
+config MMC1_JZ4780
+	bool "MSC1"
+	depends on MMC_JZ4780
+	help
+	  If you want enable MSC1, say Y or M here.
+
+	  If unsure, say N.
+choice
+	prompt "JZ4780 MSC1 function pins select"
+	depends on MMC1_JZ4780
+	default MMC1_JZ4780_PD_4BIT
+config MMC1_JZ4780_PD_4BIT
+	bool "GPIO D, Data width 4 bit"
+config MMC1_JZ4780_PE_4BIT
+	bool "GPIO E, Data width 4 bit"
+endchoice
+
+config MMC1_MAX_FREQ
+	int "MSC1 max frequency"
+	depends on MMC1_JZ4780
+	default 24000000
+	help
+	  The max frequency of msc1, it should NOT be higher than 50mHz.
+
+	  If unsure, say N.
+
+config MMC1_PIO_MODE
+	bool "Use PIO mode for MSC1"
+	depends on MMC1_JZ4780 && MMC_BLOCK_BOUNCE
+	default n
+	help
+	  Use PIO mode to transfer data for MSC1, say Y or N here.
+
+	  If unsure, say N.
+
+config MMC2_JZ4780
+	bool "MSC2"
+	depends on MMC_JZ4780
+	help
+	  If you want enable MSC2, say Y or M here.
+
+	  If unsure, say N.
+choice
+	prompt "JZ4780 MSC2 function pins select"
+	depends on MMC2_JZ4780
+	default MMC2_JZ4780_PB_4BIT
+config MMC2_JZ4780_PB_4BIT
+	bool "GPIO B, Data width 4 bit"
+config MMC2_JZ4780_PE_4BIT
+	bool "GPIO E, Data width 4 bit"
+endchoice
+
+config MMC2_MAX_FREQ
+	int "MSC2 max frequency"
+	depends on MMC2_JZ4780
+	default 24000000
+	help
+	  The max frequency of msc2, it should NOT be higher than 50mHz.
+
+	  If unsure, say N.
+
+config MMC2_PIO_MODE
+	bool "Use PIO mode for MSC2"
+	depends on MMC2_JZ4780 && MMC_BLOCK_BOUNCE
+	default n
+	help
+	  Use PIO mode to transfer data for MSC2, say Y or N here.
+
+	  If unsure, say N.
+
+
+config MMC_JZ4775
+	tristate "Ingenic(XBurst) JZ4775 MMC/SD Card Controller(MSC) support"
+	depends on SOC_4775
+	help
+	  This selects the Ingenic XBurst SD/MMC Card Controller
+	  for JZ4775 support. If you have an JZ4775
+	  platform with a SD/Multimedia Card slot, say Y or M here.
+
+	  If unsure, say N.
+
+config MMC0_JZ4775
+	bool "MSC0"
+	depends on MMC_JZ4775
+	help
+	  If you want enable MSC0, say Y or M here.
+
+	  If unsure, say N.
+choice
+	prompt "JZ4775 MSC0 function pins select"
+	depends on MMC0_JZ4775
+	default MMC0_JZ4775_PA_4BIT
+config MMC0_JZ4775_PA_4BIT
+	bool "GPIO A, Data width 4 bit"
+config MMC0_JZ4775_PA_8BIT
+	bool "GPIO A, Data width 8 bit"
+config MMC0_JZ4775_PE_4BIT
+	bool "GPIO E, Data width 4 bit"
+endchoice
+
+config MMC0_MAX_FREQ
+	int "MSC0 max frequency"
+	depends on MMC0_JZ4775
+	default 24000000
+	help
+	  The max frequency of msc0, it should NOT be higher than 50mHz.
+
+	  If unsure, say N.
+
+config MMC0_PIO_MODE
+	bool "Use PIO mode for MSC0"
+	depends on MMC0_JZ4775 && MMC_BLOCK_BOUNCE
+	default n
+	help
+	  Use PIO mode to transfer data for MSC0, say Y or N here.
+
+	  If unsure, say N.
+
+config MMC1_JZ4775
+	bool "MSC1"
+	depends on MMC_JZ4775
+	help
+	  If you want enable MSC1, say Y or M here.
+
+	  If unsure, say N.
+choice
+	prompt "JZ4775 MSC1 function pins select"
+	depends on MMC1_JZ4775
+	default MMC1_JZ4775_PD_4BIT
+config MMC1_JZ4775_PD_4BIT
+	bool "GPIO D, Data width 4 bit"
+config MMC1_JZ4775_PE_4BIT
+	bool "GPIO E, Data width 4 bit"
+endchoice
+
+config MMC1_MAX_FREQ
+	int "MSC1 max frequency"
+	depends on MMC1_JZ4775
+	default 24000000
+	help
+	  The max frequency of msc1, it should NOT be higher than 50mHz.
+
+	  If unsure, say N.
+
+config MMC1_PIO_MODE
+	bool "Use PIO mode for MSC1"
+	depends on MMC1_JZ4775 && MMC_BLOCK_BOUNCE
+	default n
+	help
+	  Use PIO mode to transfer data for MSC1, say Y or N here.
+
+	  If unsure, say N.
+
+config MMC2_JZ4775
+	bool "MSC2"
+	depends on MMC_JZ4775
+	help
+	  If you want enable MSC2, say Y or M here.
+
+	  If unsure, say N.
+choice
+	prompt "JZ4775 MSC2 function pins select"
+	depends on MMC2_JZ4775
+	default MMC2_JZ4775_PB_4BIT
+config MMC2_JZ4775_PB_4BIT
+	bool "GPIO B, Data width 4 bit"
+config MMC2_JZ4775_PE_4BIT
+	bool "GPIO E, Data width 4 bit"
+endchoice
+
+config MMC2_MAX_FREQ
+	int "MSC2 max frequency"
+	depends on MMC2_JZ4775
+	default 24000000
+	help
+	  The max frequency of msc2, it should NOT be higher than 50mHz.
+
+	  If unsure, say N.
+
+config MMC2_PIO_MODE
+	bool "Use PIO mode for MSC2"
+	depends on MMC2_JZ4775 && MMC_BLOCK_BOUNCE
+	default n
+	help
+	  Use PIO mode to transfer data for MSC2, say Y or N here.
+
+	  If unsure, say N.
+
+
 config MMC_ARMMMCI
 	tristate "ARM AMBA Multimedia Card Interface support"
 	depends on ARM_AMBA
@@ -81,28 +321,32 @@ config MMC_RICOH_MMC
 
 	  If unsure, say Y.
 
-config MMC_SDHCI_OF
-	tristate "SDHCI support on OpenFirmware platforms"
-	depends on MMC_SDHCI && OF
+config MMC_SDHCI_PLTFM
+	tristate "SDHCI platform and OF driver helper"
+	depends on MMC_SDHCI
 	help
-	  This selects the OF support for Secure Digital Host Controller
-	  Interfaces.
+	  This selects the common helper functions support for Secure Digital
+	  Host Controller Interface based platform and OF drivers.
+
+	  If you have a controller with this interface, say Y or M here.
 
 	  If unsure, say N.
 
 config MMC_SDHCI_OF_ESDHC
-	bool "SDHCI OF support for the Freescale eSDHC controller"
-	depends on MMC_SDHCI_OF
+	tristate "SDHCI OF support for the Freescale eSDHC controller"
+	depends on MMC_SDHCI_PLTFM
 	depends on PPC_OF
 	select MMC_SDHCI_BIG_ENDIAN_32BIT_BYTE_SWAPPER
 	help
 	  This selects the Freescale eSDHC controller support.
 
+	  If you have a controller with this interface, say Y or M here.
+
 	  If unsure, say N.
 
 config MMC_SDHCI_OF_HLWD
-	bool "SDHCI OF support for the Nintendo Wii SDHCI controllers"
-	depends on MMC_SDHCI_OF
+	tristate "SDHCI OF support for the Nintendo Wii SDHCI controllers"
+	depends on MMC_SDHCI_PLTFM
 	depends on PPC_OF
 	select MMC_SDHCI_BIG_ENDIAN_32BIT_BYTE_SWAPPER
 	help
@@ -110,40 +354,36 @@ config MMC_SDHCI_OF_HLWD
 	  found in the "Hollywood" chipset of the Nintendo Wii video game
 	  console.
 
-	  If unsure, say N.
-
-config MMC_SDHCI_PLTFM
-	tristate "SDHCI support on the platform specific bus"
-	depends on MMC_SDHCI
-	help
-	  This selects the platform specific bus support for Secure Digital Host
-	  Controller Interface.
-
 	  If you have a controller with this interface, say Y or M here.
 
 	  If unsure, say N.
 
 config MMC_SDHCI_CNS3XXX
-	bool "SDHCI support on the Cavium Networks CNS3xxx SoC"
+	tristate "SDHCI support on the Cavium Networks CNS3xxx SoC"
 	depends on ARCH_CNS3XXX
 	depends on MMC_SDHCI_PLTFM
 	help
 	  This selects the SDHCI support for CNS3xxx System-on-Chip devices.
 
+	  If you have a controller with this interface, say Y or M here.
+
 	  If unsure, say N.
 
 config MMC_SDHCI_ESDHC_IMX
-	bool "SDHCI platform support for the Freescale eSDHC i.MX controller"
-	depends on MMC_SDHCI_PLTFM && (ARCH_MX25 || ARCH_MX35 || ARCH_MX5)
+	tristate "SDHCI support for the Freescale eSDHC/uSDHC i.MX controller"
+	depends on ARCH_MXC
+	depends on MMC_SDHCI_PLTFM
 	select MMC_SDHCI_IO_ACCESSORS
 	help
-	  This selects the Freescale eSDHC controller support on the platform
-	  bus, found on platforms like mx35/51.
+	  This selects the Freescale eSDHC/uSDHC controller support
+	  found on i.MX25, i.MX35 i.MX5x and i.MX6x.
+
+	  If you have a controller with this interface, say Y or M here.
 
 	  If unsure, say N.
 
 config MMC_SDHCI_DOVE
-	bool "SDHCI support on Marvell's Dove SoC"
+	tristate "SDHCI support on Marvell's Dove SoC"
 	depends on ARCH_DOVE
 	depends on MMC_SDHCI_PLTFM
 	select MMC_SDHCI_IO_ACCESSORS
@@ -151,11 +391,14 @@ config MMC_SDHCI_DOVE
 	  This selects the Secure Digital Host Controller Interface in
 	  Marvell's Dove SoC.
 
+	  If you have a controller with this interface, say Y or M here.
+
 	  If unsure, say N.
 
 config MMC_SDHCI_TEGRA
-	bool "SDHCI platform support for the Tegra SD/MMC Controller"
-	depends on MMC_SDHCI_PLTFM && ARCH_TEGRA
+	tristate "SDHCI platform support for the Tegra SD/MMC Controller"
+	depends on ARCH_TEGRA
+	depends on MMC_SDHCI_PLTFM
 	select MMC_SDHCI_IO_ACCESSORS
 	help
 	  This selects the Tegra SD/MMC controller. If you have a Tegra
@@ -178,14 +421,28 @@ config MMC_SDHCI_S3C
 
 	  If unsure, say N.
 
-config MMC_SDHCI_PXA
-	tristate "Marvell PXA168/PXA910/MMP2 SD Host Controller support"
-	depends on ARCH_PXA || ARCH_MMP
+config MMC_SDHCI_PXAV3
+	tristate "Marvell MMP2 SD Host Controller support (PXAV3)"
+	depends on CLKDEV_LOOKUP
 	select MMC_SDHCI
-	select MMC_SDHCI_IO_ACCESSORS
+	select MMC_SDHCI_PLTFM
+	default CPU_MMP2
 	help
-	  This selects the Marvell(R) PXA168/PXA910/MMP2 SD Host Controller.
-	  If you have a PXA168/PXA910/MMP2 platform with SD Host Controller
+	  This selects the Marvell(R) PXAV3 SD Host Controller.
+	  If you have a MMP2 platform with SD Host Controller
+	  and a card slot, say Y or M here.
+
+	  If unsure, say N.
+
+config MMC_SDHCI_PXAV2
+	tristate "Marvell PXA9XX SD Host Controller support (PXAV2)"
+	depends on CLKDEV_LOOKUP
+	select MMC_SDHCI
+	select MMC_SDHCI_PLTFM
+	default CPU_PXA910
+	help
+	  This selects the Marvell(R) PXAV2 SD Host Controller.
+	  If you have a PXA9XX platform with SD Host Controller
 	  and a card slot, say Y or M here.
 
 	  If unsure, say N.
@@ -246,7 +503,7 @@ config MMC_WBSD
 
 config MMC_AU1X
 	tristate "Alchemy AU1XX0 MMC Card Interface support"
-	depends on SOC_AU1200
+	depends on MIPS_ALCHEMY
 	help
 	  This selects the AMD Alchemy(R) Multimedia card interface.
 	  If you have a Alchemy platform with a MMC slot, say Y or M here.
@@ -281,13 +538,12 @@ config MMC_ATMELMCI
 endchoice
 
 config MMC_ATMELMCI_DMA
-	bool "Atmel MCI DMA support (EXPERIMENTAL)"
-	depends on MMC_ATMELMCI && (AVR32 || ARCH_AT91SAM9G45) && DMA_ENGINE && EXPERIMENTAL
+	bool "Atmel MCI DMA support"
+	depends on MMC_ATMELMCI && (AVR32 || ARCH_AT91SAM9G45) && DMA_ENGINE
 	help
 	  Say Y here to have the Atmel MCI driver use a DMA engine to
 	  do data transfers and thus increase the throughput and
-	  reduce the CPU utilization. Note that this is highly
-	  experimental and may cause the driver to lock up.
+	  reduce the CPU utilization.
 
 	  If unsure, say N.
 
@@ -310,11 +566,11 @@ config MMC_MSM
 	  support for SDIO devices.
 
 config MMC_MXC
-	tristate "Freescale i.MX2/3 Multimedia Card Interface support"
-	depends on MACH_MX21 || MACH_MX27 || ARCH_MX31
+	tristate "Freescale i.MX21/27/31 Multimedia Card Interface support"
+	depends on ARCH_MXC
 	help
-	  This selects the Freescale i.MX2/3 Multimedia card Interface.
-	  If you have a i.MX platform with a Multimedia Card slot,
+	  This selects the Freescale i.MX21, i.MX27 and i.MX31 Multimedia card
+	  Interface. If you have a i.MX platform with a Multimedia Card slot,
 	  say Y or M here.
 
 	  If unsure, say N.
@@ -379,7 +635,7 @@ config MMC_SPI
 
 config MMC_S3C
 	tristate "Samsung S3C SD/MMC Card Interface support"
-	depends on ARCH_S3C2410
+	depends on ARCH_S3C24XX
 	help
 	  This selects a driver for the MCI interface found in
           Samsung's S3C2410, S3C2412, S3C2440, S3C2442 CPUs.
@@ -461,7 +717,6 @@ config MMC_SDHI
 config MMC_CB710
 	tristate "ENE CB710 MMC/SD Interface support"
 	depends on PCI
-	select MISC_DEVICES
 	select CB710_CORE
 	help
 	  This option enables support for MMC/SD part of ENE CB710/720 Flash
@@ -517,6 +772,31 @@ config MMC_DW_IDMAC
 	  This selects support for the internal DMAC block within the Synopsys
 	  Designware Mobile Storage IP block. This disables the external DMA
 	  interface.
+
+config MMC_DW_PLTFM
+	tristate "Synopsys Designware MCI Support as platform device"
+	depends on MMC_DW
+	default y
+	help
+	  This selects the common helper functions support for Host Controller
+	  Interface based platform driver. Please select this option if the IP
+	  is present as a platform device. This is the common interface for the
+	  Synopsys Designware IP.
+
+	  If you have a controller with this interface, say Y or M here.
+
+	  If unsure, say Y.
+
+config MMC_DW_PCI
+	tristate "Synopsys Designware MCI support on PCI bus"
+	depends on MMC_DW && PCI
+	help
+	  This selects the PCI bus for the Synopsys Designware Mobile Storage IP.
+	  Select this option if the IP is present on PCI platform.
+
+	  If you have a controller with this interface, say Y or M here.
+
+	  If unsure, say N.
 
 config MMC_SH_MMCIF
 	tristate "SuperH Internal MMCIF support"

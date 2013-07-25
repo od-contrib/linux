@@ -513,6 +513,21 @@ config WL127X_RFKILL
 	 Creates an rfkill entry in sysfs for power control of Bluetooth
 	 TI wl127x chips.
 
+config BCM4330_RFKILL
+	tristate "Bluetooth power control driver for bcm4330"
+	depends on RFKILL
+	default n
+	---help---
+	Creates an rfkill entry in sysfs for power control of Bluetooth
+	bcm4330 chips.
+
+config GPS_RFKILL
+	tristate "GPS power control driver"
+	depends on RFKILL
+	default n
+	---help---
+	Creates an rfkill entry in sysfs for power control of GPS chips.
+
 config APANIC
 	bool "Android kernel panic diagnostics driver"
 	default n
@@ -527,6 +542,16 @@ config APANIC_PLABEL
 	---help---
 	 If your platform uses a different flash partition label for storing
  	 crashdumps, enter it here.
+config JZ_X2D
+	bool "JZ EXtreme2D  for 2D driver"
+config JZ_DMMU
+	bool "JZ DMMU driver"
+	default y
+
+config JZ_VPU
+	bool "VPU driver for Ingenic"
+	help
+	  Support for Ingenic VPU muti-thread operations.
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
@@ -535,5 +560,76 @@ source "drivers/misc/iwmc3200top/Kconfig"
 source "drivers/misc/ti-st/Kconfig"
 source "drivers/misc/lis3lv02d/Kconfig"
 source "drivers/misc/carma/Kconfig"
+source "drivers/misc/jz_cim/Kconfig"
+
+config JZ_PWM
+	bool "JZ PWM driver"
+	default y
+comment "JZ PWM function pin select"
+	depends on JZ_PWM
+config JZ_PWM_GPIO_E0
+	bool "GPIO Port E pwm0"
+	depends on JZ_PWM
+	default y
+config JZ_PWM_GPIO_E1
+	bool "GPIO Port E pwm1"
+	depends on JZ_PWM
+	default n
+config JZ_PWM_GPIO_E2
+	bool "GPIO Port E pwm2"
+	depends on JZ_PWM
+	default n
+config JZ_PWM_GPIO_E3
+	bool "GPIO Port E pwm3"
+	depends on JZ_PWM
+	default n
+config JZ_PWM_GPIO_E4
+	bool "GPIO Port E pwm4"
+	depends on JZ_PWM
+	default n
+config JZ_PWM_GPIO_E5
+	bool "GPIO Port E pwm5"
+	depends on JZ_PWM
+	default n
+config JZ_PWM_GPIO_D10
+	bool "GPIO Port D pwm6"
+	depends on JZ_PWM
+	default n
+config JZ_PWM_GPIO_D11
+	bool "GPIO Port D pwm7"
+	depends on JZ_PWM
+	default n
+
+config JZ_MODEM
+        tristate "Support modem power control function"
+        depends on JZRISC
+        help
+          Support the modem(s) connected to JZ SOC.
+
+config GSM_RDA8851CL
+        bool "Use GSM modem RDA8851CL"
+        depends on JZ_MODEM
+        help
+          Support GSM modem RDA8851CL.
+
+config TD_SC8800S
+        tristate "Spectrum SC8800S"
+        depends on SPI 
+        help
+           TD tu830 modem
+
+config LTE_LI170
+        bool "Use LTE modem LI170"
+        depends on JZ_MODEM
+        help
+          Support LTE modem LI170.
+
+config JZ4780_EFUSE
+	bool "JZ4780 EFUSE Driver"
+	default n
+
+config JZ4775_EFUSE
+	bool "JZ4775 EFUSE Driver"
+	default n
 
 endif # MISC_DEVICES

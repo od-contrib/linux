@@ -49,6 +49,9 @@
 #include <linux/mutex.h>
 #include <scsi/scsi_host.h>
 
+#ifdef CONFIG_USB_ANDROID_RAWBULK
+#include <linux/usb/rawbulk.h>
+#endif
 struct us_data;
 struct scsi_cmnd;
 
@@ -160,6 +163,9 @@ struct us_data {
 	/* hacks for READ CAPACITY bug handling */
 	int			use_last_sector_hacks;
 	int			last_sector_retries;
+#ifdef CONFIG_USB_ANDROID_RAWBULK
+	struct rawbulk_transfer *transfer;
+#endif
 };
 
 /* Convert between us_data and the corresponding Scsi_Host */
