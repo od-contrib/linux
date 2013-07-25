@@ -122,8 +122,43 @@ static struct platform_device jz_timed_gpio_device = {
 #endif
 
 #ifdef CONFIG_JZ_REMOTE
+
+static unsigned int jz_remote_key_map[256] = {
+	[0 ... 255] = -1,
+	[16] = KEY_MENU,
+	[20] = KEY_DOT,
+	[21] = KEY_7,
+	[22] = KEY_4,
+	[23] = KEY_1,
+	[24] = KEY_0,
+	[25] = KEY_8,
+	[26] = KEY_5,
+	[27] = KEY_2,
+	[28] = KEY_BACKSPACE,
+	[29] = KEY_9,
+	[30] = KEY_6,
+	[31] = KEY_3,
+	[77] = KEY_UP,
+	[81] = KEY_NEXTSONG,
+	[82] = KEY_HOME,
+	[83] = KEY_BACK,
+	[84] = KEY_VOLUMEDOWN,
+	[85] = KEY_PLAY,
+	[86] = KEY_HELP,
+	[87] = KEY_LEFT,
+	[88] = KEY_MUTE,
+	[89] = KEY_PLAYPAUSE,
+	[90] = KEY_DOWN,
+	[91] = KEY_OK,
+	[92] = KEY_VOLUMEUP,
+	[93] = KEY_PREVIOUSSONG,
+	[94] = KEY_SEARCH,
+	[95] = KEY_RIGHT,
+};
+
 static struct jz_remote_board_data jz_remote_board_data = {
 	.gpio = (32 * 4 + 3),
+	.key_maps = jz_remote_key_map,
 };
 
 static struct platform_device jz_remote_device = {
@@ -133,6 +168,7 @@ static struct platform_device jz_remote_device = {
 		.platform_data = &jz_remote_board_data,
 	},
 };
+
 #endif
 
 #ifdef CONFIG_SPI_JZ4780
