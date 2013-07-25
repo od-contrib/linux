@@ -49,6 +49,27 @@ struct jz_vpu {
 	void*                   cpm_pwc;
 };
 
+static int vpu_reset(struct jz_vpu *vpu)
+{
+	int timeout = 0xffffff;
+	unsigned int srbc = cpm_inl(CPM_SRBC);
+
+	cpm_set_bit(30, CPM_SRBC);
+	while (!(cpm_inl(CPM_SRBC) & (1 << 29)) && --timeout);
+
+	if (timeout == 0) {
+		dev_warn(vpu->dev, "[%d:%d] wait stop ack timeout\n",
+			 current->tgid, current->pid);
+		cpm_outl(srbc, CPM_SRBC);
+		return -1;
+	} else {
+		cpm_outl(srbc | (1 << 31), CPM_SRBC);
+		cpm_outl(srbc, CPM_SRBC);
+	}
+
+	return 0;
+}
+
 static int vpu_on(struct jz_vpu *vpu)
 {
 	if (cpm_inl(CPM_OPCR) & OPCR_IDLE)
@@ -84,7 +105,6 @@ static long vpu_off(struct jz_vpu *vpu)
 	cpm_clear_bit(31,CPM_OPCR);
 	clk_disable(vpu->clk);
 	clk_disable(vpu->clk_gate);
-	cpm_set_bit(30,CPM_LCR);
 	cpm_pwc_disable(vpu->cpm_pwc);
 	/* Clear completion use_count here to avoid a unhandled irq after vpu off */
 	vpu->done.done = 0;
@@ -168,8 +188,15 @@ static long vpu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case WAIT_COMPLETE:
 		ret = wait_for_completion_interruptible_timeout(
 			&vpu->done, msecs_to_jiffies(200));
-		if (ret > 0)
+		if (ret > 0) {
 		        status = vpu->status;
+		} else {
+			dev_warn(vpu->dev, "[%d:%d] wait_for_completion timeout\n",
+				 current->tgid, current->pid);
+			if (vpu_reset(vpu) < 0)
+				status = 0;
+			vpu->done.done = 0;
+		}
 		if (copy_to_user((void *)arg, &status, sizeof(status)))
 			ret = -EFAULT;
 		break;
