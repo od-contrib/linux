@@ -21,7 +21,7 @@
 #include <soc/extal.h>
 #include <mach/jzcpm_pwc.h>
 
-extern void inline reset_keep_power(void);
+extern void reset_keep_power(void);
 
 /*
  * Bring up the priority of CPU on both AHB0 & AHB2
