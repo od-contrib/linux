@@ -147,7 +147,8 @@ void dwc2_ep0_out_start(struct dwc2 *dwc) {
 	}
 
 	if (unlikely(doepctl.b.epena)) {
-		DWC2_EP0_DEBUG_MSG("ep0 is already enabled! doeptsize0 = 0x%08x\n", doeptsize0.d32);
+		DWC2_EP0_DEBUG_MSG("ep0 is already enabled! doepctl = 0x%08x, doeptsize0 = 0x%08x\n", 
+				doepctl.d32, doeptsize0.d32);
 		return;
 	}
 
@@ -984,8 +985,6 @@ static void dwc2_ep0_out_complete_data(struct dwc2 *dwc) {
 	deptsiz0_data_t		 deptsiz;
 	int			 trans_count = 0;
 
-	WARN(1, "who will use ep0 out???\n");
-
 	curr_req = next_request(&ep0->request_list);
 	if (curr_req == NULL) {
 		return;
@@ -1023,8 +1022,12 @@ static void dwc2_ep0_out_complete_data(struct dwc2 *dwc) {
 
 		/* if xfersize is not zero, we receive an short packet, the transfer is complete */
 		if (!deptsiz.b.xfersize && (curr_req->trans_count_left || need_send_zlp(curr_req))) {
+			DWC2_EP0_DEBUG_MSG("req 0x%p continue transfer, is_in = %d\n",
+					curr_req, curr_req->dwc2_ep->is_in);
 			dwc2_ep0_start_transfer(dwc, curr_req);
 		} else {
+			DWC2_EP0_DEBUG_MSG("req 0x%p done, do %s status phase\n",
+					curr_req, dwc->ep0_expect_in ? "OUT" : "IN");
 			dwc2_ep0_do_status_phase(dwc);
 		}
 	} else {
@@ -1085,6 +1088,7 @@ static void dwc2_ep0_xfer_complete(struct dwc2 *dwc, int is_in, int setup) {
 	if (depctl.b.epena) {
 		DWC2_EP0_DEBUG_MSG("ep0%s is remain enabled when xfercompl\n",
 				is_in ? "IN" : "OUT");
+
 #if 0
 		if (!is_in) {
 			int timeout = 3 * 1000;
@@ -1268,6 +1272,7 @@ static void dwc2_ep0_handle_out_interrupt(struct dwc2_ep *dep) {
 		dwc2_ep0_xfer_complete(dwc, 0, 0);
 
 		CLEAR_OUT_EP0_INTR(xfercompl);
+		CLEAR_OUT_EP0_INTR(stsphsercvd);
 		doepint.b.xfercompl = 0;
 	}
 
