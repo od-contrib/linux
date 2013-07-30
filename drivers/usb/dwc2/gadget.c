@@ -235,6 +235,7 @@ void dwc2_device_mode_init(struct dwc2 *dwc) {
 	}
 
 	dwc->setup_prepared = 0;
+        dwc->last_ep0out_normal = 0;
 
 	/*
 	 * DCFG settings

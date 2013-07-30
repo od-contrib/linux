@@ -434,6 +434,7 @@ struct dwc2 {
 	dma_addr_t			 ctrl_req_addr;
 #define DWC2_CTRL_REQ_ACTUAL_ALLOC_SIZE	 (4 * PAGE_SIZE)
 	int				 setup_prepared;
+    int                              last_ep0out_normal;
 
 	u16				 status_buf;
 	dma_addr_t			 status_buf_addr;

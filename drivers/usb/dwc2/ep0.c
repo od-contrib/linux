@@ -132,6 +132,9 @@ void dwc2_ep0_out_start(struct dwc2 *dwc) {
 	doeptsize0.d32 = dwc_readl(&dev_if->out_ep_regs[0]->doeptsiz);
 	doepdma = dwc_readl(&dev_if->out_ep_regs[0]->doepdma);
 
+        if (unlikely(dwc->last_ep0out_normal))
+            goto directly_start;
+        
 	if (dwc->setup_prepared) {
 		if (!doepctl.b.epena) {
 			DWC2_EP0_DEBUG_MSG("setup prepared but ep0out is stoped by someone! "
@@ -159,7 +162,9 @@ void dwc2_ep0_out_start(struct dwc2 *dwc) {
 		return;
 	}
 
+directly_start:
 	dwc->setup_prepared = 1;
+        dwc->last_ep0out_normal = 0;
 
 	doeptsize0.b.supcnt = 3;
 	doeptsize0.b.pktcnt = 1;
@@ -1028,6 +1033,7 @@ static void dwc2_ep0_out_complete_data(struct dwc2 *dwc) {
 		} else {
 			DWC2_EP0_DEBUG_MSG("req 0x%p done, do %s status phase\n",
 					curr_req, dwc->ep0_expect_in ? "OUT" : "IN");
+                        dwc->last_ep0out_normal = 1;
 			dwc2_ep0_do_status_phase(dwc);
 		}
 	} else {
@@ -1092,17 +1098,17 @@ static void dwc2_ep0_xfer_complete(struct dwc2 *dwc, int is_in, int setup) {
 #if 0
 		if (!is_in) {
 			int timeout = 3 * 1000;
-			doepint_data_t doepint;
+			depctl_data_t tmp_depctl;
 
 			do {
 				udelay(1);
-				doepint.d32 = dwc_readl(&dwc->dev_if.out_ep_regs[0]->doepint);
+				tmp_depctl.d32 = dwc_readl(&dwc->dev_if.out_ep_regs[0]->doepctl);
 
 				timeout --;
 				if (timeout == 0) {
-					//dwc2_ep0_dump_regs(dwc);
+					dwc2_ep0_dump_regs(dwc);
 				}
-			} while ( (doepint.b.setup == 0) && (timeout > 0));
+			} while (tmp_depctl.b.epena && (timeout > 0));
 		}
 #endif
 	}
@@ -1268,11 +1274,12 @@ static void dwc2_ep0_handle_out_interrupt(struct dwc2_ep *dep) {
 	DWC2_EP0_DEBUG_MSG("doepint = 0x%08x\n", doepint.d32);
 
 	/* Transfer complete */
-	if (doepint.b.xfercompl) {
+	if (doepint.b.xfercompl) {            
 		dwc2_ep0_xfer_complete(dwc, 0, 0);
 
-		CLEAR_OUT_EP0_INTR(xfercompl);
-		CLEAR_OUT_EP0_INTR(stsphsercvd);
+                CLEAR_OUT_EP0_INTR(xfercompl);
+                CLEAR_OUT_EP0_INTR(stsphsercvd);
+
 		doepint.b.xfercompl = 0;
 	}
 
