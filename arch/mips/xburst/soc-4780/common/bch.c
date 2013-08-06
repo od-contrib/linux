@@ -251,8 +251,7 @@ inline static void read_err_report_by_cpu(bch_request_t *req)
 
 		req->errrept_word_cnt = (bchc->saved_reg_bhint
 				& (0x7f << 24)) >> 24;
-		req->cnt_ecc_errors = bchc->saved_reg_bhint
-				& (0x7f << 16);
+		req->cnt_ecc_errors = (bchc->saved_reg_bhint >> 16) & 0x7f;
 
 		for (i = 0; i < req->errrept_word_cnt; i++)
 			req->errrept_data[i] = bchc->regs_file->bherr[i];
