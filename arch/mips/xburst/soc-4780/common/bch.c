@@ -431,9 +431,9 @@ inline static void bch_correct(bch_request_t *req)
 
 	raw_data = (u16 *)req->raw_data;
 	for (i = 0; i < req->errrept_word_cnt; i++) {
-		index = req->errrept_data[i] & 0xffff;
-		mask = req->errrept_data[i] & (0xffff << 16);
-		raw_data[(i << 6) + index] ^= mask;
+		index = req->errrept_data[i] & 0x7ff;
+		mask = req->errrept_data[i] >> 16;
+		raw_data[index] ^= mask;
 	}
 
 	req->ret_val = BCH_RET_OK;
