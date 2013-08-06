@@ -84,6 +84,7 @@ int nand_bch_correct_data(struct mtd_info *mtd, unsigned char *buf,
 		}
 	} else if (count < 0) {
 		printk(KERN_ERR "ecc unrecoverable error\n");
+		dump_stack();
 		count = -1;
 	}
 	return count;

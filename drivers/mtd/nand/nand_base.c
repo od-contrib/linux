@@ -826,7 +826,7 @@ static int nand_wait(struct mtd_info *mtd, struct nand_chip *chip)
 {
 
 	int status, state = chip->state;
-	unsigned long timeo = (state == FL_ERASING ? 400 : 20);
+	unsigned long timeo = (state == FL_ERASING ? 400 : 300); /* TODO fixme */
 
 	led_trigger_event(nand_led_trigger, LED_FULL);
 
@@ -1118,6 +1118,9 @@ static int nand_read_page_swecc(struct mtd_info *mtd, struct nand_chip *chip,
 		stat = chip->ecc.correct(mtd, p, &ecc_code[i], &ecc_calc[i]);
 		if (stat < 0) {
 			mtd->ecc_stats.failed++;
+			pr_warn("%s: read error at page 0x%08x(0x%08x in byte)\n",
+				    __func__, page, page * mtd->writesize);
+
 		} else {
 			mtd->ecc_stats.corrected += stat;
 			max_bitflips = max_t(unsigned int, max_bitflips, stat);
@@ -1557,9 +1560,10 @@ static int nand_do_read_ops(struct mtd_info *mtd, loff_t from,
 	if (ret < 0)
 		return ret;
 
-	if (mtd->ecc_stats.failed - stats.failed)
+	if (mtd->ecc_stats.failed - stats.failed) {
+		pr_warn("%s: return -EBADMSG!\n", __func__);
 		return -EBADMSG;
-
+	}
 	return max_bitflips;
 }
 

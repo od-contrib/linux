@@ -205,7 +205,8 @@ static struct dentry *debugfs_root;
 #define NAND_FLASH_MT29F32G08CBACAWP_NAME    "MT29F32G08CBACAWP"
 #define NAND_FLASH_MT29F32G08CBACAWP_ID      0x68
 
-
+#define NAND_FLASH_MT29F32G08CBACA3W_NAME    "MT29F32G08CBACA3W"
+#define NAND_FLASH_MT29F32G08CBACA3W_ID      0x68
 /*
  * Detected by rules of ONFI v2.3
  */
@@ -259,7 +260,10 @@ static struct nand_flash_dev builtin_nand_flash_table[] = {
 		0, 4096, 0, LP_OPTIONS
 	},
 
-
+	{
+		NAND_FLASH_MT29F32G08CBACA3W_NAME, NAND_FLASH_MT29F32G08CBACA3W_ID,
+		0, 4096, 0, LP_OPTIONS
+	},
 	/*
 	 * MT29F32G08CBACA(WP) --- support ONFI v2.3
 	 *
@@ -317,6 +321,23 @@ static nand_flash_info_t builtin_nand_info_table[] = {
 			NAND_OUTPUT_NORMAL_DRIVER,
 			CAN_NOT_ADJUST_RB_DOWN_STRENGTH,
 			samsung_nand_pre_init)
+	},
+
+	{
+		/*
+		 * Datasheet of MT29F32G08CBACA, Rev-E, P109, Table-17
+		 * ECC : 24bit/1080bytes
+		 */
+		COMMON_NAND_CHIP_INFO(
+			NAND_FLASH_MT29F32G08CBACA3W_NAME,
+			NAND_MFR_MICRON, NAND_FLASH_MT29F32G08CBACA3W_ID,
+			1024, 24, 0,
+			10, 5, 10, 5, 15, 5, 7, 5, 10, 7,
+			20, 20, 70, 200, 100, 60, 200, 10, 20, 0, 100,
+			100, 100 * 1000, 0, 0, 0, 5, BUS_WIDTH_8,
+			NAND_OUTPUT_NORMAL_DRIVER,
+			NAND_RB_DOWN_FULL_DRIVER,
+			micron_nand_pre_init)
 	},
 
 	{

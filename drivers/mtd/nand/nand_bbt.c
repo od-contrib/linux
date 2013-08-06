@@ -447,12 +447,16 @@ static int scan_block_fast(struct mtd_info *mtd, struct nand_bbt_descr *bd,
 		 */
 		ret = mtd_read_oob(mtd, offs, &ops);
 		/* Ignore ECC errors when checking for BBM */
-		if (ret && !mtd_is_bitflip_or_eccerr(ret))
+		if (ret && !mtd_is_bitflip_or_eccerr(ret)) {
+			print_hex_dump(KERN_INFO, "oob: ", DUMP_PREFIX_OFFSET, 16, 1,
+			ops.oobbuf, ops.ooblen, false);
 			return ret;
-
-		if (check_short_pattern(buf, bd))
+		}
+		if (check_short_pattern(buf, bd)) {
+			print_hex_dump(KERN_INFO, "oob: ", DUMP_PREFIX_OFFSET, 16, 1,
+			ops.oobbuf, ops.ooblen, false);
 			return 1;
-
+		}
 		offs += mtd->writesize;
 	}
 	return 0;
