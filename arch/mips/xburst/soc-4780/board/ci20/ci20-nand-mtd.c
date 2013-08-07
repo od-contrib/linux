@@ -44,8 +44,8 @@
 #define START_UBOOT	0ull
 #define SIZE_UBOOT	(8ull * SZ_MB)
 
-#define START_ROOT	(START_UBOOT + SIZE_UBOOT)
-#define SIZE_ROOT	(SIZE_NAND - START_ROOT)
+#define START_SYSTEM	(START_UBOOT + SIZE_UBOOT)
+#define SIZE_SYSTEM	(SIZE_NAND - START_SYSTEM)
 
 static struct mtd_partition parts[] = {
 	{
@@ -54,9 +54,9 @@ static struct mtd_partition parts[] = {
 		.size = SIZE_UBOOT,
 	},
 	{
-		.name = "root",
-		.offset = START_ROOT,
-		.size = SIZE_ROOT,
+		.name = "system",
+		.offset = START_SYSTEM,
+		.size = SIZE_SYSTEM,
 	},
 };
 
