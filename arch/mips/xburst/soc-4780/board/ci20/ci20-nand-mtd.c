@@ -91,6 +91,7 @@ static struct jz4780_nand_platform_data nand_pdata = {
 
 	.ecc_type = NAND_ECC_TYPE_HW,
 	.xfer_type = NAND_XFER_DMA_POLL,
+	.flash_bbt = 1,
 
 	.nand_flash_info_table = board_support_nand_info_adjust_table,
 	.num_nand_flash_info = ARRAY_SIZE(board_support_nand_info_adjust_table),
