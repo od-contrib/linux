@@ -212,7 +212,7 @@ static ssize_t jz4780_vbus_set(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(vbus, S_IWUSR | S_IRUSR |  S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH,
+static DEVICE_ATTR(vbus, S_IWUSR | S_IRUSR,
 		jz4780_vbus_show, jz4780_vbus_set);
 
 static ssize_t jz4780_id_show(struct device *dev,
