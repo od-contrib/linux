@@ -2196,10 +2196,8 @@ static int jz4780_nand_probe(struct platform_device *pdev)
 	 * from the NAND, and also skip the full NAND scan
 	 * that can take 1/2s or so. little things...
 	 */
-	if (pdata->flash_bbt) {
+	if (pdata->flash_bbt)
 		chip->bbt_options |= NAND_BBT_USE_FLASH;
-		chip->options |= NAND_SKIP_BBTSCAN;
-	}
 	/*
 	 * nand_base handle subpage write by fill space
 	 * where are outside of the subpage with 0xff,
