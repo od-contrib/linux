@@ -1582,6 +1582,7 @@ static int ipu_release(struct inode *inode, struct file *filp)
 
 	mutex_lock(&ipu->lock);
 	ipu->open_cnt--;
+	ipu_clr_bypass(ipu);
 
 	ipu_proc = get_ipu_procinfo(ipu, filp);
 	if (ipu_proc != NULL) {
@@ -1594,6 +1595,7 @@ static int ipu_release(struct inode *inode, struct file *filp)
 			}
 		}
 	}
+	ipu_stop(ipu);
 
 	dev_dbg(ipu->dev,"=====Enter ipu_release open_cnt: %d %d\n", ipu->open_cnt, ipu->proc_num);
 	dev_dbg(ipu->dev, "pid: %d, tgid: %d", current->pid, current->tgid);
