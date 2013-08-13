@@ -210,6 +210,9 @@ static int fill_tlb_address(void *page_base, struct dmmu_mem_info *mem,
 
 //	struct list_head *head = &proc->dup_page_list;
 
+	if (!mem->size)
+		return -EINVAL;
+
 	addr = (void *)(((unsigned int)mem->vaddr >> PAGE_SHIFT) << PAGE_SHIFT);
 	page_num = (unsigned int)((mem->vaddr-addr) + mem->size+PAGE_SIZE-1) >> PAGE_SHIFT;
 	end = (void *)(((unsigned int)mem->vaddr + (mem->size-1)) & (~(PAGE_SIZE-1)));
