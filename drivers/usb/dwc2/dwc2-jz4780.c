@@ -406,7 +406,7 @@ static irqreturn_t usb_detect_interrupt(int irq, void *dev_id)
 
 #if DWC2_HOST_MODE_ENABLE
 static int __dwc2_get_id_level(struct dwc2_jz4780 *jz4780) {
-	int			 id_level = 0;
+	int			 id_level = 1;
 
 	if (gpio_is_valid(jz4780->id_pin->num)) {
 		id_level = gpio_get_value(jz4780->id_pin->num);

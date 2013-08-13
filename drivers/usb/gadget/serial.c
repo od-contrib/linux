@@ -170,6 +170,10 @@ static int __init gs_bind(struct usb_composite_dev *cdev)
 	if (status < 0)
 		return status;
 
+	if (usb_gadget_connect(gadget) < 0) {
+		printk(KERN_ERR"gadget ops is not register\n");
+	}
+
 	/* Allocate string descriptor numbers ... note that string
 	 * contents can be overridden by the composite_dev glue.
 	 */
