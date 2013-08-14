@@ -29,6 +29,7 @@ static int find_cpm_pwc(char *s) {
 	if(i >= ARRAY_SIZE(cpm_pwc)) return -1;
 	return i;
 }
+
 int cpm_pwc_enable(void *handle)
 {
 	struct cpm_pwc_desc *pwc = (struct cpm_pwc_desc *)handle;
@@ -43,6 +44,7 @@ int cpm_pwc_enable(void *handle)
 	}
 	return 0;
 }
+EXPORT_SYMBOL(cpm_pwc_enable);
 
 int cpm_pwc_disable(void *handle)
 {
@@ -58,12 +60,15 @@ int cpm_pwc_disable(void *handle)
 	}
 	return 0;
 }
+EXPORT_SYMBOL(cpm_pwc_disable);
 
 int cpm_pwc_is_enabled(void *handle)
 {
 	struct cpm_pwc_desc *pwc = (struct cpm_pwc_desc *)handle;
 	return !cpm_test_bit(pwc->state_bit,CPM_LCR);
 }
+EXPORT_SYMBOL(cpm_pwc_is_enabled);
+
 void *cpm_pwc_get(char *name){
 	int index = find_cpm_pwc(name);
 	if(index == -1) {
@@ -78,6 +83,8 @@ void *cpm_pwc_get(char *name){
 	cpm_pwc[index].refcount++;
 	return (void*)&cpm_pwc[index];
 }
+EXPORT_SYMBOL(cpm_pwc_get);
+
 void cpm_pwc_put(void *handle) {
 	struct cpm_pwc_desc *pwc = (struct cpm_pwc_desc *)handle;
 	pwc->refcount--;
@@ -86,6 +93,8 @@ void cpm_pwc_put(void *handle) {
 		dump_stack();
 	}
 }
+EXPORT_SYMBOL(cpm_pwc_put);
+
 void cpm_pwc_init(void) {
 #ifndef CONFIG_FPGA_TEST
 	unsigned long lcr = cpm_inl(CPM_LCR);
