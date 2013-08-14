@@ -18,7 +18,7 @@
 
 static inline void __init_mxu(void)
 {
-	unsigned int register val asm("t0");
+	register unsigned int val asm("t0");
 	val = 3;
 	asm volatile(".word	0x7008042f \n\t"::"r"(val));
 }
