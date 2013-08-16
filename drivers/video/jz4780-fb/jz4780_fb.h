@@ -139,6 +139,8 @@ struct jzfb {
 	struct early_suspend early_suspend;
 #endif
 	int is_suspend;
+
+	uint32_t pseudo_palette[16];
 };
 
 static inline unsigned long reg_read(struct jzfb *jzfb, int offset)
