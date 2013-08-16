@@ -200,12 +200,8 @@ typedef struct { unsigned long pgprot; } pgprot_t;
 #define virt_to_page(kaddr)	pfn_to_page(PFN_DOWN(virt_to_phys(kaddr)))
 #define virt_addr_valid(kaddr)	pfn_valid(PFN_DOWN(virt_to_phys(kaddr)))
 
-/*
 #define VM_DATA_DEFAULT_FLAGS	(VM_READ | VM_WRITE | VM_EXEC | \
 				 VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC)
-*/
-#define VM_DATA_DEFAULT_FLAGS	(VM_READ | VM_WRITE | \
-				 VM_MAYREAD | VM_MAYWRITE)
 
 #define UNCAC_ADDR(addr)	((addr) - PAGE_OFFSET + UNCAC_BASE + 	\
 								PHYS_OFFSET)
