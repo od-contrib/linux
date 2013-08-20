@@ -964,6 +964,14 @@ config SOC_CAMERA_OV7675_FRONT
 	select SOC_CAMERA_OV7675
 	help
 	  This is a ov7675 camera driver
+
+config SOC_CAMERA_OV5640_FRONT
+	bool "ov5640 camera support(front)"
+	depends on SOC_CAMERA && I2C && VIDEO_JZ4780_CIM_HOST && FRONT_CAMERA
+	default n
+	select SOC_CAMERA_OV5640
+	help
+	  This is a ov5640 camera driver
 	  
 config SOC_CAMERA_OV2650_FRONT
 	bool "ov2650 camera support(front)"
@@ -1022,6 +1030,14 @@ config SOC_CAMERA_OV7675_BACK
 	select SOC_CAMERA_OV7675
 	help
 	  This is a ov7675 camera driver
+
+config SOC_CAMERA_OV5640_BACK
+	bool "ov5640 camera support(back)"
+	depends on SOC_CAMERA && I2C && VIDEO_JZ4780_CIM_HOST && FRONT_CAMERA
+	default n
+	select SOC_CAMERA_OV5640
+	help
+	  This is a ov5640 camera driver
 	  
 config SOC_CAMERA_OV2650_BACK
 	bool "ov2650 camera support(back)"
@@ -1061,6 +1077,11 @@ config SOC_CAMERA_SP0838
 config SOC_CAMERA_OV7675
 	bool "camera sensor ov7675 driver"
 	depends on SOC_CAMERA_OV7675_FRONT || SOC_CAMERA_OV7675_BACK
+	default n
+
+config SOC_CAMERA_OV5640
+	bool "camera sensor ov5640 driver"
+	depends on SOC_CAMERA_OV5640_FRONT || SOC_CAMERA_OV5640_BACK
 	default n
 
 config SOC_CAMERA_OV2650

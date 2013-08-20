@@ -7,3 +7,4 @@ obj-$(CONFIG_MMC_JZ4780)	+= ci20-mmc.o
 obj-$(CONFIG_JZ4780_INTERNAL_CODEC) += ci20-sound.o
 obj-$(CONFIG_NAND_JZ4780)	+= ci20-nand.o
 obj-$(CONFIG_MTD_NAND_JZ4780)	+= ci20-nand-mtd.o
+obj-$(CONFIG_VIDEO_JZ4780_CIM_HOST)	+= ci20-cim.o

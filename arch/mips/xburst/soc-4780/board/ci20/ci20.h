@@ -104,9 +104,24 @@ extern struct platform_nand_data jz_nand_chip_data;
 //#define GPIO_VOLUMEDOWN			GPIO_PD(17)
 //#define ACTIVE_LOW_VOLUMEDOWN		0
 
+#ifdef CONFIG_OV5640
 #define GPIO_OV5640_EN			GPIO_PB(18)
 #define GPIO_OV5640_RST			GPIO_PB(26)
 #define GPIO_OV5640_PWDN		-1
+#endif
+
+/**
+ * camera sensor interface
+ **/
+
+#ifdef CONFIG_VIDEO_JZ4780_CIM_HOST
+
+#define CAMERA_FRONT_SENSOR_EN		GPIO_PB(18)
+#define	CAMERA_SENSOR_RESET		GPIO_PB(26)
+
+#define FRONT_CAMERA_INDEX	0
+#define BACK_CAMERA_INDEX	1
+#endif
 
 /**
  * USB detect pin

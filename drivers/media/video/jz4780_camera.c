@@ -506,7 +506,7 @@ static void jz4780_videobuf_queue(struct videobuf_queue *vq,
 
 	vb->state = VIDEOBUF_ACTIVE;
 
-	if (!pcdev->active) {
+	if ((!pcdev->active) && (buf != NULL)) {
 		pcdev->active = buf;
 		jz4780_camera_setup_dma(pcdev, icd->devnum);
 	}
@@ -938,8 +938,10 @@ static unsigned int jz4780_camera_poll(struct file *file, poll_table *pt)
 	poll_wait(file, &buf->vb.done, pt);
 
 	if (buf->vb.state == VIDEOBUF_DONE ||
-	    buf->vb.state == VIDEOBUF_ERROR)
+	    buf->vb.state == VIDEOBUF_ERROR) {
+		//printk("buf->vb.baddr = %x, dma_address = %x\n", buf->vb.baddr, videobuf_to_dma_contig(&buf->vb));
 		return POLLIN | POLLRDNORM;
+	}
 
 	return 0;
 }
@@ -1206,7 +1208,8 @@ static int __init jz4780_camera_probe(struct platform_device *pdev)
 		goto exit_put_clk_cim;
 	}
 
-	pcdev->soc_host.regul = regulator_get(&pdev->dev, "vcim");
+	//pcdev->soc_host.regul = regulator_get(&pdev->dev, "vcim");
+	pcdev->soc_host.regul = regulator_get(&pdev->dev, "vcim_2_8");
 	if(IS_ERR(pcdev->soc_host.regul)){
 		dprintk(3, "get regulator fail!\n");
 		err = -ENODEV;

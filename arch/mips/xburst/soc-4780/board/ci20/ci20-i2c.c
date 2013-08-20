@@ -124,6 +124,7 @@ static struct cam_sensor_plat_data ov5640_pdata = {
 #endif
 
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780))
+#ifdef CONFIG_JZ_CIM
 static struct i2c_board_info ci20_i2c2_devs[] __initdata = {
 #ifdef CONFIG_OV5640
 	{
@@ -131,7 +132,23 @@ static struct i2c_board_info ci20_i2c2_devs[] __initdata = {
 		.platform_data	= &ov5640_pdata,
 	},
 #endif
+}
+#elif defined(CONFIG_VIDEO_JZ4780_CIM_HOST)
+struct i2c_board_info ci20_i2c2_devs_v4l2[2] = {
+
+	[FRONT_CAMERA_INDEX] = {
+#ifdef CONFIG_SOC_CAMERA_OV5640_FRONT
+		I2C_BOARD_INFO("ov5640-front", 0x3c),
+#endif
+	},
+
+	[BACK_CAMERA_INDEX] = {
+#ifdef CONFIG_SOC_CAMERA_OV5640_BACK
+		I2C_BOARD_INFO("ov5640-back", 0x3c + 1),
+#endif
+	},
 };
+#endif
 #endif	/*I2C2*/
 
 #if (defined(CONFIG_I2C3_JZ4780) || defined(CONFIG_I2C_GPIO))
@@ -214,8 +231,10 @@ static int __init ci20_i2c_dev_init(void)
 	i2c_register_board_info(1, ci20_i2c1_devs, ARRAY_SIZE(ci20_i2c1_devs));
 #endif
 
-#if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780))
+#if ((defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_JZ4780)) && defined(CONFIG_JZ_CIM))
+#ifdef CONFIG_JZ_CIM
 	i2c_register_board_info(2, ci20_i2c2_devs, ARRAY_SIZE(ci20_i2c2_devs));
+#endif
 #endif
 
 #if (defined(CONFIG_I2C3_JZ4780) || defined(CONFIG_I2C_GPIO))
