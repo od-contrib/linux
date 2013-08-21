@@ -132,7 +132,7 @@ static struct i2c_board_info ci20_i2c2_devs[] __initdata = {
 		.platform_data	= &ov5640_pdata,
 	},
 #endif
-}
+};
 #elif defined(CONFIG_VIDEO_JZ4780_CIM_HOST)
 struct i2c_board_info ci20_i2c2_devs_v4l2[2] = {
 
