@@ -36,12 +36,10 @@
  */
 #define REG_TC_VFLIP			0x3820
 #define REG_TC_MIRROR			0x3821
-#define TC_ISP_BIT			2
-#define TC_SENSOR_BIT			1
-#define REG_TC_VFLIP_ISP_MASK		(1 << TC_ISP_BIT)
-#define REG_TC_VFLIP_SENSOR_MASK	(1 << TC_SENSOR_BIT)
-#define REG_TC_MIRROR_ISP_MASK		(1 << TC_ISP_BIT)
-#define REG_TC_MIRROR_SENSOR_MASK	(1 << TC_SENSOR_BIT)
+#define OV5640_HFLIP			0x1
+#define OV5640_VFLIP			0x2
+#define OV5640_FLIP_VAL			((unsigned char)0x06)
+#define OV5640_FLIP_MASK		((unsigned char)0x06)
 
  /* whether sensor support high resolution (> vga) preview or not */
 #define SUPPORT_HIGH_RESOLUTION_PRE		1
@@ -670,7 +668,7 @@ static const struct regval_list ov5640_720p_regs[] = {
 	{0x3815, 0x31},
 
 	{0x3034, 0x1a},
-	{0x3035, 0x21}, //30fps
+	{0x3035, 0x41}, //30fps
 	{0x3036, 0x69},
 	{0x3037, 0x13},
 
@@ -947,10 +945,10 @@ static const struct mode_list ov5640_effect[] = {
 	{.name = n, .width = w , .height = h, .regs = r }
 
 static struct ov5640_win_size ov5640_supported_win_sizes[] = {
-	OV7675_SIZE("QVGA", W_QVGA, H_QVGA, ov5640_qvga_regs),
-	OV7675_SIZE("VGA", W_VGA, H_VGA, ov5640_vga_regs),
-	OV7675_SIZE("720P", W_720P, H_720P, ov5640_720p_regs),
 	OV7675_SIZE("1080P", W_1080P, H_1080P, ov5640_1080p_regs),
+	OV7675_SIZE("720P", W_720P, H_720P, ov5640_720p_regs),
+	OV7675_SIZE("VGA", W_VGA, H_VGA, ov5640_vga_regs),
+	OV7675_SIZE("QVGA", W_QVGA, H_QVGA, ov5640_qvga_regs),
 };
 
 #define N_WIN_SIZES (ARRAY_SIZE(ov5640_supported_win_sizes))
@@ -1122,6 +1120,18 @@ static int ov5640_mask_set(struct i2c_client *client,
  */
 static int ov5640_s_stream(struct v4l2_subdev *sd, int enable)
 {
+	struct i2c_client  *client = v4l2_get_subdevdata(sd);
+
+	if (!enable ) {
+		dev_info(&client->dev, "stream down\n");
+		ov5640_write_reg(client, 0x3008, 0x42);
+
+		return 0;
+	}
+
+	dev_info(&client->dev, "stream on\n");
+	ov5640_write_reg(client, 0x3008, 0x02);
+
 	return 0;
 }
 
@@ -1229,15 +1239,15 @@ static int ov5640_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 		break;
 
 	case V4L2_CID_VFLIP:
-		value = ctrl->value ? REG_TC_VFLIP_ISP_MASK : 0x00;
+		value = ctrl->value ? OV5640_FLIP_VAL : 0x00;
 		priv->flag_vflip = ctrl->value ? 1 : 0;
-		ret = ov5640_mask_set(client, REG_TC_VFLIP, REG_TC_VFLIP_ISP_MASK, value);
+		ret = ov5640_mask_set(client, REG_TC_VFLIP, OV5640_FLIP_MASK, value);
 		break;
 
 	case V4L2_CID_HFLIP:
-		value = ctrl->value ? REG_TC_MIRROR_ISP_MASK : 0x00;
+		value = ctrl->value ? OV5640_FLIP_VAL : 0x00;
 		priv->flag_hflip = ctrl->value ? 1 : 0;
-		ret = ov5640_mask_set(client, REG_TC_MIRROR, REG_TC_MIRROR_ISP_MASK, value);
+		ret = ov5640_mask_set(client, REG_TC_MIRROR, OV5640_FLIP_MASK, value);
 		break;
 
 	default:
@@ -1321,8 +1331,8 @@ static const struct ov5640_win_size *ov5640_select_win(u32 *width, u32 *height)
 	int i, default_size = ARRAY_SIZE(ov5640_supported_win_sizes) - 1;
 
 	for (i = 0; i < ARRAY_SIZE(ov5640_supported_win_sizes); i++) {
-		if (ov5640_supported_win_sizes[i].width  >= *width &&
-		    ov5640_supported_win_sizes[i].height >= *height) {
+		if ((*width >= ov5640_supported_win_sizes[i].width) &&
+		    (*height >= ov5640_supported_win_sizes[i].height)) {
 			*width = ov5640_supported_win_sizes[i].width;
 			*height = ov5640_supported_win_sizes[i].height;
 			return &ov5640_supported_win_sizes[i];
