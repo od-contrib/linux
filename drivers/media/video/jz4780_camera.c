@@ -245,10 +245,8 @@ struct jz4780_camera_dev {
 	unsigned long mclk_freq;
 
 	spinlock_t lock;
-	unsigned int buf_cnt;
 	struct jz4780_camera_dma_desc *dma_desc;
 	void *desc_vaddr;
-	int is_first_start;
 	unsigned int is_tlb_enabled;
 };
 
@@ -403,17 +401,18 @@ static int jz4780_camera_setup_dma(struct jz4780_camera_dev *pcdev,
 	struct soc_camera_device *icd = pcdev->icd[dev_num];
 	struct jz4780_camera_dma_desc *dma_desc;
 	dma_addr_t dma_address;
-	unsigned int i, regval;
+	unsigned int regval;
 
+	/* disable dma and cim */
+	regval = readl(pcdev->base + CIM_CTRL);
+	regval &= ~(CIM_CTRL_ENA | CIM_CTRL_DMA_EN);
+	writel(regval, pcdev->base + CIM_CTRL);
+
+	writel(0, pcdev->base + CIM_STATE);
 
 	dma_desc = (struct jz4780_camera_dma_desc *) pcdev->desc_vaddr;
 
-	if (unlikely(!pcdev->active)) {
-		dprintk(3, "setup dma error with no active buffer\n");
-		return -EFAULT;
-	}
-
-	if(pcdev->is_tlb_enabled == 0) {
+	if (pcdev->is_tlb_enabled == 0) {
 		dma_address = videobuf_to_dma_contig(vbuf);
 
 		/* disable tlb error interrupt */
@@ -439,7 +438,7 @@ static int jz4780_camera_setup_dma(struct jz4780_camera_dev *pcdev,
 		writel(regval, pcdev->base + CIM_TC);
 	}
 
-	if(!dma_address) {
+	if (!dma_address) {
 		dprintk(3, "Failed to setup DMA address\n");
 		return -ENOMEM;
 	}
@@ -447,44 +446,45 @@ static int jz4780_camera_setup_dma(struct jz4780_camera_dev *pcdev,
 	regval = (unsigned int) (pcdev->dma_desc);
 	writel(regval, pcdev->base + CIM_DA);
 
-	for(i = 0; i < (pcdev->buf_cnt); i++) {
-		dma_desc[i].id = i;
-		dma_desc[i].buf = dma_address + (icd->user_width * icd->user_height << 1) * i;
+	dma_desc->id = 0;
+	dma_desc->buf = dma_address;
 
-		dprintk(7, "cim dma desc[i] address is: 0x%x\n", dma_desc[i].buf);
+	dprintk(7, "cim dma desc address is: 0x%x\n", dma_desc->buf);
 
-		if(icd->current_fmt->host_fmt->fourcc == V4L2_PIX_FMT_YUYV) {
-			dma_desc[i].cmd = icd->sizeimage >> 2 |
-					CIM_CMD_EOFINT | CIM_CMD_OFRCV;
-		} else {
-			dma_desc[i].cmd = (icd->sizeimage * 8 / 12) >> 2 |
-					CIM_CMD_EOFINT | CIM_CMD_OFRCV;
+	if (icd->current_fmt->host_fmt->fourcc == V4L2_PIX_FMT_YUYV) {
+		dma_desc->cmd = icd->sizeimage >> 2 | CIM_CMD_EOFINT |
+				CIM_CMD_OFRCV;
+	} else {
+		dma_desc->cmd = (icd->sizeimage * 8 / 12) >> 2 |
+				CIM_CMD_EOFINT | CIM_CMD_OFRCV;
 
-			dma_desc[i].cb_len = (icd->user_width >> 1) *
-					(icd->user_height >> 1) >> 2;
+		dma_desc->cb_len = (icd->user_width >> 1) *
+				(icd->user_height >> 1) >> 2;
 
-			dma_desc[i].cr_len = (icd->user_width >> 1) *
-					(icd->user_height >> 1) >> 2;
-		}
-
-		if(icd->current_fmt->host_fmt->fourcc == V4L2_PIX_FMT_YUV420) {
-			dma_desc[i].cb_frame = dma_desc[i].buf + icd->sizeimage * 8 / 12;
-			dma_desc[i].cr_frame = dma_desc[i].cb_frame + (icd->sizeimage / 6);
-
-		} else if(icd->current_fmt->host_fmt->fourcc == V4L2_PIX_FMT_JZ420B) {
-			dma_desc[i].cb_frame = dma_desc[i].buf + icd->sizeimage;
-			dma_desc[i].cr_frame = dma_desc[i].cb_frame + 64;
-		}
-
-		if(i == (pcdev->buf_cnt - 1)) {
-			dma_desc[i].next = (dma_addr_t) (pcdev->dma_desc);
-			break;
-		} else {
-			dma_desc[i].next = (dma_addr_t) (&pcdev->dma_desc[i + 1]);
-		}
-
-		dprintk(7, "cim dma desc[i] address is: 0x%x\n", dma_desc[i].buf);
+		dma_desc->cr_len = (icd->user_width >> 1) *
+				(icd->user_height >> 1) >> 2;
 	}
+
+	if (icd->current_fmt->host_fmt->fourcc == V4L2_PIX_FMT_YUV420) {
+		dma_desc->cb_frame = dma_desc->buf + icd->sizeimage * 8 / 12;
+		dma_desc->cr_frame = dma_desc->cb_frame + (icd->sizeimage / 6);
+
+	} else if (icd->current_fmt->host_fmt->fourcc == V4L2_PIX_FMT_JZ420B) {
+		dma_desc->cb_frame = dma_desc->buf + icd->sizeimage;
+		dma_desc->cr_frame = dma_desc->cb_frame + 64;
+	}
+
+	dma_desc->next = (dma_addr_t) (pcdev->dma_desc);
+
+	/* enable end of frame/rx overflow interrupt */
+	regval = readl(pcdev->base + CIM_IMR);
+	regval &= ~(CIM_IMR_EOFM | CIM_IMR_RFIFO_OFM);
+	writel(regval, pcdev->base + CIM_IMR);
+
+	/* enable dma and cim */
+	regval = readl(pcdev->base + CIM_CTRL);
+	regval |= CIM_CTRL_DMA_EN | CIM_CTRL_ENA;
+	writel(regval, pcdev->base + CIM_CTRL);
 
 	return 0;
 }
@@ -582,13 +582,6 @@ static void jz4780_camera_activate(struct jz4780_camera_dev *pcdev)
 static void jz4780_camera_deactivate(struct jz4780_camera_dev *pcdev)
 {
 	unsigned long temp = 0;
-	if(pcdev->clk) {
-		clk_disable(pcdev->clk);
-	}
-
-	if(pcdev->mclk) {
-		clk_disable(pcdev->mclk);
-	}
 
 	writel(0, pcdev->base + CIM_STATE);
 
@@ -621,6 +614,12 @@ static void jz4780_camera_deactivate(struct jz4780_camera_dev *pcdev)
 	temp &= ~CIM_CTRL_ENA;
 	writel(temp, pcdev->base + CIM_CTRL);
 
+	if (pcdev->clk)
+		clk_disable(pcdev->clk);
+
+	if (pcdev->mclk)
+		clk_disable(pcdev->mclk);
+
 	dprintk(7, "Deactivate device\n");
 }
 
@@ -642,7 +641,6 @@ static int jz4780_camera_add_device(struct soc_camera_device *icd)
 		 icd->devnum);
 
 	pcdev->icd[icd_index] = icd;
-	pcdev->is_first_start = 1;
 
 	/* disable tlb when open camera every time */
 	pcdev->is_tlb_enabled = 0;
@@ -687,7 +685,6 @@ static int jz4780_camera_set_bus_param(struct soc_camera_device *icd,
 	unsigned long ctrl_reg = 0;
 	unsigned long ctrl2_reg = 0;
 	unsigned long fs_reg = 0;
-	unsigned long temp = 0;
 	int ret;
 
 	camera_flags = icd->ops->query_bus_param(icd);
@@ -763,16 +760,6 @@ static int jz4780_camera_set_bus_param(struct soc_camera_device *icd,
 	writel(ctrl_reg, pcdev->base + CIM_CTRL);
 	writel(ctrl2_reg, pcdev->base + CIM_CTRL2);
 	writel(fs_reg, pcdev->base + CIM_FS);
-
-	/* enable end of frame interrupt */
-	temp = readl(pcdev->base + CIM_IMR);
-	temp &= ~CIM_IMR_EOFM;
-	writel(temp, pcdev->base + CIM_IMR);
-
-	/* enable rx overflow interrupt */
-	temp = readl(pcdev->base + CIM_IMR);
-	temp &= ~CIM_IMR_RFIFO_OFM;
-	writel(temp, pcdev->base + CIM_IMR);
 
 	return 0;
 }
@@ -858,27 +845,11 @@ static int jz4780_camera_try_fmt(struct soc_camera_device *icd,
 	return 0;
 }
 
-static int jz4780_camera_alloc_desc(struct jz4780_camera_dev *pcdev,
-		struct v4l2_requestbuffers *p) {
-
-	pcdev->buf_cnt = p->count;
-	pcdev->desc_vaddr = dma_alloc_coherent(pcdev->soc_host.v4l2_dev.dev,
-				sizeof(*pcdev->dma_desc) * pcdev->buf_cnt,
-				(dma_addr_t *)&pcdev->dma_desc, GFP_KERNEL);
-
-	if (!pcdev->dma_desc)
-		return -ENOMEM;
-
-	return 0;
-}
-
-
 static int jz4780_camera_reqbufs(struct soc_camera_device *icd,
 			      struct v4l2_requestbuffers *p)
 {
 	int i;
-	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
-	struct jz4780_camera_dev *pcdev = ici->priv;
+
 	/*
 	 * This is for locking debugging only. I removed spinlocks and now I
 	 * check whether .prepare is ever called on a linked buffer, or whether
@@ -892,9 +863,6 @@ static int jz4780_camera_reqbufs(struct soc_camera_device *icd,
 		INIT_LIST_HEAD(&buf->vb.queue);
 	}
 
-	if(jz4780_camera_alloc_desc(pcdev, p))
-		return -ENOMEM;
-
 	return 0;
 }
 
@@ -902,37 +870,9 @@ unsigned long jiff_temp;
 static unsigned int jz4780_camera_poll(struct file *file, poll_table *pt)
 {
 	struct soc_camera_device *icd = file->private_data;
-	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
-	struct jz4780_camera_dev *pcdev = ici->priv;
 	struct jz4780_buffer *buf;
-	unsigned long temp = 0;
 	buf = list_entry(icd->vb_vidq.stream.next, struct jz4780_buffer,
 			 vb.stream);
-
-	if(pcdev->is_first_start) {
-		writel(0, pcdev->base + CIM_STATE);
-
-		/* enable dma */
-		temp = readl(pcdev->base + CIM_CTRL);
-		temp |= CIM_CTRL_DMA_EN;
-		writel(temp, pcdev->base + CIM_CTRL);
-
-		/* clear rx fifo */
-		temp = readl(pcdev->base + CIM_CTRL);
-		temp |= CIM_CTRL_RXF_RST;
-		writel(temp, pcdev->base + CIM_CTRL);
-
-		temp = readl(pcdev->base + CIM_CTRL);
-		temp &= ~CIM_CTRL_RXF_RST;
-		writel(temp, pcdev->base + CIM_CTRL);
-
-		/* enable cim */
-		temp = readl(pcdev->base + CIM_CTRL);
-		temp |= CIM_CTRL_ENA;
-		writel(temp, pcdev->base + CIM_CTRL);
-		cim_dump_reg(pcdev);
-		pcdev->is_first_start = 0;
-	}
 
 	jiff_temp = jiffies;
 	poll_wait(file, &buf->vb.done, pt);
@@ -987,8 +927,11 @@ static int jz4780_camera_set_tlb_base(struct soc_camera_host *ici,
 }
 
 static void jz4780_camera_wakeup(struct jz4780_camera_dev *pcdev,
+			      struct soc_camera_device *icd,
 			      struct videobuf_buffer *vb,
 			      struct jz4780_buffer *buf) {
+	unsigned long temp;
+
 	// _init is used to debug races, see comment in jz4780_camera_reqbufs()
 	list_del_init(&vb->queue);
 	vb->state = VIDEOBUF_DONE;
@@ -998,33 +941,38 @@ static void jz4780_camera_wakeup(struct jz4780_camera_dev *pcdev,
 	dprintk(7, "after wake up cost %d ms\n", jiffies_to_msecs(jiffies - jiff_temp));
 
 	if (list_empty(&pcdev->capture)) {
+		/* disable cim */
+		temp = readl(pcdev->base + CIM_CTRL);
+		temp &= ~(CIM_CTRL_ENA | CIM_CTRL_DMA_EN);
+		writel(temp, pcdev->base + CIM_CTRL);
+
 		pcdev->active = NULL;
 		return;
 	}
 
 	pcdev->active = list_entry(pcdev->capture.next,
 				   struct jz4780_buffer, vb.queue);
+	jz4780_camera_setup_dma(pcdev, icd->devnum);
 }
 
 
 static irqreturn_t jz4780_camera_irq_handler(int irq, void *data) {
 
 	struct jz4780_camera_dev *pcdev = (struct jz4780_camera_dev *)data;
-	struct device *dev = NULL;
+	struct soc_camera_device *icd = NULL;
 	struct jz4780_buffer *buf;
 	struct videobuf_buffer *vb;
 	unsigned long status = 0, temp = 0;
 	unsigned long flags = 0;
 	unsigned int cam_dev_index;
 
-	for(cam_dev_index = 0; cam_dev_index < 2; cam_dev_index++) {
-		if(pcdev->icd[cam_dev_index]) {
-			dev = pcdev->icd[cam_dev_index]->dev.parent;
+	for (cam_dev_index = 0; cam_dev_index < 2; cam_dev_index++) {
+		icd = pcdev->icd[cam_dev_index];
+		if (icd)
 			break;
-		}
 	}
 
-	if(cam_dev_index == MAX_SOC_CAM_NUM)
+	if (unlikely(!icd))
 		return IRQ_HANDLED;
 
 	/* read interrupt status register */
@@ -1063,7 +1011,7 @@ static irqreturn_t jz4780_camera_irq_handler(int irq, void *data) {
 		return IRQ_HANDLED;
 	}
 
-	if(status & CIM_STATE_DMA_EOF) {
+	if (status & CIM_STATE_DMA_EOF) {
 		spin_lock_irqsave(&pcdev->lock, flags);
 
 		if (unlikely(!pcdev->active)) {
@@ -1084,16 +1032,17 @@ static irqreturn_t jz4780_camera_irq_handler(int irq, void *data) {
 		dprintk(7, "%s (vb=0x%p) 0x%08lx %d\n", __func__,
 			vb, vb->baddr, vb->bsize);
 
-		spin_unlock_irqrestore(&pcdev->lock, flags);
-		jz4780_camera_wakeup(pcdev, vb, buf);
-
 		/* clear dma interrupt status */
 		temp = readl(pcdev->base + CIM_STATE);
 		temp &= ~CIM_STATE_DMA_EOF;
 		writel(temp, pcdev->base + CIM_STATE);
 
+		spin_unlock_irqrestore(&pcdev->lock, flags);
+		jz4780_camera_wakeup(pcdev, icd, vb, buf);
+
 		return IRQ_HANDLED;
 	}
+
 	return IRQ_HANDLED;
 }
 
@@ -1210,7 +1159,7 @@ static int __init jz4780_camera_probe(struct platform_device *pdev)
 
 	//pcdev->soc_host.regul = regulator_get(&pdev->dev, "vcim");
 	pcdev->soc_host.regul = regulator_get(&pdev->dev, "vcim_2_8");
-	if(IS_ERR(pcdev->soc_host.regul)){
+	if (IS_ERR(pcdev->soc_host.regul)) {
 		dprintk(3, "get regulator fail!\n");
 		err = -ENODEV;
 		goto exit_put_clk_cim;
@@ -1251,16 +1200,23 @@ static int __init jz4780_camera_probe(struct platform_device *pdev)
 	/* request irq */
 	err = request_irq(pcdev->irq, jz4780_camera_irq_handler, IRQF_DISABLED,
 						dev_name(&pdev->dev), pcdev);
-	if(err) {
+	if (err) {
 		dprintk(3, "request irq failed!\n");
 		goto exit_iounmap;
 	}
 
-	/* request sensor reset and power gpio */
-	err = camera_sensor_gpio_init(pdev);
-	if(err) {
+	pcdev->desc_vaddr = dma_alloc_coherent(pcdev->soc_host.v4l2_dev.dev,
+				sizeof(*pcdev->dma_desc),
+				(dma_addr_t *)&pcdev->dma_desc, GFP_KERNEL);
+	if (!pcdev->desc_vaddr) {
+		err = -ENOMEM;
 		goto exit_free_irq;
 	}
+
+	/* request sensor reset and power gpio */
+	err = camera_sensor_gpio_init(pdev);
+	if (err)
+		goto exit_free_desc;
 
 	pcdev->soc_host.drv_name	= DRIVER_NAME;
 	pcdev->soc_host.ops		= &jz4780_soc_camera_host_ops;
@@ -1269,11 +1225,15 @@ static int __init jz4780_camera_probe(struct platform_device *pdev)
 	pcdev->soc_host.nr		= pdev->id;
 	err = soc_camera_host_register(&pcdev->soc_host);
 	if (err)
-		goto exit_free_irq;
+		goto exit_free_desc;
 
 	dprintk(6, "JZ4780 Camera driver loaded\n");
 	return 0;
 
+exit_free_desc:
+	dma_free_coherent(pcdev->soc_host.v4l2_dev.dev,
+			sizeof(*pcdev->dma_desc), pcdev->desc_vaddr,
+			(dma_addr_t)pcdev->dma_desc);
 exit_free_irq:
 	free_irq(pcdev->irq, pcdev);
 exit_iounmap:
@@ -1296,6 +1256,10 @@ static int __exit jz4780_camera_remove(struct platform_device *pdev)
 	struct jz4780_camera_dev *pcdev = container_of(soc_host,
 					struct jz4780_camera_dev, soc_host);
 	struct resource *res;
+
+	dma_free_coherent(pcdev->soc_host.v4l2_dev.dev,
+			sizeof(*pcdev->dma_desc), pcdev->desc_vaddr,
+			(dma_addr_t)pcdev->dma_desc);
 
 	free_irq(pcdev->irq, pcdev);
 
