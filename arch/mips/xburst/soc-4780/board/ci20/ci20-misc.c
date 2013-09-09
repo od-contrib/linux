@@ -21,6 +21,7 @@
 #include <mach/jzsnd.h>
 #include <mach/jzmmc.h>
 #include <mach/jzssi.h>
+#include <mach/jz4780_efuse.h>
 #include <linux/dm9000.h>
 #include <gpio.h>
 #include <linux/input/remote.h>
@@ -309,6 +310,13 @@ static struct platform_device pmem_camera_device = {
 };
 #endif
 
+#ifdef CONFIG_JZ4780_EFUSE
+static struct jz4780_efuse_platform_data jz_efuse_pdata = {
+	/* supply 2.5V to VDDQ */
+	.gpio_vddq_en_n = GPIO_PE(4),
+};
+#endif
+
 #ifdef CONFIG_SND_JZ4780_SOC_I2S
 
 /* I2S controller */
@@ -456,6 +464,9 @@ static int __init ci20_board_init(void)
 /* AOSD */
 #ifdef CONFIG_JZ4780_AOSD
 	platform_device_register(&jz_aosd_device);
+#endif
+#ifdef CONFIG_JZ4780_EFUSE
+	jz_device_register(&jz_efuse_device, &jz_efuse_pdata);
 #endif
 /* uart */
 #ifdef CONFIG_SERIAL_JZ47XX_UART0
