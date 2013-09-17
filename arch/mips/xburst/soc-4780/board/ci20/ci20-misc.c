@@ -177,10 +177,16 @@ static struct platform_device jz_remote_device = {
 #ifdef CONFIG_SPI0_JZ4780
 static struct spi_board_info jz_spi0_board_info[] = {
        [0] = {
-	       .modalias       = "slic_spi",
+	       .modalias       = "spidev",
 	       .bus_num	       = 0,
 	       .chip_select    = 0,
-	       .max_speed_hz   = 7500000,
+	       .max_speed_hz   = 120000,
+       },
+       [1] = {
+	       .modalias       = "spidev",
+	       .bus_num	       = 0,
+	       .chip_select    = 1,
+	       .max_speed_hz   = 120000,
        },
 };
 static struct jz47xx_spi_info spi0_info_cfg = {
