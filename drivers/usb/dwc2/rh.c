@@ -406,10 +406,16 @@ int dwc2_rh_hub_control(struct usb_hcd *hcd,
 		if (!wIndex || (wIndex > 1))
 			goto error;
 
-		/* TODO: whoever resumes must GetPortStatus to complete it!! */
-		//if (dwc->port1_status & USB_PORT_STATE_RESUME)
-		{
-
+		/* whoever resumes must GetPortStatus to complete it!! */
+		if (dwc->port1_status & USB_PORT_STATE_RESUME) {
+			dwc->port1_status &= ~USB_PORT_STATE_RESUME;
+			dwc2_port_suspend(dwc, false);
+			dwc->port1_status &= ~USB_PORT_STAT_SUSPEND;
+			dwc->port1_status |= (USB_PORT_STAT_C_SUSPEND << 16);
+			if (dwc->hcd->status_urb)
+				usb_hcd_poll_rh_status(dwc->hcd);
+			else
+				usb_hcd_resume_root_hub(dwc->hcd);
 		}
 
 		/* whoever resets must GetPortStatus to complete it!! */

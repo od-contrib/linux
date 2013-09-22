@@ -4,6 +4,8 @@
 #include <linux/usb.h>
 #include <linux/usb/hcd.h>
 
+#define USB_PORT_STATE_RESUME  (1 << 31)
+
 struct dwc2;
 
 static inline struct dwc2 *hcd_to_dwc2(struct usb_hcd *hcd)

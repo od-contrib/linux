@@ -1193,7 +1193,10 @@ static void dwc2_handle_wakeup_detected_intr(struct dwc2 *dwc) {
 		}
 		/** Change to L0 state*/
 		dwc->lx_state = DWC_OTG_L0;
-	}
+	} else {
+		dwc->port1_status |= USB_PORT_STATE_RESUME;
+                usb_hcd_resume_root_hub(dwc->hcd);
+        }
 
 	/* Clear interrupt */
 	gintsts.d32 = 0;
