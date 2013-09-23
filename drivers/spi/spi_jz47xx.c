@@ -105,6 +105,11 @@ static void jz47xx_spi_chipsel(struct spi_device *spi, int value)
 			hw->set_cs(hw->pdata, spi->chip_select, cspol^1);
 		break;
 	case BITBANG_CS_ACTIVE:
+		if (spi->chip_select == 0)
+			select_ce(hw);
+		else if (spi->chip_select == 1)
+			select_ce2(hw);
+
 		if (spi->mode & SPI_CPHA)
 			set_spi_clock_phase(hw, 1);
 		else
