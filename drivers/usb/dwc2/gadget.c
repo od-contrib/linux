@@ -1730,8 +1730,15 @@ static int dwc2_gadget_pullup(struct usb_gadget *g, int is_on)
 		goto out;
 
 	if (dwc2_is_device_mode(dwc)) {
-		if (dwc->plugin)
+		gotgctl_data_t gotgctl;
+
+		gotgctl.d32 = dwc_readl(&dwc->core_global_regs->gotgctl);
+
+		if (dwc->plugin) {
 			dwc2_start_ep0state_watcher(dwc, DWC2_EP0STATE_WATCH_COUNT);
+			gotgctl.b.bvalidoven = 0;
+			dwc_writel(gotgctl.d32, &dwc->core_global_regs->gotgctl);
+		}
 
 		dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 		dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
@@ -1745,6 +1752,10 @@ static int dwc2_gadget_pullup(struct usb_gadget *g, int is_on)
 		if (!dwc->pullup_on) {
 			udelay(300);
 			dwc2_gadget_handle_session_end(dwc);
+
+			gotgctl.b.bvalidoven = 1;
+			gotgctl.b.bvalidovval = 0;
+			dwc_writel(gotgctl.d32, &dwc->core_global_regs->gotgctl);
 		}
 	} else {
 		printk("gadget pullup defered, current mode: %s, plugin: %d\n",
@@ -2415,8 +2426,16 @@ void dwc2_gadget_plug_change(int plugin) {
 		dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
 		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
 
-		if (dwc->pullup_on)
+		if (dwc->pullup_on) {
+			gotgctl_data_t gotgctl;
+
+			/* ensure bvalid signal is from PHY */
+			gotgctl.d32 = dwc_readl(&dwc->core_global_regs->gotgctl);
+			gotgctl.b.bvalidoven = 0;
+			dwc_writel(gotgctl.d32, &dwc->core_global_regs->gotgctl);
+
 			dwc2_start_ep0state_watcher(dwc, DWC2_EP0STATE_WATCH_COUNT);
+		}
 	} else {
 		dctl.b.sftdiscon = 1;
 		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
