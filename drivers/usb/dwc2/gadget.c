@@ -2440,6 +2440,17 @@ void dwc2_gadget_plug_change(int plugin) {
 		dctl.b.sftdiscon = 1;
 		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
 
+#if !DWC2_HOST_MODE_ENABLE
+		{
+			gotgctl_data_t gotgctl;
+
+			gotgctl.d32 = dwc_readl(&dwc->core_global_regs->gotgctl);
+			gotgctl.b.bvalidoven = 1;
+			gotgctl.b.bvalidovval = 0;
+			dwc_writel(gotgctl.d32, &dwc->core_global_regs->gotgctl);
+		}
+#endif
+
 		/*
 		 * Note: the following commented code is used for testing what will
 		 *       happen if we unplug then quickly re-plug
