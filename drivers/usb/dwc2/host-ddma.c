@@ -279,7 +279,9 @@ void dwc2_disable_host_interrupts(struct dwc2 *dwc)
 void dwc2_enable_host_interrupts(struct dwc2 *dwc)
 {
 	dwc_otg_core_global_regs_t *global_regs = dwc->core_global_regs;
-	gintmsk_data_t intr_mask = {.d32 = 0 };
+	gintmsk_data_t intr_mask = { .d32 = 0 };
+
+	dwc_writel(0, &dwc->host_if.host_global_regs->haintmsk);
 
 	/* Disable all interrupts. */
 	dwc_writel(0, &global_regs->gintmsk);
@@ -527,11 +529,17 @@ static void dwc2_channel_free_dispatch(struct dwc2 *dwc, struct dwc2_channel *ch
 }
 
 static void __dwc2_free_channel(struct dwc2 *dwc, struct dwc2_channel *chan) {
+	haintmsk_data_t haintmsk = { .d32 = 0 };
+
 	dwc2_channel_free_dispatch(dwc, chan);
 
 	chan->disable_stage = 0;
 	list_del(&chan->list); /* del from chan_trans_list */
 	list_add_tail(&chan->list, &dwc->chan_free_list);
+
+	haintmsk.d32 = dwc_readl(&dwc->host_if.host_global_regs->haintmsk);
+	haintmsk.d32 &= ~(1 << chan->number);
+	dwc_writel(haintmsk.d32, &dwc->host_if.host_global_regs->haintmsk);
 }
 
 /* called from qh destroy */
@@ -562,6 +570,8 @@ static void dwc2_free_channel(struct dwc2 *dwc, struct dwc2_channel *chan) {
 }
 
 static void dwc2_free_isoc_chan(struct dwc2 *dwc, struct dwc2_channel *chan) {
+	haintmsk_data_t haintmsk = { .d32 = 0 };
+
 	if (chan->qh) {
 		struct dwc2_qh * qh = chan->qh;
 
@@ -577,6 +587,10 @@ static void dwc2_free_isoc_chan(struct dwc2 *dwc, struct dwc2_channel *chan) {
 
 	list_del(&chan->list); /* del from busy_isoc_chan_list */
 	list_add_tail(&chan->list, &dwc->idle_isoc_chan_list);
+
+	haintmsk.d32 = dwc_readl(&dwc->host_if.host_global_regs->haintmsk);
+	haintmsk.d32 &= ~(1 << chan->number);
+	dwc_writel(haintmsk.d32, &dwc->host_if.host_global_regs->haintmsk);
 }
 
 static void dwc2_hcd_stop(struct usb_hcd *hcd) {
@@ -3106,9 +3120,6 @@ static void dwc2_host_cleanup(struct dwc2 *dwc) {
 		if (chan->urb_priv) { /* Bulk/Control/INT */
 			qh = chan->urb_priv->owner_qh;
 			if (chan->disable_stage == 0) {
-				//printk("%s: td %p on qh %p is transfering, chan = %p(%d)\n",
-				//		__func__, chan->td, chan->td->owner_qh, chan, chan->number);
-
 				__dwc2_disable_channel_stage1(dwc, chan, DWC2_URB_CANCELING);
 				chan->waiting = 0;
 			}
@@ -3128,7 +3139,7 @@ static void dwc2_host_cleanup(struct dwc2 *dwc) {
 	}
 
 	list_for_each_entry_safe(qh, qh_temp, &dwc->idle_qh_list, list) {
-		//printk("%s: qh %p is idle\n", __func__, qh);
+		// printk("%s: qh %p is idle\n", __func__, qh);
 		dwc2_qh_destroy(dwc, qh);
 	}
 

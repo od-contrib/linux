@@ -345,7 +345,7 @@ void dwc2_flush_tx_fifo(struct dwc2 *dwc, const int num)
 	} while (greset.b.txfflsh == 1);
 
 	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
-	dctl.b.sgnpinnak = 1;
+	dctl.b.cgnpinnak = 1;
 	dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
 
 	dwc2_wait_3_phy_clocks();
@@ -1400,6 +1400,36 @@ static irqreturn_t dwc2_interrupt(int irq, void *_dwc) {
 	DWC2_CORE_DEBUG_MSG("%s:%d gintsts=0x%08x & gintmsk=0x%08x = 0x%08x\n",
 		__func__, __LINE__, gintsts.d32, gintmsk.d32, gintr_status.d32);
 	//dwc2_trace_gintsts(gintsts.d32, gintmsk.d32);
+
+	if (unlikely(gintr_status.d32 == 0)) {
+		int i;
+		haint_data_t haint;
+		dwc_otg_hc_regs_t *hc_regs;
+		hcint_data_t hcint;
+
+		printk("gintsts=0x%08x & gintmsk=0x%08x = 0x%08x\n",
+			"haint=0x%08x daint=0x%08x hprt=0x%08x gotgint=0x%08x\n",
+		       gintsts.d32, gintmsk.d32, gintr_status.d32,
+		       *((volatile unsigned int *)0xb3500414),
+		       *((volatile unsigned int *)0xb3500818),
+		       *((volatile unsigned int *)0xb3500440),
+		       *((volatile unsigned int *)0xb3500004)
+			);
+
+		haint.d32 = dwc_readl(&dwc->host_if.host_global_regs->haint);
+
+		for (i = 0; i < MAX_EPS_CHANNELS; i++) {
+			if (haint.b2.chint & (1 << i)) {
+				hc_regs = dwc->host_if.hc_regs[i];
+				hcint.d32 = dwc_readl(&hc_regs->hcint);
+				printk("===>hc%d intr 0x%08x\n", i, hcint.d32);
+			}
+		}
+
+		dwc->do_reset_core = 1;
+		if (dwc2_do_reset_device_core(dwc))
+			goto out;
+	}
 
 	dwc2_handle_common_interrupts(dwc, &gintr_status);
 
