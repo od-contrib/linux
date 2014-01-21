@@ -202,6 +202,12 @@ static struct spi_board_info jz_spi1_board_info[] = {
     [0] = {
 	       .modalias       = "spidev",
 	       .bus_num	       = 1,
+	       .chip_select    = 0,
+	       .max_speed_hz   = 120000,
+    },
+    [1] = {
+	       .modalias       = "spidev",
+	       .bus_num	       = 1,
 	       .chip_select    = 1,
 	       .max_speed_hz   = 120000,
     },
