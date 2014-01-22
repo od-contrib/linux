@@ -86,9 +86,6 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #ifdef CONFIG_SERIAL_JZ47XX_UART3
 	UART3_JTAG,
 #endif
-#ifdef CONFIG_SERIAL_JZ47XX_UART4
-	UART4_PORTC,
-#endif
 #ifdef CONFIG_NEMC_SRAM_8BIT
 	SRAM_CS5_PORTAB_BIT8,
 #endif
@@ -135,6 +132,9 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	DISABLE_LCD_PORTC,
 #else
 	LCD_PORTC,
+#endif
+#ifdef CONFIG_SERIAL_JZ47XX_UART4
+	UART4_PORTC,
 #endif
 	HDMI_PORTF,
 
