@@ -32,6 +32,7 @@
 
 #define GPIO_HP_MUTE 109
 #define GPIO_HP_DETECT 135
+#define GPIO_MIC_SW_EN 174
 
 static struct snd_soc_jack ci20_hp_jack;
 
@@ -188,6 +189,13 @@ static int __init ci20_audio_init(void)
 
 	gpio_direction_output(GPIO_HP_MUTE, 1);
 
+	ret = gpio_request(GPIO_MIC_SW_EN, "Mic Switch Enable");
+	if (ret < 0)
+		pr_warn("ci20 audio: Failed to request mic switch enable GPIO: %d\n",
+			ret);
+
+	gpio_direction_output(GPIO_MIC_SW_EN, 1);
+
 	ci20_hdmi_switch = 0;
 
 	return ret;
@@ -198,6 +206,7 @@ static void __exit ci20_audio_exit(void)
 {
 	snd_soc_jack_free_gpios(&ci20_hp_jack, 1, &ci20_hp_jack_gpio);
 	platform_device_unregister(ci20_audio_device);
+	gpio_free(GPIO_MIC_SW_EN);
 	gpio_free(GPIO_HP_MUTE);
 }
 module_exit(ci20_audio_exit);
