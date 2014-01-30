@@ -43,12 +43,32 @@ static struct snd_soc_jack_pin ci20_hp_jack_pins[] = {
 	},
 };
 
+static int ci20_hp_jack_status_check(void)
+{
+	int enable;
+
+	enable = !gpio_get_value_cansleep(GPIO_HP_DETECT);
+
+	/*
+	 * The headset type detection switch requires a rising edge on its
+	 * enable pin to trigger the detection sequence.
+	 */
+	if (enable) {
+		gpio_set_value_cansleep(GPIO_MIC_SW_EN, 1);
+		return SND_JACK_HEADPHONE;
+	} else {
+		gpio_set_value_cansleep(GPIO_MIC_SW_EN, 0);
+		return 0;
+	}
+}
+
 static struct snd_soc_jack_gpio ci20_hp_jack_gpio = {
 	.name = "headphone detect",
 	.report = SND_JACK_HEADPHONE,
 	.gpio = GPIO_HP_DETECT,
-	.debounce_time = 150,
+	.debounce_time = 200,
 	.invert = 1,
+	.jack_status_check = ci20_hp_jack_status_check,
 };
 
 static int ci20_hdmi_switch;
@@ -177,12 +197,6 @@ static int __init ci20_audio_init(void)
 
 	platform_set_drvdata(ci20_audio_device, &ci20_audio_card);
 
-	ret = platform_device_add(ci20_audio_device);
-	if (ret) {
-		pr_err("ci20 audio: Failed to add device: %d\n", ret);
-		platform_device_put(ci20_audio_device);
-	}
-
 	ret = gpio_request(GPIO_HP_MUTE, "Headphone Mute");
 	if (ret < 0)
 		pr_warn("ci20 audio: Failed to request mute GPIO: %d\n", ret);
@@ -194,7 +208,13 @@ static int __init ci20_audio_init(void)
 		pr_warn("ci20 audio: Failed to request mic switch enable GPIO: %d\n",
 			ret);
 
-	gpio_direction_output(GPIO_MIC_SW_EN, 1);
+	gpio_direction_output(GPIO_MIC_SW_EN, 0);
+
+	ret = platform_device_add(ci20_audio_device);
+	if (ret) {
+		pr_err("ci20 audio: Failed to add device: %d\n", ret);
+		platform_device_put(ci20_audio_device);
+	}
 
 	ci20_hdmi_switch = 0;
 
