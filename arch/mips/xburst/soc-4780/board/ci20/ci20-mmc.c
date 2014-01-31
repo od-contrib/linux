@@ -9,6 +9,7 @@
 #include "ci20.h"
 
 #define GPIO_WIFI_RST_N			GPIO_PF(7)
+#define GPIO_WLAN_PW_EN			GPIO_PB(19)
 
 #define KBYTE				(1024LL)
 #define MBYTE				((KBYTE)*(KBYTE))
@@ -196,6 +197,14 @@ int iw8101_wlan_init(void)
 	}
 	 iw8101_data.wifi_reset = reset;
 
+	if (gpio_request(GPIO_WLAN_PW_EN, "wlan_pw_en")) {
+		pr_err("no wlan_pw_en pin available\n");
+		regulator_put(power);
+		return -EINVAL;
+	} else {
+		gpio_direction_output(GPIO_WLAN_PW_EN, 0);
+	}
+
 	wake_lock_init(wifi_wake_lock, WAKE_LOCK_SUSPEND, "wifi_wake_lock");
 
 	return 0;
@@ -233,6 +242,7 @@ start:
 
 	switch(flag) {
 		case RESET:
+			gpio_set_value(GPIO_WLAN_PW_EN, 1);
 			regulator_enable(power);
 			jzmmc_clk_ctrl(1, 1);
 
@@ -245,6 +255,7 @@ start:
 			break;
 
 		case NORMAL:
+			gpio_set_value(GPIO_WLAN_PW_EN, 1);
 			regulator_enable(power);
 
 			gpio_set_value(reset, 0);
@@ -284,6 +295,7 @@ start:
 			gpio_set_value(reset, 0);
 
 			regulator_disable(power);
+			gpio_set_value(GPIO_WLAN_PW_EN, 0);
 			jzmmc_clk_ctrl(1, 0);
 			break;
 
@@ -291,6 +303,7 @@ start:
 			gpio_set_value(reset, 0);
 
 			regulator_disable(power);
+			gpio_set_value(GPIO_WLAN_PW_EN, 0);
 
  			jzmmc_manual_detect(1, 0);
 			break;
