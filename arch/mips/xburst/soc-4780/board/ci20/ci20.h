@@ -3,6 +3,13 @@
 #include <gpio.h>
 
 /**
+ * bcm4330 bluetooth
+ **/
+#ifdef CONFIG_BCM4330_RFKILL
+extern struct platform_device bcm4330_bt_power_device;
+#endif
+
+/**
  * mmc platform data
  **/
 extern struct jzmmc_platform_data ci20_inand_pdata;

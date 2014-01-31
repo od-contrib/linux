@@ -477,6 +477,10 @@ static int __init ci20_board_init(void)
 #ifdef CONFIG_JZ4780_AOSD
 	platform_device_register(&jz_aosd_device);
 #endif
+/*bcm4330 bt*/
+#ifdef CONFIG_BCM4330_RFKILL
+	platform_device_register(&bcm4330_bt_power_device);
+#endif
 #ifdef CONFIG_JZ4780_EFUSE
 	jz_device_register(&jz_efuse_device, &jz_efuse_pdata);
 #endif

@@ -19,6 +19,10 @@
 
 static struct wifi_data			iw8101_data;
 
+static DEFINE_SPINLOCK(wifi_enable_lock);
+static int power_en_count;
+static int clk_32k_count;
+
 int iw8101_wlan_init(void);
 #ifndef CONFIG_NAND_JZ4780
 #ifdef CONFIG_MMC0_JZ4780
@@ -164,6 +168,54 @@ struct jzmmc_platform_data ci20_sdio_pdata = {
 
 static unsigned int gpio_bakup[4];
 
+void clk_32k_on(void)
+{
+	spin_lock(&wifi_enable_lock);
+
+	if(clk_32k_count < 2) {
+		if(clk_32k_count++ == 0)
+			jzrtc_enable_clk32k();
+	}
+
+	spin_unlock(&wifi_enable_lock);
+}
+
+void clk_32k_off(void)
+{
+	spin_lock(&wifi_enable_lock);
+
+	if(clk_32k_count > 0) {
+		if(--clk_32k_count == 0)
+			jzrtc_disable_clk32k();
+	}
+
+	spin_unlock(&wifi_enable_lock);
+}
+
+void wlan_pw_en_enable(void)
+{
+	spin_lock(&wifi_enable_lock);
+
+	if(power_en_count < 2) {
+		if(power_en_count++ == 0)
+			gpio_set_value(GPIO_WLAN_PW_EN, 1);
+	}
+
+	spin_unlock(&wifi_enable_lock);
+}
+
+void wlan_pw_en_disable(void)
+{
+	spin_lock(&wifi_enable_lock);
+
+	if(power_en_count > 0) {
+		if(--power_en_count == 0)
+			gpio_set_value(GPIO_WLAN_PW_EN, 0);
+	}
+
+	spin_unlock(&wifi_enable_lock);
+}
+
 int iw8101_wlan_init(void)
 {
 	static struct wake_lock	*wifi_wake_lock = &iw8101_data.wifi_wake_lock;
@@ -237,12 +289,12 @@ start:
 	writel(gpio_bakup[3] & 0x1f00000, (void *)(0xb0010300 + PXPAT0S));
 	writel(~gpio_bakup[3] & 0x1f00000, (void *)(0xb0010300 + PXPAT0C));
 
-	jzrtc_enable_clk32k();
+	clk_32k_on();
 	msleep(200);
 
 	switch(flag) {
 		case RESET:
-			gpio_set_value(GPIO_WLAN_PW_EN, 1);
+			wlan_pw_en_enable();
 			regulator_enable(power);
 			jzmmc_clk_ctrl(1, 1);
 
@@ -255,7 +307,7 @@ start:
 			break;
 
 		case NORMAL:
-			gpio_set_value(GPIO_WLAN_PW_EN, 1);
+			wlan_pw_en_enable();
 			regulator_enable(power);
 
 			gpio_set_value(reset, 0);
@@ -295,7 +347,7 @@ start:
 			gpio_set_value(reset, 0);
 
 			regulator_disable(power);
-			gpio_set_value(GPIO_WLAN_PW_EN, 0);
+			wlan_pw_en_disable();
 			jzmmc_clk_ctrl(1, 0);
 			break;
 
@@ -303,7 +355,7 @@ start:
 			gpio_set_value(reset, 0);
 
 			regulator_disable(power);
-			gpio_set_value(GPIO_WLAN_PW_EN, 0);
+			wlan_pw_en_disable();
 
  			jzmmc_manual_detect(1, 0);
 			break;
@@ -311,7 +363,7 @@ start:
 
 	wake_unlock(wifi_wake_lock);
 
-	jzrtc_disable_clk32k();
+	clk_32k_off();
 
 	gpio_bakup[0] = (unsigned int)readl((void *)(0xb0010300 + PXINT)) & 0x1f00000;
 	gpio_bakup[1] = (unsigned int)readl((void *)(0xb0010300 + PXMSK)) & 0x1f00000;
@@ -325,5 +377,9 @@ start:
 	return 0;
 }
 
+EXPORT_SYMBOL(wlan_pw_en_enable);
+EXPORT_SYMBOL(wlan_pw_en_disable);
+EXPORT_SYMBOL(clk_32k_on);
+EXPORT_SYMBOL(clk_32k_off);
 EXPORT_SYMBOL(IW8101_wlan_power_on);
 EXPORT_SYMBOL(IW8101_wlan_power_off);
