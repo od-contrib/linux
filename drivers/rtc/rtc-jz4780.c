@@ -176,21 +176,6 @@ static irqreturn_t jz4780_rtc_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int jz4780_rtc_open(struct device *dev)
-{
-//	int ret;
-//	struct jz_rtc *rtc = dev_get_drvdata(dev);
-
-	return 0;
-}
-
-static void jz4780_rtc_release(struct device *dev)
-{
-	struct jz_rtc *rtc = dev_get_drvdata(dev);
-
-	free_irq(rtc->irq, rtc);
-}
-
 static int jz4780_rtc_ioctl(struct device *dev, unsigned int cmd,
 		unsigned long arg)
 {
@@ -321,9 +306,6 @@ static int jz4780_rtc_proc(struct device *dev, struct seq_file *seq)
 }
 
 static const struct rtc_class_ops jz4780_rtc_ops = {
-	.open = jz4780_rtc_open,
-	//.read_callback = jz4780_rtc_read_callback,
-	.release = jz4780_rtc_release,
 	.ioctl = jz4780_rtc_ioctl,
 	.read_time = jz4780_rtc_read_time,
 	.set_time = jz4780_rtc_set_time,
@@ -472,6 +454,8 @@ static int jz4780_rtc_remove(struct platform_device *pdev)
 	jzrtc_writel(rtc, RTC_RTCCR, 0);
 	if (rtc->rtc)
 		rtc_device_unregister(rtc->rtc);
+
+	free_irq(rtc->irq, rtc);
 
 	clk_disable(rtc->clk);
 	clk_put(rtc->clk);
