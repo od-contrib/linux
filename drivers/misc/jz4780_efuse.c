@@ -952,7 +952,7 @@ void jz_efuse_id_read(int is_chip_id, uint32_t *buf)
 	}
 
 	lpos = (is_chip_id) > 0 ? 0x8 : 0x18;
-	if (jz_nomal_efuse_read(extra_efuse, (char *)buf, 32, &lpos) < 0) {
+	if (jz_nomal_efuse_read(extra_efuse, (char *)buf, 16, &lpos) < 0) {
 		printk("read %s failed\n", lpos == 0x8 ? "chip_id" : "user_id");
 		return;
 	}
