@@ -22,7 +22,6 @@
 #include <mach/jzmmc.h>
 #include <mach/jzssi.h>
 #include <mach/jz4780_efuse.h>
-#include <linux/dm9000.h>
 #include <gpio.h>
 #include <linux/input/remote.h>
 #include <soc/irq.h>
@@ -254,57 +253,6 @@ struct jzdwc_pin dete_pin = {
 };
 #endif
 
-#ifdef CONFIG_DM9000
-
-#define DM9000_ETH_RET GPIO_PF(12)
-#define DM9000_ETH_INT GPIO_PE(19)
-static struct resource dm9000_resource[] = {
-
-	[0] = {
-		.start = 0x16000000,//DM9000_BASE,
-		.end = 0x16000001,//DM9000_BASE+,
-		.flags = IORESOURCE_MEM,
-	},
-
-	[1] = {
-		.start = 0x16000002,//DM9000_BASE,
-		.end = 0x16000005,//DM9000_BASE +,
-		.flags = IORESOURCE_MEM,
-	},
-
-	[2] = {
-		.start = IRQ_GPIO_BASE + GPIO_PE(19),// gpio_to_irq(DM9000_ETH_INT),
-		.end   = IRQ_GPIO_BASE + GPIO_PE(19),//gpio_to_irq(DM9000_ETH_INT),
-		.flags = IORESOURCE_IRQ | IRQF_TRIGGER_RISING,
-	},
-
-
-};
-static int dm9000_eth_gpio[] = {
-	[0] =  DM9000_ETH_RET,
-	[1] =  DM9000_ETH_INT,
-};
-
-static struct dm9000_plat_data dm9000_platform_data = {
-
-	.gpio = dm9000_eth_gpio,
-
-	.flags = DM9000_PLATF_8BITONLY | DM9000_PLATF_NO_EEPROM,
-
-
-};
-
-static struct platform_device dm9000  = {
-	.name	= "dm9000",
-	.id	= 0,
-	.resource = dm9000_resource,
-	.num_resources = ARRAY_SIZE(dm9000_resource),
-	.dev	= {
-		.platform_data	= &dm9000_platform_data,
-	},
-};
-#endif
-
 #ifdef CONFIG_ANDROID_PMEM
 static struct android_pmem_platform_data pmem_camera_pdata = {
 	.name = "pmem_camera",
@@ -409,9 +357,6 @@ static int __init ci20_board_init(void)
 	platform_device_register(&jz_ipu1_device);
 #endif
 
-#ifdef CONFIG_DM9000
-	platform_device_register(&dm9000);
-#endif
 /* mmc */
 #ifndef CONFIG_NAND_JZ4780
 #ifdef CONFIG_MMC0_JZ4780
