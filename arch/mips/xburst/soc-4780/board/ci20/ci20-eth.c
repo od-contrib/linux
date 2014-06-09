@@ -10,6 +10,7 @@
  * option) any later version.
  */
 
+#include <linux/etherdevice.h>
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
 #include <linux/dm9000.h>
@@ -24,7 +25,7 @@ struct ci20_otp {
 	uint32_t serial_number;
 	uint32_t date;
 	char manufacturer[2];
-	unsigned char mac[6];
+	uint8_t mac[ETH_ALEN];
 } __packed;
 
 #define DM9000_ETH_RET	GPIO_PF(12)
@@ -74,11 +75,28 @@ static struct platform_device ci20_dm9000 = {
  */
 static int __init ci20_eth_init(void)
 {
+#ifdef CONFIG_JZ4780_EFUSE
 	struct ci20_otp otp;
 
-#ifdef CONFIG_JZ4780_EFUSE
 	/* Read out the MAC address from the customer ID area of the EFUSE. */
 	jz_efuse_id_read(0, (uint32_t *)&otp);
+
+	if (!is_valid_ether_addr(otp.mac)) {
+		uint8_t data[16];
+
+		/*
+		 * Board has no MAC assigned, generate a locally-administered
+		 * one based on the unique parts of the chip ID.
+		 */
+		jz_efuse_id_read(1, (uint32_t *)data);
+		otp.mac[0] = (data[0] | 0x02) & ~0x01;
+		otp.mac[1] = data[1];
+		otp.mac[2] = data[2];
+		otp.mac[3] = data[3];
+		otp.mac[4] = data[10];
+		otp.mac[5] = data[11];
+	}
+
 	memcpy(dm9000_platform_data.dev_addr, otp.mac, sizeof(otp.mac));
 #else
 	pr_warn("EFUSE driver not enabled, cannot read MAC address\n");
