@@ -963,7 +963,6 @@ static const struct regval_list ov5640_rgb565_regs[] = {
 
 static enum v4l2_mbus_pixelcode ov5640_codes[] = {
 	V4L2_MBUS_FMT_YUYV8_2X8,
-	V4L2_MBUS_FMT_YUYV8_1_5X8,
 	V4L2_MBUS_FMT_JZYUYV8_1_5X8,
 };
 
