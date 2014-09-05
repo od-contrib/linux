@@ -1,0 +1,4 @@
+obj-$(CONFIG_HDMI_JZ4780) += \
+error.o \
+log.o \
+bitOperation.o
