@@ -701,6 +701,34 @@ int dtd_Fill(dtd_t *dtd, u8 code, u32 refreshRate)
 			dtd->mInterlaced = 0;
 			dtd->mPixelClock = 29700;
 			break;
+
+		case 65: /* 800x600 @ 60 */
+			dtd->mHActive = 800;
+			dtd->mVActive = 600;
+			dtd->mHBlanking = 256;
+			dtd->mVBlanking = 23;
+			dtd->mHSyncOffset = 40;
+			dtd->mVSyncOffset = 1;
+			dtd->mHSyncPulseWidth = 128;
+			dtd->mVSyncPulseWidth = 4;
+			dtd->mHSyncPolarity = 1;
+			dtd->mInterlaced = 0;
+			dtd->mPixelClock = 4000;
+			break;
+
+		case 66: /* 1024x768 @ 60 */
+			dtd->mHActive = 1024;
+			dtd->mVActive = 768;
+			dtd->mHBlanking = 320;
+			dtd->mVBlanking = 29;
+			dtd->mHSyncOffset = 24;
+			dtd->mVSyncOffset = 3;
+			dtd->mHSyncPulseWidth = 136;
+			dtd->mVSyncPulseWidth = 6;
+			dtd->mHSyncPolarity = 1;
+			dtd->mInterlaced = 0;
+			dtd->mPixelClock = 6500;
+			break;
 	default:
 		dtd->mCode = -1;
 		error_Set(ERR_DTD_INVALID_CODE);

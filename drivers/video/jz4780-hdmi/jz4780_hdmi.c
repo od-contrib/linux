@@ -201,7 +201,7 @@ static int hdmi_config(struct jzhdmi *jzhdmi)
 		if (currentMode >= svdNo) {
 			/* spanned all SVDs and non works, sending VGA */
 			dev_err(dev, "error spanned all SVDs and non works\n");
-			dtd_Fill(&tmp_dtd, 1, board_SupportedRefreshRate(1));
+			dtd_Fill(&tmp_dtd, CONFIG_FORCE_RESOLUTION, board_SupportedRefreshRate(1));
 			videoParams_SetDtd(pVideo, &tmp_dtd);
 			api_Configure(pVideo, pAudio, pProduct, pHdcp);
 		}
@@ -270,7 +270,7 @@ static int hdmi_config(struct jzhdmi *jzhdmi)
 		}
 		if (currentMode >= api_EdidDtdCount()) {
 			dev_err(dev, "spanned all dtds and non works, sending VGA\n");
-			dtd_Fill(&tmp_dtd, 1, board_SupportedRefreshRate(1));
+			dtd_Fill(&tmp_dtd, CONFIG_FORCE_RESOLUTION, board_SupportedRefreshRate(1));
 			videoParams_SetDtd(pVideo, &tmp_dtd);
 			api_Configure(pVideo, pAudio, pProduct, pHdcp);
 		}

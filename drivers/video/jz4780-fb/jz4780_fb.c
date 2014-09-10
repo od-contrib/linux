@@ -146,7 +146,7 @@ static struct fb_videomode *jzfb_checkout_videomode(struct fb_info *info)
 		int i, flag;
 
 		flag = CONFIG_FORCE_RESOLUTION;
-		if (flag <= 0 || flag > 64) {
+		if (flag <= 0 || flag > 100) {
 			dev_err(jzfb->dev, "Invalid mode flag: %d\n", flag);
 			return NULL;
 		}

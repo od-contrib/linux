@@ -19,7 +19,7 @@
 
 #define GPA_ENABLE 0
 
-#define HDMI_VIDEO_MODE_NUM 64 /* for test */
+#define HDMI_VIDEO_MODE_NUM 100 /* for test */
 #define MODE_NAME_LEN 32
 
 #if 0
