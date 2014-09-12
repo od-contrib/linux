@@ -26,7 +26,9 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 	unsigned int fp_vers = cpu_data[n].fpu_id;
 	char fmt [64];
 	int i;
+#ifdef CONFIG_JZ4780_EFUSE
 	uint32_t efbuf[4] = {0};
+#endif
 
 	struct thread_struct *mc_thread = &current->thread;
 
