@@ -38,16 +38,17 @@ PURPOSE AND NONINFRINGEMENT; AND (B) IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  
 */ /**************************************************************************/
 #ifndef __SGXSCRIPT_H__
 #define __SGXSCRIPT_H__
 
+#include "sgxfeaturedefs.h"
 #if defined (__cplusplus)
 extern "C" {
 #endif
 
 #define	SGX_MAX_INIT_COMMANDS	64
+#define	SGX_MAX_PRINT_COMMANDS	64
 #define	SGX_MAX_DEINIT_COMMANDS	16
 
 typedef	enum _SGX_INIT_OPERATION
@@ -55,6 +56,7 @@ typedef	enum _SGX_INIT_OPERATION
 	SGX_INIT_OP_ILLEGAL = 0,
 	SGX_INIT_OP_WRITE_HW_REG,
 	SGX_INIT_OP_READ_HW_REG,
+	SGX_INIT_OP_PRINT_HW_REG,
 #if defined(PDUMP)
 	SGX_INIT_OP_PDUMP_HW_REG,
 #endif
@@ -72,6 +74,7 @@ typedef union _SGX_INIT_COMMAND
 	struct {
 		SGX_INIT_OPERATION eOp;
 		IMG_UINT32 ui32Offset;
+		IMG_UINT32 ui32Value;
 	} sReadHWReg;
 #if defined(PDUMP)
 	struct {
@@ -87,6 +90,10 @@ typedef struct _SGX_INIT_SCRIPTS_
 	SGX_INIT_COMMAND asInitCommandsPart1[SGX_MAX_INIT_COMMANDS];
 	SGX_INIT_COMMAND asInitCommandsPart2[SGX_MAX_INIT_COMMANDS];
 	SGX_INIT_COMMAND asDeinitCommands[SGX_MAX_DEINIT_COMMANDS];
+#if defined(SGX_FEATURE_MP)
+	SGX_INIT_COMMAND asSGXREGDebugCommandsMaster[SGX_MAX_PRINT_COMMANDS];
+#endif
+	SGX_INIT_COMMAND asSGXREGDebugCommandsSlave[SGX_MAX_PRINT_COMMANDS];
 } SGX_INIT_SCRIPTS;
 
 #if defined(__cplusplus)

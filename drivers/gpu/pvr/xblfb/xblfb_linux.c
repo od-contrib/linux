@@ -100,6 +100,7 @@ void *XBLFBAllocKernelMem(unsigned long ulSize)
 
 void XBLFBFreeKernelMem(void *pvMem)
 {
+
 	kfree(pvMem);
 }
 
@@ -179,10 +180,34 @@ XBLFB_ERROR XBLFBGetLibFuncAddr (char *szFunctionName, PFN_DC_GET_PVRJTABLE *ppf
 	return (XBLFB_OK);
 }
 
-/* Inset a swap buffer into the swap chain work queue */
-void XBLFBQueueBufferForSwap(XBLFB_SWAPCHAIN *psSwapChain, XBLFB_BUFFER *psBuffer)
+/* Insert a swap buffer into the swap chain work queue */
+void XBLFBQueueBufferForSwap(XBLFB_SWAPCHAIN *psSwapChain, IMG_CPU_VIRTADDR pViAddress, XBLFB_HANDLE hCmdCookie)
 {
-	int res = queue_work(psSwapChain->psWorkQueue, &psBuffer->sWork);
+	int res = 0;
+	int i = 0;
+	XBLFB_BUFFER *psBuffer = IMG_NULL;
+	XBLFB_BUFFER *psBufferI = psSwapChain->psBuffer;
+
+	for (i = 0; i < SWAP_CHAIN_LENGTH; i++)
+	{
+		//printk(KERN_WARNING DRIVER_PREFIX ": %s: Device %u: psBuffer search [i%d] [%p] pViAddress[%p].\n", __FUNCTION__, psSwapChain->uiFBDevID, i, psBufferI->sCPUVAddr, pViAddress);
+		if (pViAddress == psBufferI->sCPUVAddr)
+		{
+			psBuffer = psBufferI;
+			break;
+		}
+		psBufferI = psBufferI->psNext;
+	}
+	if (psBuffer == IMG_NULL) {
+		printk(KERN_WARNING DRIVER_PREFIX ": %s: Device %u: Cannot find the XBLFB_BUFFER for the virtual address.\n", __FUNCTION__, psSwapChain->uiFBDevID);
+		psSwapChain->psBuffer->psDevInfo->sPVRJTable.pfnPVRSRVCmdComplete((IMG_HANDLE)hCmdCookie, IMG_TRUE);
+		return;
+	}
+
+	psBuffer->hCmdComplete = hCmdCookie;
+
+	res = queue_work(psSwapChain->psWorkQueue, &psBuffer->sWork);
+	//printk(KERN_WARNING DRIVER_PREFIX ": %s: Work [%p] queued.\n", __FUNCTION__, pViAddress);
 
 	if (res == 0)
 	{
@@ -194,6 +219,8 @@ void XBLFBQueueBufferForSwap(XBLFB_SWAPCHAIN *psSwapChain, XBLFB_BUFFER *psBuffe
 static void WorkQueueHandler(struct work_struct *psWork)
 {
 	XBLFB_BUFFER *psBuffer = container_of(psWork, XBLFB_BUFFER, sWork);
+
+	//printk(KERN_WARNING DRIVER_PREFIX ": %s: Work [%p] received.\n", __FUNCTION__, psBuffer->sCPUVAddr);
 
 	XBLFBSwapHandler(psBuffer);
 }
@@ -235,6 +262,8 @@ XBLFB_ERROR XBLFBCreateSwapQueue(XBLFB_SWAPCHAIN *psSwapChain)
 
 	return (XBLFB_OK);
 }
+
+struct work_struct sWork;
 
 /* Prepare buffer for insertion into a swap chain work queue */
 void XBLFBInitBufferForSwap(XBLFB_BUFFER *psBuffer)
@@ -284,11 +313,9 @@ void XBLFBFlip(XBLFB_DEVINFO *psDevInfo, XBLFB_BUFFER *psBuffer)
 	else
 	{
 		res = fb_pan_display(psDevInfo->psLINFBInfo, &sFBVar);
-                //                printk("fb_pan_display-----------------------\n");
-                
 		if (res != 0)
 		{
-                    printk(KERN_ERR DRIVER_PREFIX ": %s: Device %u: fb_pan_display failed (Y Offset: %lu, Error: %d)\n", __FUNCTION__, psDevInfo->uiFBDevID, psBuffer->ulYOffset, res);
+			printk(KERN_ERR DRIVER_PREFIX ": %s: Device %u: fb_pan_display failed (Y Offset: %lu, Error: %d)\n", __FUNCTION__, psDevInfo->uiFBDevID, psBuffer->ulYOffset, res);
 		}
 	}
 #endif 
@@ -318,7 +345,7 @@ void XBLFBFlip(XBLFB_DEVINFO *psDevInfo, XBLFB_BUFFER *psBuffer)
 
 /* Linux Framebuffer event notification handler */
 static int XBLFBFrameBufferEvents(struct notifier_block *psNotif,
-                             unsigned long event, void *data)
+								  unsigned long event, void *data)
 {
 	XBLFB_DEVINFO *psDevInfo;
 	struct fb_event *psFBEvent = (struct fb_event *)data;
@@ -492,7 +519,6 @@ XBLFB_ERROR XBLFBDisableLFBEventNotification(XBLFB_DEVINFO *psDevInfo)
 
 static int __init XBLFB_Init(void)
 {
-
 	if(XBLFBInit() != XBLFB_OK)
 	{
 		printk(KERN_ERR DRIVER_PREFIX ": %s: XBLFBInit failed\n", __FUNCTION__);
@@ -504,7 +530,7 @@ static int __init XBLFB_Init(void)
 }
 
 static void __exit XBLFB_Cleanup(void)
-{    
+{
 	if(XBLFBDeInit() != XBLFB_OK)
 	{
 		printk(KERN_ERR DRIVER_PREFIX ": %s: XBLFBDeInit failed\n", __FUNCTION__);

@@ -141,7 +141,6 @@ typedef struct _SYS_SPECIFIC_DATA_TAG_
 #endif
 	struct clk	*psTimer_Gate;
 	struct clk	*psTimer_Divider;
-	IMG_PVOID        pPowerHandle;
         struct timer_list psPowerDown_Timer;
 
         IMG_UINT32 ui32SGXFreqListSize;

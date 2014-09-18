@@ -1,5 +1,5 @@
 ccflags-y = -DLINUX -D__linux__ -DANDROID -DPVR_BUILD_DIR="\"xb4780_android\""
-ccflags-y += -Idrivers/gpu/pvr -Idrivers/gpu/pvr/xb47 -Idrivers/video/jz4780-fb
+ccflags-y += -Idrivers/gpu/pvr -Idrivers/gpu/pvr/xb4780 -Idrivers/video/jz4780-fb
 
 ccflags-y += \
 	-DSUPPORT_SGX \
@@ -9,6 +9,7 @@ ccflags-y += \
 	-DLDM_PLATFORM \
 	-DSUPPORT_SGX_NEW_STATUS_VALS \
 	-DSUPPORT_SGX_HWPERF \
+	-DSUPPORT_PVRSRV_DEVICE_CLASS \
 	-DSYS_USING_INTERRUPTS \
 	-DPVR_SECURE_HANDLES \
 	-DPVR_LINUX_USING_WORKQUEUES \
@@ -16,7 +17,7 @@ ccflags-y += \
 	-DPVR_LINUX_TIMERS_USING_WORKQUEUES \
 	-DSYS_CUSTOM_POWERLOCK_WRAP \
 	-DSUPPORT_MEMINFO_IDS \
-	-DDISPLAY_CONTROLLER=xblfb \
+	-DDISPLAY_CONTROLLER=dc_xblfb \
         -DPVR_LDM_PLATFORM_PRE_REGISTERED \
 	-DPVRSRV_MODNAME="\"pvrsrvkm\"" \
 	-DPVR_LDM_DRIVER_REGISTRATION_NAME="\"pvrsrvkm\"" \
@@ -25,6 +26,7 @@ ccflags-y += \
 	-DSUPPORT_LARGE_GENERAL_HEAP \
 	-DSYS_SUPPORTS_SGX_IDLE_CALLBACK \
 	-DPVRSRV_NEW_PVR_DPF \
+        -DPVR_ANDROID_NATIVE_WINDOW_HAS_SYNC \
 	-Idrivers/gpu/pvr/sgx
 
 ccflags-$(CONFIG_PVR_SGXCORE_540) += \
@@ -72,6 +74,7 @@ pvrsrvkm-y := \
 	proc.o \
 	pvr_bridge_k.o \
 	pvr_debug.o \
+        pvr_sync.o \
 	mm.o \
 	mutex.o \
 	event.o \
@@ -93,8 +96,8 @@ pvrsrvkm-y := \
 	bridged_pvr_bridge.o \
 	perproc.o \
 	lists.o \
-	xb47/sysconfig.o \
-	xb47/sysutils.o \
+	xb4780/sysconfig.o \
+	xb4780/sysutils.o \
 	sgx/bridged_sgx_bridge.o \
 	sgx/sgxinit.o \
 	sgx/sgxpower.o \
@@ -105,7 +108,8 @@ pvrsrvkm-y := \
 	sgx/mmu.o \
 	sgx/pb.o
 
-pvrsrvkm-$(CONFIG_ION_XB) += ion.o
+pvrsrvkm-$(CONFIG_ION_XBURST) += ion.o
+ccflags-$(CONFIG_ION_XBURST) += -DSUPPORT_ION
 
 xblfb-y := \
 	xblfb/xblfb_displayclass.o \

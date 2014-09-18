@@ -37,38 +37,33 @@ PURPOSE AND NONINFRINGEMENT; AND (B) IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  
 */ /**************************************************************************/
 
 #ifndef __IMG_LINUX_ION_H__
 #define __IMG_LINUX_ION_H__
 
+#if defined(SUPPORT_ION)
+
 #include <linux/ion.h>
-#if defined (CONFIG_ION_OMAP)
-#include <linux/omap_ion.h>
-#endif
-#if defined (SUPPORT_ION)
+
 #include "img_types.h"
 #include "servicesext.h"
-#endif
 
-void PVRSRVExportFDToIONHandles(int fd, struct ion_client **client,
-								struct ion_handle *handles[2]);
-
-struct ion_handle *PVRSRVExportFDToIONHandle(int fd,
-											 struct ion_client **client);
-
-#if defined (SUPPORT_ION)
 PVRSRV_ERROR IonInit(IMG_VOID);
+
 IMG_VOID IonDeinit(IMG_VOID);
 
-PVRSRV_ERROR IonImportBufferAndAquirePhysAddr(IMG_HANDLE hIonDev,
-											  IMG_HANDLE hIonFD,
-											  IMG_UINT32 *pui32PageCount,
-											  IMG_SYS_PHYADDR **ppasSysPhysAddr,
-											  IMG_PVOID *ppvKernAddr,
-											  IMG_HANDLE *phPriv);
+PVRSRV_ERROR IonImportBufferAndAcquirePhysAddr(IMG_HANDLE hIonDev,
+											   IMG_UINT32 ui32NumFDs,
+											   IMG_INT32  *pi32BufferFDs,
+											   IMG_UINT32 *pui32PageCount,
+											   IMG_SYS_PHYADDR **ppsSysPhysAddr,
+											   IMG_PVOID *ppvKernAddr0,
+											   IMG_HANDLE *phPriv,
+											   IMG_HANDLE *phUnique);
 
 IMG_VOID IonUnimportBufferAndReleasePhysAddr(IMG_HANDLE hPriv);
-#endif
+
+#endif /* defined(SUPPORT_ION) */
+
 #endif /* __IMG_LINUX_ION_H__ */

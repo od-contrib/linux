@@ -59,6 +59,8 @@ typedef bool XBLFB_BOOL, *XBLFB_PBOOL;
 #define	XBLFB_FALSE false
 #define XBLFB_TRUE true
 
+#define SWAP_CHAIN_LENGTH 3
+
 typedef	atomic_t	XBLFB_ATOMIC_BOOL;
 
 typedef atomic_t	XBLFB_ATOMIC_INT;
@@ -246,7 +248,7 @@ XBLFB_ERROR XBLFBCreateSwapQueue (XBLFB_SWAPCHAIN *psSwapChain);
 void XBLFBDestroySwapQueue(XBLFB_SWAPCHAIN *psSwapChain);
 void XBLFBInitBufferForSwap(XBLFB_BUFFER *psBuffer);
 void XBLFBSwapHandler(XBLFB_BUFFER *psBuffer);
-void XBLFBQueueBufferForSwap(XBLFB_SWAPCHAIN *psSwapChain, XBLFB_BUFFER *psBuffer);
+void XBLFBQueueBufferForSwap(XBLFB_SWAPCHAIN *psSwapChain, IMG_CPU_VIRTADDR pViAddress, XBLFB_HANDLE hCmdCookie);
 void XBLFBFlip(XBLFB_DEVINFO *psDevInfo, XBLFB_BUFFER *psBuffer);
 XBLFB_UPDATE_MODE XBLFBGetUpdateMode(XBLFB_DEVINFO *psDevInfo);
 XBLFB_BOOL XBLFBSetUpdateMode(XBLFB_DEVINFO *psDevInfo, XBLFB_UPDATE_MODE eMode);

@@ -39,7 +39,6 @@ PURPOSE AND NONINFRINGEMENT; AND (B) IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  
 */ /**************************************************************************/
 #ifndef __IMG_LINUX_MUTILS_H__
 #define __IMG_LINUX_MUTILS_H__
@@ -64,21 +63,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #else
 	#if defined(__arm__) || defined(__sh__)
 		#define	PGPROT_WC(pv)	pgprot_writecombine(pv)
+	#elif defined(__mips__)
+		#define PGPROT_WC(pv)	pgprot_noncached_wa(pv)
+	#elif defined(__i386__) || defined(__x86_64)
+		/* PAT support supersedes this */
+		#define	PGPROT_WC(pv)	pgprot_noncached(pv)
 	#else
-		#if defined(__i386__) || defined(__mips__)
-                        #define	PGPROT_WC(pv)	pgprot_noncached_wa(pv)
-		#else
-			#define PGPROT_WC(pv)	pgprot_noncached(pv)
-			#error  Unsupported architecture!
-		#endif
+		#define PGPROT_WC(pv)	pgprot_noncached(pv)
+		#error  Unsupported architecture!
 	#endif
 #endif
 
-#if defined(__mips__)
-#define	PGPROT_UC(pv)	pgprot_noncached_wa(pv)
-#else
 #define	PGPROT_UC(pv)	pgprot_noncached(pv)
-#endif
 
 #if defined(__i386__) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26))
 	#define	IOREMAP(pa, bytes)	ioremap_cache(pa, bytes)

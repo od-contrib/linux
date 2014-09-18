@@ -148,9 +148,21 @@ static IMG_VOID SetDCState(IMG_HANDLE hDevice, IMG_UINT32 ui32State)
 		case DC_STATE_NO_FLUSH_COMMANDS:
 			XBLFBAtomicBoolSet(&psDevInfo->sFlushCommands, XBLFB_FALSE);
 			break;
+#if 0
+		/*
+		 * This feature has been dropped in IMG DDK 1.11.
+		 *
+		 * This code was likely copied from OMAP implementation and isn't needed.
+		 * I believe the OMAP used the GPU Hardware Composer and this facility
+		 * slipped in a dummy frame if the GPU hardware got stuck.
+		 *
+		 * Ingenic uses it's own Hardware Composer and thus never needed
+		 * this old GPU workaround.
+		 */
 		case DC_STATE_FORCE_SWAP_TO_SYSTEM:
 			XBLFBFlip(psDevInfo, &psDevInfo->sSystemBuffer);
 			break;
+#endif
 		default:
 			break;
 	}
@@ -217,8 +229,8 @@ static PVRSRV_ERROR CloseDCDevice(IMG_HANDLE hDevice)
  * Called from services.
  */
 static PVRSRV_ERROR EnumDCFormats(IMG_HANDLE hDevice,
-                                  IMG_UINT32 *pui32NumFormats,
-                                  DISPLAY_FORMAT *psFormat)
+								  IMG_UINT32 *pui32NumFormats,
+								  DISPLAY_FORMAT *psFormat)
 {
 	XBLFB_DEVINFO	*psDevInfo;
 	
@@ -244,9 +256,9 @@ static PVRSRV_ERROR EnumDCFormats(IMG_HANDLE hDevice,
  * Called from services.
  */
 static PVRSRV_ERROR EnumDCDims(IMG_HANDLE hDevice, 
-                               DISPLAY_FORMAT *psFormat,
-                               IMG_UINT32 *pui32NumDims,
-                               DISPLAY_DIMS *psDim)
+							   DISPLAY_FORMAT *psFormat,
+							   IMG_UINT32 *pui32NumDims,
+							   DISPLAY_DIMS *psDim)
 {
 	XBLFB_DEVINFO	*psDevInfo;
 
@@ -276,7 +288,7 @@ static PVRSRV_ERROR EnumDCDims(IMG_HANDLE hDevice,
 static PVRSRV_ERROR GetDCSystemBuffer(IMG_HANDLE hDevice, IMG_HANDLE *phBuffer)
 {
 	XBLFB_DEVINFO	*psDevInfo;
-	
+
 	if(!hDevice || !phBuffer)
 	{
 		return PVRSRV_ERROR_INVALID_PARAMS;
@@ -297,7 +309,7 @@ static PVRSRV_ERROR GetDCSystemBuffer(IMG_HANDLE hDevice, IMG_HANDLE *phBuffer)
 static PVRSRV_ERROR GetDCInfo(IMG_HANDLE hDevice, DISPLAY_INFO *psDCInfo)
 {
 	XBLFB_DEVINFO	*psDevInfo;
-	
+
 	if(!hDevice || !psDCInfo)
 	{
 		return PVRSRV_ERROR_INVALID_PARAMS;
@@ -315,13 +327,13 @@ static PVRSRV_ERROR GetDCInfo(IMG_HANDLE hDevice, DISPLAY_INFO *psDCInfo)
  * Called from services.
  */
 static PVRSRV_ERROR GetDCBufferAddr(IMG_HANDLE        hDevice,
-                                    IMG_HANDLE        hBuffer, 
-                                    IMG_SYS_PHYADDR   **ppsSysAddr,
-                                    IMG_UINT32        *pui32ByteSize,
-                                    IMG_VOID          **ppvCpuVAddr,
-                                    IMG_HANDLE        *phOSMapInfo,
-                                    IMG_BOOL          *pbIsContiguous,
-				    IMG_UINT32        *pui32TilingStride)
+									IMG_HANDLE        hBuffer,
+									IMG_SYS_PHYADDR   **ppsSysAddr,
+									IMG_UINT32        *pui32ByteSize,
+									IMG_VOID          **ppvCpuVAddr,
+									IMG_HANDLE        *phOSMapInfo,
+									IMG_BOOL          *pbIsContiguous,
+									IMG_UINT32        *pui32TilingStride)
 {
 	XBLFB_DEVINFO	*psDevInfo;
 	XBLFB_BUFFER *psSystemBuffer;
@@ -379,14 +391,14 @@ static PVRSRV_ERROR GetDCBufferAddr(IMG_HANDLE        hDevice,
  * Called from services.
  */
 static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
-                                      IMG_UINT32 ui32Flags,
-                                      DISPLAY_SURF_ATTRIBUTES *psDstSurfAttrib,
-                                      DISPLAY_SURF_ATTRIBUTES *psSrcSurfAttrib,
-                                      IMG_UINT32 ui32BufferCount,
-                                      PVRSRV_SYNC_DATA **ppsSyncData,
-                                      IMG_UINT32 ui32OEMFlags,
-                                      IMG_HANDLE *phSwapChain,
-                                      IMG_UINT32 *pui32SwapChainID)
+									  IMG_UINT32 ui32Flags,
+									  DISPLAY_SURF_ATTRIBUTES *psDstSurfAttrib,
+									  DISPLAY_SURF_ATTRIBUTES *psSrcSurfAttrib,
+									  IMG_UINT32 ui32BufferCount,
+									  PVRSRV_SYNC_DATA **ppsSyncData,
+									  IMG_UINT32 ui32OEMFlags,
+									  IMG_HANDLE *phSwapChain,
+									  IMG_UINT32 *pui32SwapChainID)
 {
 	XBLFB_DEVINFO	*psDevInfo;
 	XBLFB_SWAPCHAIN *psSwapChain;
@@ -396,7 +408,7 @@ static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
 	IMG_UINT32 ui32BuffersToSkip;
 
 	UNREFERENCED_PARAMETER(ui32OEMFlags);
-	
+
 	/* Check parameters */
 	if(!hDevice
 	|| !psDstSurfAttrib
@@ -444,7 +456,7 @@ static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
 	 */
 	ui32BuffersToSkip = psDevInfo->sDisplayInfo.ui32MaxSwapChainBuffers - ui32BufferCount;
 
-	/* 
+	/*
 	 *	Verify the DST/SRC attributes,
 	 *	SRC/DST must match the current display mode config
 	*/
@@ -459,14 +471,14 @@ static PVRSRV_ERROR CreateDCSwapChain(IMG_HANDLE hDevice,
 	}		
 
 	if(psDstSurfAttrib->pixelformat != psSrcSurfAttrib->pixelformat
-	|| psDstSurfAttrib->sDims.ui32ByteStride != psSrcSurfAttrib->sDims.ui32ByteStride
-	|| psDstSurfAttrib->sDims.ui32Width != psSrcSurfAttrib->sDims.ui32Width
-	|| psDstSurfAttrib->sDims.ui32Height != psSrcSurfAttrib->sDims.ui32Height)
+			|| psDstSurfAttrib->sDims.ui32ByteStride != psSrcSurfAttrib->sDims.ui32ByteStride
+			|| psDstSurfAttrib->sDims.ui32Width != psSrcSurfAttrib->sDims.ui32Width
+			|| psDstSurfAttrib->sDims.ui32Height != psSrcSurfAttrib->sDims.ui32Height)
 	{
 		/* DST doesn't match the SRC */
 		eError = PVRSRV_ERROR_INVALID_PARAMS;
 		goto ExitUnLock;
-	}		
+	}
 
 	/* check flags if implementation requires them */
 	UNREFERENCED_PARAMETER(ui32Flags);
@@ -636,8 +648,8 @@ static PVRSRV_ERROR SetDCDstRect(IMG_HANDLE hDevice,
  * Called from services.
  */
 static PVRSRV_ERROR SetDCSrcRect(IMG_HANDLE hDevice,
-                                 IMG_HANDLE hSwapChain,
-                                 IMG_RECT *psRect)
+								 IMG_HANDLE hSwapChain,
+								 IMG_RECT *psRect)
 {
 	UNREFERENCED_PARAMETER(hDevice);
 	UNREFERENCED_PARAMETER(hSwapChain);
@@ -653,8 +665,8 @@ static PVRSRV_ERROR SetDCSrcRect(IMG_HANDLE hDevice,
  * Called from services.
  */
 static PVRSRV_ERROR SetDCDstColourKey(IMG_HANDLE hDevice,
-                                      IMG_HANDLE hSwapChain,
-                                      IMG_UINT32 ui32CKColour)
+									  IMG_HANDLE hSwapChain,
+									  IMG_UINT32 ui32CKColour)
 {
 	UNREFERENCED_PARAMETER(hDevice);
 	UNREFERENCED_PARAMETER(hSwapChain);
@@ -670,8 +682,8 @@ static PVRSRV_ERROR SetDCDstColourKey(IMG_HANDLE hDevice,
  * Called from services.
  */
 static PVRSRV_ERROR SetDCSrcColourKey(IMG_HANDLE hDevice,
-                                      IMG_HANDLE hSwapChain,
-                                      IMG_UINT32 ui32CKColour)
+									  IMG_HANDLE hSwapChain,
+									  IMG_UINT32 ui32CKColour)
 {
 	UNREFERENCED_PARAMETER(hDevice);
 	UNREFERENCED_PARAMETER(hSwapChain);
@@ -687,15 +699,15 @@ static PVRSRV_ERROR SetDCSrcColourKey(IMG_HANDLE hDevice,
  * Called from services.
  */
 static PVRSRV_ERROR GetDCBuffers(IMG_HANDLE hDevice,
-                                 IMG_HANDLE hSwapChain,
-                                 IMG_UINT32 *pui32BufferCount,
-                                 IMG_HANDLE *phBuffer)
+								 IMG_HANDLE hSwapChain,
+								 IMG_UINT32 *pui32BufferCount,
+								 IMG_HANDLE *phBuffer)
 {
 	XBLFB_DEVINFO   *psDevInfo;
 	XBLFB_SWAPCHAIN *psSwapChain;
 	PVRSRV_ERROR eError;
 	unsigned i;
-	
+
 	/* Check parameters */
 	if(!hDevice 
 	|| !hSwapChain
@@ -741,11 +753,11 @@ Exit:
  * Called from services.
  */
 static PVRSRV_ERROR SwapToDCBuffer(IMG_HANDLE hDevice,
-                                   IMG_HANDLE hBuffer,
-                                   IMG_UINT32 ui32SwapInterval,
-                                   IMG_HANDLE hPrivateTag,
-                                   IMG_UINT32 ui32ClipRectCount,
-                                   IMG_RECT *psClipRect)
+								   IMG_HANDLE hBuffer,
+								   IMG_UINT32 ui32SwapInterval,
+								   IMG_HANDLE hPrivateTag,
+								   IMG_UINT32 ui32ClipRectCount,
+								   IMG_RECT *psClipRect)
 {
 	UNREFERENCED_PARAMETER(hDevice);
 	UNREFERENCED_PARAMETER(hBuffer);
@@ -784,21 +796,32 @@ void XBLFBSwapHandler(XBLFB_BUFFER *psBuffer)
 	XBLFB_BOOL bPreviouslyNotVSynced;
 
 	{
-            XBLFBFlip(psDevInfo, psBuffer);
+		XBLFBFlip(psDevInfo, psBuffer);
 	}
 
 	bPreviouslyNotVSynced = psSwapChain->bNotVSynced;
 	psSwapChain->bNotVSynced = XBLFB_TRUE;
 
+	//printk(KERN_WARNING DRIVER_PREFIX ": %s: Work [%p] pre flip complete.\n", __FUNCTION__, psBuffer->sCPUVAddr);
+
 	psDevInfo->sPVRJTable.pfnPVRSRVCmdComplete((IMG_HANDLE)psBuffer->hCmdComplete, IMG_TRUE);
+
+	//printk(KERN_WARNING DRIVER_PREFIX ": %s: Work [%p] post flip complete.\n", __FUNCTION__, psBuffer->sCPUVAddr);
 }
 
-/* Triggered by PVRSRVSwapToDCBuffer */
+/* Triggered by PVRSRVSwapToDCBuffer
+ *  
+ * A swap chain is created of a specific size/number of buffers 
+ * and ProcessFlipV1 is used to switch between those buffers in a specific order. 
+ * The function is only handed buffers in the swap chain and always 
+ * in the same order e.g. 1,2,3,1,2,3.. 
+ * - This is no longer used in xb4780 
+ */
 static IMG_BOOL ProcessFlipV1(IMG_HANDLE hCmdCookie,
-			      XBLFB_DEVINFO *psDevInfo,
-			      XBLFB_SWAPCHAIN *psSwapChain,
-			      XBLFB_BUFFER *psBuffer,
-			      unsigned long ulSwapInterval)
+							  XBLFB_DEVINFO *psDevInfo,
+							  XBLFB_SWAPCHAIN *psSwapChain,
+							  XBLFB_BUFFER *psBuffer,
+							  unsigned long ulSwapInterval)
 {
 	XBLFBCreateSwapChainLock(psDevInfo);
 
@@ -814,8 +837,42 @@ static IMG_BOOL ProcessFlipV1(IMG_HANDLE hCmdCookie,
 		psBuffer->hCmdComplete = (XBLFB_HANDLE)hCmdCookie;
 		psBuffer->ulSwapInterval = ulSwapInterval;
 		{
-			XBLFBQueueBufferForSwap(psSwapChain, psBuffer);
+			//XBLFBQueueBufferForSwap(psSwapChain, psBuffer);
 		}
+	}
+
+	XBLFBCreateSwapChainUnLock(psDevInfo);
+
+	return IMG_TRUE;
+}
+
+/* ProcessFlipV2 uses same ProcessFlip entry point. 
+ * The reason ProcessFlipV2 exists is that the hardware composer builds on top of the 
+ * concept of a swap chain.
+ * This signals that the command contains a  payload of private data. The private 
+ * data is a vendor-specific structure passed from the hardware composer in userspace
+ * which contains arbitrarily complex programming metadata. Instead of a swap chain 
+ * buffer being passed to this function, an array of MEMINFOs is passed instead, as 
+ * with the HWC path we can have arbitrary buffers rather than a swap chain.
+ * 
+ * The combination of MEMINFOs and private data should be enough for the customer to program 
+ * any buffer to their display engine.
+ * 
+ */
+static IMG_BOOL ProcessFlipV2(IMG_HANDLE hCmdCookie,
+							  XBLFB_DEVINFO *psDevInfo,
+							  PDC_MEM_INFO *ppsMemInfos,
+							  IMG_UINT32 ui32NumMemInfos,
+							  IMG_PVOID *psDispcData,
+							  IMG_UINT32 ui32DispcDataLength)
+{
+	XBLFBCreateSwapChainLock(psDevInfo);
+
+	{
+		IMG_CPU_VIRTADDR pViAddress;
+		gapsDevInfo[0]->sPVRJTable.pfnPVRSRVDCMemInfoGetCpuVAddr(ppsMemInfos[0], &pViAddress);
+
+		XBLFBQueueBufferForSwap(psDevInfo->psSwapChain, pViAddress, (XBLFB_HANDLE)hCmdCookie);
 	}
 
 	XBLFBCreateSwapChainUnLock(psDevInfo);
@@ -825,8 +882,8 @@ static IMG_BOOL ProcessFlipV1(IMG_HANDLE hCmdCookie,
 
 /* Command processing flip handler function.  Called from services. */
 static IMG_BOOL ProcessFlip(IMG_HANDLE  hCmdCookie,
-                            IMG_UINT32  ui32DataSize,
-                            IMG_VOID   *pvData)
+							IMG_UINT32  ui32DataSize,
+							IMG_VOID   *pvData)
 {
 	DISPLAYCLASS_FLIP_COMMAND *psFlipCmd;
 	XBLFB_DEVINFO *psDevInfo;
@@ -857,7 +914,17 @@ static IMG_BOOL ProcessFlip(IMG_HANDLE  hCmdCookie,
 	}
 	else
 	{
-		BUG();
+		/* If hExtBuffer is NULL, this signals that the command contains 
+		 * a payload of private data. Call ProcessFlipV2 to handle this. 
+		 */
+		DISPLAYCLASS_FLIP_COMMAND2 *psFlipCmd2;
+		psFlipCmd2 = (DISPLAYCLASS_FLIP_COMMAND2 *)pvData;
+		return ProcessFlipV2(hCmdCookie,
+							 psDevInfo,
+							 psFlipCmd2->ppsMemInfos,
+							 psFlipCmd2->ui32NumMemInfos,
+							 psFlipCmd2->pvPrivData,
+							 psFlipCmd2->ui32PrivDataLength);
 	}
 }
 
@@ -1229,7 +1296,7 @@ XBLFB_ERROR XBLFBInit(void)
 }
 
 /*
- *	OMAPLFBDeInitDev
+ *	XBLFBDeInitDev
  *	DeInitialises one device
  */
 static XBLFB_BOOL XBLFBDeInitDev(XBLFB_DEVINFO *psDevInfo)
@@ -1275,7 +1342,7 @@ static XBLFB_BOOL XBLFBDeInitDev(XBLFB_DEVINFO *psDevInfo)
 }
 
 /*
- *	OMAPLFBDeInit
+ *	XBLFBDeInit
  *	Deinitialises the display class device component of the FBDev
  */
 XBLFB_ERROR XBLFBDeInit(void)

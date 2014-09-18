@@ -57,66 +57,57 @@
 #include "pvr_drm.h"
 #endif
 
-#include <soc/cpm.h>
-#include <soc/base.h>
-#include <mach/jzcpm_pwc.h>
 #define	ONE_MHZ	1000000
 #define	HZ_TO_MHZ(m) ((m) / ONE_MHZ)
 
 #define SGX_PARENT_CLOCK "core_ck"
 
-// The proc entry for our /proc/pvr directory
+// The proc entry for our /proc/pvr directory.
+//
+// REMIND: Perhaps this should be cleaned up.
+//         It's requiring 'dir' to be made global
+//         in drivers/gpu/pvr/proc.c
+//
+//         Make's it possibe to provide easy to access via:
+//             /proc/pvr/turbo
+//
 extern struct proc_dir_entry * dir;
 
 #if defined(LDM_PLATFORM) && !defined(PVR_DRI_DRM_NOT_PCI)
 extern struct platform_device *gpsPVRLDMDev;
 #endif
-
-static IMG_BOOL PowerSupplyIsOFF(IMG_VOID *handle)
+static IMG_BOOL PowerSupplyIsOFF(IMG_VOID)
 {
-	return !cpm_pwc_is_enabled(handle);
+    return (inl(0x10000004) & (1 << 25));
 }
 
-static IMG_VOID TurnOffPowerSupply(IMG_UINT32 uData)
+static IMG_VOID TurnOffPowerSupply(IMG_VOID)
 {
-	SYS_SPECIFIC_DATA *psSysSpecData = (SYS_SPECIFIC_DATA *)uData;
-	if(!PowerSupplyIsOFF(psSysSpecData->pPowerHandle)) {
-		cpm_pwc_disable(psSysSpecData->pPowerHandle);
-	}
-}
-
-static IMG_VOID TurnOnPowerSupply(IMG_UINT32 uData)
-{
-	SYS_SPECIFIC_DATA *psSysSpecData = (SYS_SPECIFIC_DATA *)uData;
-	if(PowerSupplyIsOFF(psSysSpecData->pPowerHandle))
-		cpm_pwc_enable(psSysSpecData->pPowerHandle);
-}
-
-static PVRSRV_ERROR SetClockRate(SYS_SPECIFIC_DATA *psSysSpecificData, IMG_UINT32 ui32RequiredRate)
-{
-    struct clk *parent;
-    IMG_UINT32 ui32ParentRate, ui32RealRate;
-    
-    if(psSysSpecificData->psTimer_Divider) {
-        parent = clk_get_parent(psSysSpecificData->psTimer_Divider);
-        ui32ParentRate = clk_get_rate(parent);
-
-        if(ui32ParentRate % ui32RequiredRate)
-            ui32RealRate = ((ui32ParentRate / (ui32ParentRate / ui32RequiredRate)) > SYS_SGX_CLOCK_MAX_SPEED) ?
-                    ui32RequiredRate : (ui32ParentRate / (ui32ParentRate / ui32RequiredRate));
-        else
-            ui32RealRate = ui32RequiredRate;
-
-        clk_set_rate(psSysSpecificData->psTimer_Divider, ui32RealRate);
-        psSysSpecificData->ui32CurrentSpeed = clk_get_rate(psSysSpecificData->psTimer_Divider);
-        
-        // Rarely happen, but SHOULD double check
-        if(psSysSpecificData->ui32CurrentSpeed > ui32RealRate) {
-            PVR_DPF((PVR_DBG_ERROR, "Ops, Should NOT happen, please check CPM\n"));
-            return PVRSRV_ERROR_CLOCK_REQUEST_FAILED;
-        }
+#if !defined(CONFIG_BOARD_URBOARD)
+    if(!PowerSupplyIsOFF())
+    {
+        // Wait for GPU IDLE
+        do {
+        } while (!(inl(0x10000004) & (1 << 24)));
+        // Turn off the light
+        outl((inl(0x10000004) | (1 << 29)), 0x10000004);
+        // Wait for power down
+        do {
+        } while (!(inl(0x10000004) & (1 << 25)));
     }
-    return PVRSRV_OK;
+#endif
+}
+
+static IMG_VOID TurnOnPowerSupply(IMG_VOID)
+{
+    if(PowerSupplyIsOFF())
+    {
+        // Turn on the light
+        outl((inl(0x10000004) & ~(1 << 29)), 0x10000004);
+        // Wait for power on
+        do {
+        } while ((inl(0x10000004) & (1 << 25)));
+    }
 }
 
 static PVRSRV_ERROR PowerLockWrap(SYS_SPECIFIC_DATA *psSysSpecData, IMG_BOOL bTryLock)
@@ -234,7 +225,7 @@ PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData)
 			}
 			else if (res == -EBUSY)
 			{
-				PVR_DPF((PVR_DBG_ERROR, "EnableSGXClocks: Unable to scale SGX frequency (EBUSY)"));
+				PVR_DPF((PVR_DBG_WARNING, "EnableSGXClocks: Unable to scale SGX frequency (EBUSY)"));
 				psSysSpecData->ui32SGXFreqListIndex = psSysSpecData->ui32SGXFreqListSize - 1;
 			}
 			else if (res < 0)
@@ -249,7 +240,7 @@ PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData)
             del_timer_sync(&psSysSpecData->psPowerDown_Timer);
             clk_enable(psSysSpecData->psTimer_Divider);
             clk_enable(psSysSpecData->psTimer_Gate);
-            TurnOnPowerSupply((IMG_UINT32)psSysSpecData);
+            TurnOnPowerSupply();
         }
 
 	{
@@ -336,24 +327,10 @@ IMG_VOID DisableSGXClocks(SYS_DATA *psSysData)
 #endif
 
         {
-		int count = 10000;
-		//wait gpu idle
-		while(!cpm_test_bit(20,CPM_LCR) && count--);
-		if(count <= 0) {
-			printk("wait idle timeout\n");
-		}
-		if(count < 9999)
-			printk("gpu count = %d\n",count);
-		if(count > 0) {
-			clk_disable(psSysSpecData->psTimer_Gate);
-			clk_disable(psSysSpecData->psTimer_Divider);
-			mod_timer(&psSysSpecData->psPowerDown_Timer,
-				  jiffies + msecs_to_jiffies(SYS_SGX_ACTIVE_POWER_POWER_DOWN_LATENCY_MS));
-
-		}else {
-			del_timer_sync(&psSysSpecData->psPowerDown_Timer);
-		}
-
+            clk_disable(psSysSpecData->psTimer_Gate);
+            clk_disable(psSysSpecData->psTimer_Divider);
+            mod_timer(&psSysSpecData->psPowerDown_Timer,
+                      jiffies + msecs_to_jiffies(SYS_SGX_ACTIVE_POWER_POWER_DOWN_LATENCY_MS));
         }
 
 	atomic_set(&psSysSpecData->sSGXClocksEnabled, 0);
@@ -362,6 +339,9 @@ IMG_VOID DisableSGXClocks(SYS_DATA *psSysData)
 	PVR_UNREFERENCED_PARAMETER(psSysData);
 #endif
 }
+
+#include <soc/cpm.h>
+#include <soc/base.h>
 
 static int turbo_read_proc(char *page, char **start, off_t off,
 		int count, int *eof, void *data)
@@ -382,16 +362,23 @@ static int turbo_write_proc(struct file *file, const char __user *buffer,
 
     if(!strncmp(buffer, TurboSwitchOn, strlen(TurboSwitchOn))) {
         if(psSysSpecData->psTimer_Divider) {
-            if(SetClockRate(psSysSpecData, SYS_SGX_CLOCK_MAX_SPEED) != PVRSRV_OK) {
+            clk_set_rate(psSysSpecData->psTimer_Divider, SYS_SGX_CLOCK_MAX_SPEED);
+            psSysSpecData->ui32CurrentSpeed = clk_get_rate(psSysSpecData->psTimer_Divider);
+            if(psSysSpecData->ui32CurrentSpeed > SYS_SGX_CLOCK_MAX_SPEED) {
                 PVR_DPF((PVR_DBG_ERROR, "SwitchToTurbo: Couldn't set clock to MAX"));
+                clk_set_rate(psSysSpecData->psTimer_Divider, SYS_SGX_CLOCK_SPEED);
+                psSysSpecData->ui32CurrentSpeed = SYS_SGX_CLOCK_SPEED;
                 return PVRSRV_ERROR_CLOCK_REQUEST_FAILED;
             }
             psSysSpecData->bTurboState = IMG_TRUE;
         }
     } else {
         if(psSysSpecData->psTimer_Divider) {
-            if(SetClockRate(psSysSpecData, SYS_SGX_CLOCK_SPEED) != PVRSRV_OK) {
+            clk_set_rate(psSysSpecData->psTimer_Divider, SYS_SGX_CLOCK_SPEED);
+            psSysSpecData->ui32CurrentSpeed = clk_get_rate(psSysSpecData->psTimer_Divider);
+            if(psSysSpecData->ui32CurrentSpeed > SYS_SGX_CLOCK_SPEED) {
                 PVR_DPF((PVR_DBG_ERROR, "SwitchToTurbo: Couldn't set clock to Normal"));
+                psSysSpecData->ui32CurrentSpeed = SYS_SGX_CLOCK_SPEED;
                 return PVRSRV_ERROR_CLOCK_REQUEST_FAILED;
             }
 
@@ -402,13 +389,12 @@ static int turbo_write_proc(struct file *file, const char __user *buffer,
     return count;
 }
 
-static IMG_INT CreateProcEntries(SYS_SPECIFIC_DATA *psSysSpecData)
+static IMG_INT CreateTurboEntries(SYS_SPECIFIC_DATA *psSysSpecData)
 {
     struct proc_dir_entry *res;
 
     if (!dir)
     {
-        PVR_DPF((PVR_DBG_ERROR, "CreateProcEntries: cannot make /proc/pvr/turbo"));
 
         return -ENOMEM;
     }
@@ -423,7 +409,7 @@ static IMG_INT CreateProcEntries(SYS_SPECIFIC_DATA *psSysSpecData)
     return PVRSRV_OK;
 }
 
-IMG_VOID RemoveXBProcEntries(IMG_VOID)
+IMG_VOID RemoveTurboEntries(IMG_VOID)
 {
     if (dir)
     {
@@ -456,23 +442,27 @@ static PVRSRV_ERROR AcquireGPTimer(SYS_SPECIFIC_DATA *psSysSpecData)
 	psSysSpecData->psTimer_Divider = psCLK;
 
         if(psSysSpecData->ui32CurrentSpeed != 0) {
-            if(SetClockRate(psSysSpecData, psSysSpecData->ui32CurrentSpeed) != PVRSRV_OK)
+            clk_set_rate(psSysSpecData->psTimer_Divider, psSysSpecData->ui32CurrentSpeed);
+            psSysSpecData->ui32CurrentSpeed = clk_get_rate(psSysSpecData->psTimer_Divider);
+            if (psSysSpecData->ui32CurrentSpeed > SYS_SGX_CLOCK_MAX_SPEED) {
+                psSysSpecData->ui32CurrentSpeed = SYS_SGX_CLOCK_SPEED;
                 goto ExitDisableTimerGate;
+            }
         } else {
-            if(SetClockRate(psSysSpecData, SYS_SGX_CLOCK_SPEED) != PVRSRV_OK)
+            clk_set_rate(psSysSpecData->psTimer_Divider, SYS_SGX_CLOCK_SPEED);
+            psSysSpecData->ui32CurrentSpeed = clk_get_rate(psSysSpecData->psTimer_Divider);
+            if (psSysSpecData->ui32CurrentSpeed > SYS_SGX_CLOCK_SPEED) {
+                psSysSpecData->ui32CurrentSpeed = SYS_SGX_CLOCK_SPEED;
                 goto ExitDisableTimerGate;
+            }
         }
 
         // Init the timer for turning off the power supply
         psSysSpecData->psPowerDown_Timer.expires = jiffies + msecs_to_jiffies(SYS_SGX_ACTIVE_POWER_POWER_DOWN_LATENCY_MS);
         psSysSpecData->psPowerDown_Timer.function = TurnOffPowerSupply;
-        psSysSpecData->psPowerDown_Timer.data = (IMG_UINT32)psSysSpecData;
-
-        psSysSpecData->pPowerHandle = cpm_pwc_get(PWC_GPU);
-
         init_timer(&psSysSpecData->psPowerDown_Timer);
 
-        CreateProcEntries(psSysSpecData);
+        CreateTurboEntries(psSysSpecData);
 
 	eError = PVRSRV_OK;
 
@@ -504,8 +494,7 @@ static void ReleaseGPTimer(SYS_SPECIFIC_DATA *psSysSpecData)
 	clk_put(psSysSpecData->psTimer_Gate);
 	clk_put(psSysSpecData->psTimer_Divider);
 
-	cpm_pwc_put(psSysSpecData->pPowerHandle);
-        RemoveXBProcEntries();
+        RemoveTurboEntries();
 
 #else //#if defined(PVR_XB47_TIMING_CPM)
 	PVR_UNREFERENCED_PARAMETER(psSysSpecData);
