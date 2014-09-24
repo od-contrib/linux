@@ -12,6 +12,8 @@
 #ifndef _ASM_R4KCACHE_H
 #define _ASM_R4KCACHE_H
 
+#include <linux/hardirq.h>		/* for preemptible() decl */
+
 #include <asm/asm.h>
 #include <asm/cacheops.h>
 #include <asm/cpu-features.h>
@@ -559,6 +561,10 @@ static inline void blast_dcache_jz(void)
 	unsigned long start = (unsigned long)reserved_for_alloccache;
 	unsigned long end = start + current_cpu_data.dcache.waysize * current_cpu_data.dcache.ways;
 	unsigned long addr = start;
+
+       if ( preemptible() )
+		panic("%s: preemptible!\n", __func__);
+
        do {
 		i_pref(JZ_ALLOC_PREF, addr, 0);i_lw(addr);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
 		i_pref(JZ_ALLOC_PREF, addr, 0);i_lw(addr);i_cache(Hit_Invalidate_D,addr,0);addr += 32;
@@ -646,6 +652,9 @@ static inline void blast_dcache32(void)
 	unsigned long ws_end = current_cpu_data.dcache.ways <<
 	                       current_cpu_data.dcache.waybit;
 	unsigned long ws, addr;
+
+	if ( preemptible() )
+		panic("%s: preemptible!\n", __func__);
 
 	for (ws = 0; ws < ws_end; ws += ws_inc)
 		for (addr = start; addr < end; addr += 0x400)
