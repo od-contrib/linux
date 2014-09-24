@@ -34,6 +34,12 @@ NESTED(handle_sys, PT_SIZE, sp)
 
 	lw	t1, PT_EPC(sp)		# skip syscall on return
 
+	/* If the syscall number is negative, assume this is a restarted indirect syscall */
+	move    t6, zero
+	bgez    v0, 1f
+	negu    v0, v0
+	li      t6, 1                   # set flag to indicate that stack args are offset
+1:
 	subu	v0, v0, __NR_O32_Linux	# check syscall number
 	sltiu	t0, v0, __NR_O32_Linux_syscalls + 1
 	addiu	t1, 4			# skip to next instruction
@@ -125,6 +131,11 @@ syscall_trace_entry:
 stackargs:
 	lw	t0, PT_R29(sp)		# get old user stack pointer
 
+	/* If the original syscall was indirect the remaining stack args are offset by 4 bytes */
+	beqz    t6, 1f
+	addiu   t0, 4
+1:
+
 	/*
 	 * We intentionally keep the kernel stack a little below the top of
 	 * userspace so we don't have to do a slower byte accurate check here.
@@ -204,7 +215,7 @@ illegal_syscall:
 	j	o32_syscall_exit
 	END(handle_sys)
 
-	LEAF(sys_syscall)
+LEAF(sys_syscall)
 	subu	t0, a0, __NR_O32_Linux	# check syscall number
 	sltiu	v0, t0, __NR_O32_Linux_syscalls + 1
 	beqz	t0, einval		# do not recurse
@@ -222,6 +233,10 @@ illegal_syscall:
 	   and claim zero arguments in the syscall table. Thus we have to
 	   assume the worst case and shuffle around all potential arguments.
 	   If you want performance, don't use indirect syscalls. */
+
+	negu	a0				# negate syscall number to indicate that is was
+						# originally called indirectly
+	sw      a0, PT_R2(sp)  			# update v0 for syscall restarting
 
 	move	a0, a1				# shift argument registers
 	move	a1, a2

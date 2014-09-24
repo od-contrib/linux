@@ -33,6 +33,12 @@ NESTED(handle_sys, PT_SIZE, sp)
 	.set	at
 	ld	t1, PT_EPC(sp)		# skip syscall on return
 
+	/* If the syscall number is negative, assume this is a restarted indirect syscall */
+	move    t6, zero
+	bgez    v0, 1f
+	negu    v0, v0
+	li      t6, 1                   # set flag to indicate that stack args are offset
+1:
 	dsubu	t0, v0, __NR_O32_Linux	# check syscall number
 	sltiu	t0, t0, __NR_O32_Linux_syscalls + 1
 	daddiu	t1, 4			# skip to next instruction
@@ -66,6 +72,12 @@ NESTED(handle_sys, PT_SIZE, sp)
 	 * userspace so we don't have to do a slower byte accurate check here.
 	 */
 	ld	t0, PT_R29(sp)		# get old user stack pointer
+
+	/* If the original syscall was indirect the remaining stack args are offset by 4 bytes */
+	beqz    t6, 1f
+	daddiu  t0, 4
+1:
+
 	daddu	t1, t0, 32
 	bltz	t1, bad_stack
 
@@ -180,6 +192,10 @@ LEAF(sys32_syscall)
 	dsll	t1, t0, 3
 	beqz	v0, einval
 	ld	t2, sys_call_table(t1)		# syscall routine
+
+	dnegu	a0			# negate syscall number to indicate that is was
+					# originally called indirectly
+	sd      a0, PT_R2(sp) 		# update v0 for syscall restarting
 
 	move	a0, a1			# shift argument registers
 	move	a1, a2
