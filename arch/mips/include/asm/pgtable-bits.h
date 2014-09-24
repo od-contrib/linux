@@ -229,6 +229,11 @@ static inline uint64_t pte_to_entrylo(unsigned long pte_val)
 
 #else
 
+/*
+ * The MIPS architecture only requires cache attribute values 2 and 3
+ * to be implemented. All 8 cache attribute values are defined here with
+ * historical defaults
+ */
 #define _CACHE_CACHABLE_NO_WA	    (0<<_CACHE_SHIFT)  /* R4600 only      */
 #define _CACHE_CACHABLE_WA	    (1<<_CACHE_SHIFT)  /* R4600 only      */
 #define _CACHE_UNCACHED             (2<<_CACHE_SHIFT)  /* R4[0246]00      */
@@ -240,6 +245,12 @@ static inline uint64_t pte_to_entrylo(unsigned long pte_val)
 #define _CACHE_UNCACHED_ACCELERATED (7<<_CACHE_SHIFT)  /* R10000 only     */
 
 #endif
+
+/*
+ * The best cache attribute to implement writecombine varies between
+ * implementations and is set by a Kconfig option
+ */
+#define _CACHE_UNCACHED_WRITECOMBINE (CONFIG_CPU_CACHE_UNCACHED_WRITECOMBINE<<_CACHE_SHIFT)
 
 #define __READABLE	(_PAGE_SILENT_READ | _PAGE_ACCESSED | (kernel_uses_smartmips_rixi ? 0 : _PAGE_READ))
 #define __WRITEABLE	(_PAGE_WRITE | _PAGE_SILENT_WRITE | _PAGE_MODIFIED)

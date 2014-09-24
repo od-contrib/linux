@@ -1671,6 +1671,24 @@ config WEAK_ORDERING
 #
 config WEAK_REORDERING_BEYOND_LLSC
 	bool
+
+config CPU_CACHE_UNCACHED_WRITECOMBINE
+	int "Cache attribute to use for writecombine (0-7)"
+	range 0 7
+	default "1" if SOC_4780
+	default "2"
+	help
+	   This option selects the cache coherency attribute (CCA) to use for
+	   writecombine memory. Accesses to writecombine memory are predominantly
+	   writes, can be weakly ordered and should be write-gathered. Reads are uncached.
+
+	   Most CPU's have an uncached accelerated cache attribute (7) which may
+	   be suitable, although some implementations only accelerate sequential
+	   accesses.
+
+	   If unsure use 2 which is uncached for all CPUs. This will give
+	   correct but possibly suboptimal behaviour.
+
 endmenu
 
 #

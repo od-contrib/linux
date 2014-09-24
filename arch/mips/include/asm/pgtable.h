@@ -328,24 +328,29 @@ static inline pte_t pte_mkspecial(pte_t pte)	{ return pte; }
  * contains the memory attribute bits, dirty bits, and various other
  * bits as well.
  */
+#define __pgprot_modify(prot,mask,bits)         		\
+        __pgprot((pgprot_val(prot) & ~(mask)) | (bits))
+
 #define pgprot_noncached pgprot_noncached
 
 static inline pgprot_t pgprot_noncached(pgprot_t _prot)
 {
-	unsigned long prot = pgprot_val(_prot);
-
-	prot = (prot & ~_CACHE_MASK) | _CACHE_UNCACHED;
-
-	return __pgprot(prot);
+	return __pgprot_modify(_prot, _CACHE_MASK, _CACHE_UNCACHED);
 }
 
+/*
+ * This pgprot_noncached_wa() isn't defined in include/asm-generic/pgtable.h
+ * if it's not already defined so it's not necessary to #define it here.
+ */
 static inline pgprot_t pgprot_noncached_wa(pgprot_t _prot)
 {
-	unsigned long prot = pgprot_val(_prot);
+	return __pgprot_modify(_prot, _CACHE_MASK, _CACHE_CACHABLE_WA);
+}
 
-	prot = (prot & ~_CACHE_MASK) | _CACHE_CACHABLE_WA;
-
-	return __pgprot(prot);
+#define pgprot_writecombine	pgprot_writecombine
+static inline pgprot_t pgprot_writecombine(pgprot_t _prot)
+{
+	return __pgprot_modify(_prot, _CACHE_MASK, _CACHE_UNCACHED_WRITECOMBINE);
 }
 
 /*
