@@ -77,8 +77,23 @@ static struct page *alloc_buffer_page(struct ion_system_heap *heap,
 		page = ion_heap_alloc_pages(buffer, gfp_flags, order);
 		if (!page)
 			return 0;
+#ifdef CONFIG_ARM
 		__dma_page_cpu_to_dev(page, 0, PAGE_SIZE << order,
 				      DMA_BIDIRECTIONAL);
+#elif CONFIG_MIPS
+		{
+			extern struct dma_map_ops *mips_dma_map_ops;
+			struct scatterlist sg = {
+#ifdef CONFIG_DEBUG_SG
+				.sg_magic = SG_MAGIC,
+#endif
+				.length   = PAGE_SIZE << order,
+			};
+			sg_assign_page(&sg, page);
+			mips_dma_map_ops->sync_sg_for_device(NULL, &sg, 1,
+							     DMA_BIDIRECTIONAL);
+		}
+#endif
 	}
 	if (!page)
 		return 0;
@@ -412,7 +427,7 @@ int ion_system_contig_heap_map_user(struct ion_heap *heap,
 				    struct ion_buffer *buffer,
 				    struct vm_area_struct *vma)
 {
-	unsigned long pfn = __phys_to_pfn(virt_to_phys(buffer->priv_virt));
+	unsigned long pfn = PFN_DOWN(virt_to_phys(buffer->priv_virt));
 	return remap_pfn_range(vma, vma->vm_start, pfn + vma->vm_pgoff,
 			       vma->vm_end - vma->vm_start,
 			       vma->vm_page_prot);

@@ -11,3 +11,8 @@ config ION_TEGRA
 	help
 	  Choose this option if you wish to use ion on an nVidia Tegra.
 
+config ION_XBURST
+	tristate "Ion for Xburst"
+	depends on MACH_XBURST && ION
+	help
+	  Choose this option if you wish to use ion on an Ingenic Xburst.

@@ -155,12 +155,16 @@ void ion_cma_heap_unmap_dma(struct ion_heap *heap,
 static int ion_cma_mmap(struct ion_heap *mapper, struct ion_buffer *buffer,
 			struct vm_area_struct *vma)
 {
+#ifdef CONFIG_ARM
 	struct ion_cma_heap *cma_heap = to_cma_heap(buffer->heap);
 	struct device *dev = cma_heap->dev;
 	struct ion_cma_buffer_info *info = buffer->priv_virt;
 
 	return dma_mmap_coherent(dev, vma, info->cpu_addr, info->handle,
 				 buffer->size);
+#else
+	return -ENXIO;
+#endif
 }
 
 void *ion_cma_map_kernel(struct ion_heap *heap, struct ion_buffer *buffer)

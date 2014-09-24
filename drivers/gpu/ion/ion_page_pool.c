@@ -37,8 +37,23 @@ static void *ion_page_pool_alloc_pages(struct ion_page_pool *pool)
 	/* this is only being used to flush the page for dma,
 	   this api is not really suitable for calling from a driver
 	   but no better way to flush a page for dma exist at this time */
+#ifdef CONFIG_ARM
 	__dma_page_cpu_to_dev(page, 0, PAGE_SIZE << pool->order,
 			      DMA_BIDIRECTIONAL);
+#elif CONFIG_MIPS
+	{
+		extern struct dma_map_ops *mips_dma_map_ops;
+		struct scatterlist sg = {
+#ifdef CONFIG_DEBUG_SG
+			.sg_magic = SG_MAGIC,
+#endif
+			.length   = PAGE_SIZE << pool->order,
+		};
+		sg_assign_page(&sg, page);
+		mips_dma_map_ops->sync_sg_for_device(NULL, &sg, 1, DMA_BIDIRECTIONAL);
+	}
+#endif
+
 	return page;
 }
 

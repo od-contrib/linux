@@ -862,8 +862,21 @@ static void ion_buffer_sync_for_device(struct ion_buffer *buffer,
 	for (i = 0; i < pages; i++) {
 		struct page *page = buffer->pages[i];
 
-		if (ion_buffer_page_is_dirty(page))
+		if (ion_buffer_page_is_dirty(page)) {
+#ifdef CONFIG_ARM
 			__dma_page_cpu_to_dev(page, 0, PAGE_SIZE, dir);
+#elif CONFIG_MIPS
+			extern struct dma_map_ops *mips_dma_map_ops;
+			struct scatterlist sg = {
+#ifdef CONFIG_DEBUG_SG
+				.sg_magic = SG_MAGIC,
+#endif
+				.length   = PAGE_SIZE,
+			};
+			sg_assign_page(&sg, page);
+			mips_dma_map_ops->sync_sg_for_device(dev, &sg, 1, dir);
+#endif
+		}
 		ion_buffer_page_clean(buffer->pages + i);
 	}
 	list_for_each_entry(vma_list, &buffer->vmas, list) {
@@ -1483,6 +1496,8 @@ void ion_device_destroy(struct ion_device *dev)
 	kfree(dev);
 }
 
+#ifndef CONFIG_MIPS
+
 void __init ion_reserve(struct ion_platform_data *data)
 {
 	int i;
@@ -1517,3 +1532,5 @@ void __init ion_reserve(struct ion_platform_data *data)
 			data->heaps[i].size);
 	}
 }
+
+#endif /* CONFIG_MIPS */
