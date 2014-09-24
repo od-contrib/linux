@@ -600,8 +600,15 @@ static void emulate_load_store_insn(struct pt_regs *regs,
 		/* Cannot handle 64-bit instructions in 32-bit kernel */
 		goto sigill;
 
-         case ldxc1_op:
-         case sdxc1_op:
+	case cop1x_op:
+		/* Only indexed load/store can cause unaligned access */
+		if (insn.f_format.func != lwxc1_op &&
+		    insn.f_format.func != ldxc1_op &&
+		    insn.f_format.func != swxc1_op &&
+		    insn.f_format.func != sdxc1_op)
+		  goto sigill;
+		/* fall through to cop1 handler */
+
          case lwc1_op:
          case ldc1_op:
          case swc1_op:
