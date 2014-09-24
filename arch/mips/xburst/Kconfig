@@ -12,6 +12,7 @@ config SOC_4780
 	select NR_CPUS_DEFAULT_2
 	select SYS_SUPPORTS_SMP
 	select GENERIC_CLOCKEVENTS_BROADCAST
+	select NO_EXCEPT_FILL
 
 config SOC_4775
 	bool "4775"
