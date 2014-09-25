@@ -37,8 +37,6 @@
 #include <soc/cache.h>
 #include <soc/base.h>
 #include <soc/cpm.h>
-#include <linux/err.h>
-#include <mach/jzcpm_pwc.h>
 
 #ifdef SMP_DEBUG
 static void jzsoc_smp_showregs(void);
@@ -57,7 +55,6 @@ static int smp_flag;
 static struct cpumask cpu_ready_e, cpu_running, cpu_start;
 static struct cpumask *cpu_ready;
 static unsigned long boot_sp, boot_gp;
-static void *scpu_pwc = NULL;
 
 /* Special cp0 register init */
 static void __cpuinit jzsoc_smp_init(void)
@@ -171,6 +168,11 @@ static void __cpuinit jzsoc_boot_secondary(int cpu, struct task_struct *idle)
 	int err;
 	unsigned long flags,ctrl;
 
+	preempt_disable();
+
+	/* blast all cache before booting secondary cpu */
+	blast_dcache_jz();
+	blast_icache_jz();
 
 	preempt_enable_no_resched();
 
@@ -181,13 +183,9 @@ static void __cpuinit jzsoc_boot_secondary(int cpu, struct task_struct *idle)
 	ctrl |= (1 << cpu);
 	set_smp_ctrl(ctrl);
 
-	/* blast all cache before booting secondary cpu */
-	blast_dcache_jz();
-	blast_icache_jz();
-
 	cpm_clear_bit(15,CPM_CLKGR1);
-	cpm_pwc_enable(scpu_pwc);
-	preempt_disable();
+	cpm_clear_bit(31,CPM_LCR);
+	udelay(1);
 
 	/* clear reset bit! */
 	ctrl = get_smp_ctrl();
@@ -209,7 +207,7 @@ wait:
 static void __init jzsoc_smp_setup(void)
 {
 	int i, num;
-	scpu_pwc = cpm_pwc_get(PWC_SCPU);
+
 	cpus_clear(cpu_possible_map);
 	cpus_clear(cpu_present_map);
 
@@ -339,8 +337,7 @@ void jzsoc_cpu_die(unsigned int cpu)
 		status = get_smp_status();
 	}while(!(status & (1<<(cpu+16))));
 
-	cpm_pwc_disable(scpu_pwc);
-
+	cpm_set_bit(31,CPM_LCR);
 	cpm_set_bit(15,CPM_CLKGR1);
 
 	local_irq_restore(flags);
