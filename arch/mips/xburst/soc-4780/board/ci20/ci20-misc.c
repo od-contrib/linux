@@ -358,23 +358,11 @@ static int __init ci20_board_init(void)
 #endif
 
 /* mmc */
-#ifndef CONFIG_NAND_JZ4780
-#ifdef CONFIG_MMC0_JZ4780
-	jz_device_register(&jz_msc0_device, &ci20_inand_pdata);
-#endif
-#ifdef CONFIG_MMC1_JZ4780
-	jz_device_register(&jz_msc1_device, &ci20_sdio_pdata);
-#endif
-#ifdef CONFIG_MMC2_JZ4780
-	jz_device_register(&jz_msc2_device, &ci20_tf_pdata);
-#endif
-#else
 #ifdef CONFIG_MMC0_JZ4780
 	jz_device_register(&jz_msc0_device, &ci20_tf_pdata);
 #endif
 #ifdef CONFIG_MMC1_JZ4780
 	jz_device_register(&jz_msc1_device, &ci20_sdio_pdata);
-#endif
 #endif
 /* sound */
 #ifdef CONFIG_SOUND_I2S_JZ47XX
