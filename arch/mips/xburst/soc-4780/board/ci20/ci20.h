@@ -70,10 +70,6 @@ extern struct snd_codec_data codec_data;
  * nand platform data
  **/
 
-#ifdef CONFIG_NAND_JZ4780
-extern struct platform_nand_data jz_nand_chip_data;
-#endif
-
 /**
  * tsc gpio interface
  **/
@@ -98,13 +94,6 @@ extern struct platform_nand_data jz_nand_chip_data;
 //#define GPIO_ENDCALL			GPIO_PA(30)
 //#define ACTIVE_LOW_ENDCALL		1
 
-//#ifndef CONFIG_NAND_JZ4780
-//#define GPIO_VOLUMEUP			GPIO_PD(18)
-//#define ACTIVE_LOW_VOLUMEUP		0
-
-//#define GPIO_VOLUMEDOWN			GPIO_PD(17)
-//#define ACTIVE_LOW_VOLUMEDOWN		1
-//#else
 //#define GPIO_VOLUMEUP			GPIO_PD(18)
 //#define ACTIVE_LOW_VOLUMEUP		1
 

@@ -452,10 +452,6 @@ static int __init ci20_board_init(void)
 #ifdef CONFIG_JZ_MAC
 	platform_device_register(&jz_mac);
 #endif
-/* nand */
-#ifdef CONFIG_NAND_JZ4780
-	jz_device_register(&jz_nand_device, &jz_nand_chip_data);
-#endif
 /* hdmi */
 #ifdef CONFIG_HDMI_JZ4780
 	platform_device_register(&jz_hdmi);
