@@ -24,49 +24,12 @@ static int power_en_count;
 static int clk_32k_count;
 
 int iw8101_wlan_init(void);
+
 #ifdef CONFIG_MMC0_JZ4780
-struct mmc_partition_info ci20_inand_partition_info[] = {
-	[0] = {"mbr",           0,       512, 0}, 	//0 - 512KB
-	[1] = {"xboot",		0,     2*MBYTE, 0}, 	//0 - 2MB
-	[2] = {"boot",      3*MBYTE,   8*MBYTE, 0}, 	//3MB - 8MB
-	[3] = {"recovery", 12*MBYTE,   8*MBYTE, 0}, 	//12MB - 8MB
-	[4] = {"misc",     21*MBYTE,   4*MBYTE, 0}, 	//21MB - 4MB
-	[5] = {"battery",  26*MBYTE,   1*MBYTE, 0}, 	//26MB - 1MB
-	[6] = {"cache",    28*MBYTE,  30*MBYTE, 1}, 	//28MB - 30MB
-	[7] = {"device_id",59*MBYTE,   2*MBYTE, 0},	//59MB - 2MB
-	[8] = {"system",   64*MBYTE, 512*MBYTE, 1}, 	//64MB - 512MB
-	[9] = {"data",    580*MBYTE, 1024*MBYTE, 1}, 	//580MB - 1024MB
-};
-
-static struct mmc_recovery_info ci20_inand_recovery_info = {
-	.partition_info			= ci20_inand_partition_info,
-	.partition_num			= ARRAY_SIZE(ci20_inand_partition_info),
-	.permission			= MMC_BOOT_AREA_PROTECTED,
-	.protect_boundary		= 21*MBYTE,
-};
-
-struct jzmmc_platform_data ci20_inand_pdata = {
-	.removal  			= DONTCARE,
-	.sdio_clk			= 0,
-	.ocr_avail			= MMC_VDD_32_33 | MMC_VDD_33_34,
-	.capacity  			= MMC_CAP_SD_HIGHSPEED | MMC_CAP_MMC_HIGHSPEED | MMC_CAP_4_BIT_DATA | MMC_CAP_NONREMOVABLE,
-	.pm_flags			= 0,
-	.max_freq			= CONFIG_MMC0_MAX_FREQ,
-	.recovery_info			= &ci20_inand_recovery_info,
-	.gpio				= NULL,
-#ifdef CONFIG_MMC0_PIO_MODE
-	.pio_mode			= 1,
-#else
-	.pio_mode			= 0,
-#endif
-	.private_init			= NULL,
-};
-#endif
-#ifdef CONFIG_MMC2_JZ4780
 /*
- * WARING:
- * If a GPIO is not used or undefined, it must be set -1,
- * or PA0 will be request.
+ * WARNING:
+ * If a GPIO is not used or undefined, it must be set to -1
+ * to prevent PA0 from being requested.
  */
 static struct card_gpio ci20_tf_gpio = {
 	.cd				= {GPIO_PF(20),		LOW_ENABLE},
@@ -80,7 +43,7 @@ struct jzmmc_platform_data ci20_tf_pdata = {
 	.ocr_avail			= MMC_VDD_32_33 | MMC_VDD_33_34,
 	.capacity  			= MMC_CAP_SD_HIGHSPEED | MMC_CAP_MMC_HIGHSPEED | MMC_CAP_4_BIT_DATA,
 	.pm_flags			= 0,
-	.max_freq			= CONFIG_MMC2_MAX_FREQ,
+	.max_freq			= CONFIG_MMC0_MAX_FREQ,
 	.recovery_info			= NULL,
 	.gpio				= &ci20_tf_gpio,
 #ifdef CONFIG_MMC0_PIO_MODE
