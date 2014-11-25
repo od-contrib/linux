@@ -24,7 +24,6 @@ static int power_en_count;
 static int clk_32k_count;
 
 int iw8101_wlan_init(void);
-#ifndef CONFIG_NAND_JZ4780
 #ifdef CONFIG_MMC0_JZ4780
 struct mmc_partition_info ci20_inand_partition_info[] = {
 	[0] = {"mbr",           0,       512, 0}, 	//0 - 512KB
@@ -91,37 +90,6 @@ struct jzmmc_platform_data ci20_tf_pdata = {
 #endif
 	.private_init			= NULL,
 };
-#endif
-#else
-#ifdef CONFIG_MMC0_JZ4780
-/*
- * WARING:
- * If a GPIO is not used or undefined, it must be set -1,
- * or PA0 will be request.
- */
-static struct card_gpio ci20_tf_gpio = {
-	.cd				= {GPIO_PF(20),		LOW_ENABLE},
-	.wp				= {-1,			-1},
-	.pwr				= {-1,			-1},
-};
-
-struct jzmmc_platform_data ci20_tf_pdata = {
-	.removal  			= REMOVABLE,
-	.sdio_clk			= 0,
-	.ocr_avail			= MMC_VDD_32_33 | MMC_VDD_33_34,
-	.capacity  			= MMC_CAP_SD_HIGHSPEED | MMC_CAP_MMC_HIGHSPEED | MMC_CAP_4_BIT_DATA,
-	.pm_flags			= 0,
-	.max_freq			= CONFIG_MMC0_MAX_FREQ,
-	.recovery_info			= NULL,
-	.gpio				= &ci20_tf_gpio,
-#ifdef CONFIG_MMC0_PIO_MODE
-	.pio_mode			= 1,
-#else
-	.pio_mode			= 0,
-#endif
-	.private_init			= NULL,
-};
-#endif
 #endif
 
 #ifdef CONFIG_MMC1_JZ4780
