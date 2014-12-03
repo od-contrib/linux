@@ -118,6 +118,7 @@ extern void pcibios_resource_to_bus(struct pci_dev *dev,
 extern void pcibios_bus_to_resource(struct pci_dev *dev, struct resource *res,
 				    struct pci_bus_region *region);
 
+#ifdef CONFIG_PCI_DOMAINS
 #define pci_domain_nr(bus) ((struct pci_controller *)(bus)->sysdata)->index
 
 static inline int pci_proc_domain(struct pci_bus *bus)
@@ -125,6 +126,7 @@ static inline int pci_proc_domain(struct pci_bus *bus)
 	struct pci_controller *hose = bus->sysdata;
 	return hose->need_domain_info;
 }
+#endif /* CONFIG_PCI_DOMAINS */
 
 #endif /* __KERNEL__ */
 
