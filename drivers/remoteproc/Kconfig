@@ -198,6 +198,14 @@ config ST_REMOTEPROC
 config ST_SLIM_REMOTEPROC
 	tristate
 
+config INGENIC_RPROC
+	tristate "Ingenic JZ47xx VPU remoteproc support"
+	depends on MIPS || COMPILE_TEST
+	help
+	  Say y or m here to support the VPU in the JZ47xx SoCs from Ingenic.
+	  This can be either built-in or a loadable module.
+	  If unsure say N.
+
 endif # REMOTEPROC
 
 endmenu
