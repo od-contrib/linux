@@ -159,6 +159,14 @@ config ST_REMOTEPROC
 config ST_SLIM_REMOTEPROC
 	tristate
 
+config JZ4770_RPROC
+	tristate "JZ4770 VPU remoteproc support"
+	depends on MACH_JZ4770 || COMPILE_TEST
+	help
+	  Say y or m here to support the VPU in the JZ4770 SoC.
+	  This can be either built-in or a loadable module.
+	  If unsure say N.
+
 endif # REMOTEPROC
 
 endmenu
