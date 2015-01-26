@@ -38,3 +38,5 @@ obj-$(CONFIG_IRQ_CROSSBAR)		+= irq-crossbar.o
 obj-$(CONFIG_BRCMSTB_L2_IRQ)		+= irq-brcmstb-l2.o \
 					   irq-bcm7120-l2.o
 obj-$(CONFIG_KEYSTONE_IRQ)		+= irq-keystone.o
+obj-$(CONFIG_MACH_JZ4740)		+= irq-jz4740.o
+obj-$(CONFIG_MACH_JZ4780)		+= irq-jz4740.o
