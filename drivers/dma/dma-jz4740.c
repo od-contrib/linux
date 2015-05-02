@@ -15,6 +15,7 @@
 #include <linux/init.h>
 #include <linux/list.h>
 #include <linux/module.h>
+#include <linux/of_dma.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
@@ -500,6 +501,12 @@ static void jz4740_dma_desc_free(struct virt_dma_desc *vdesc)
 	kfree(container_of(vdesc, struct jz4740_dma_desc, vdesc));
 }
 
+static const struct of_device_id jz4740_dma_of_match[] = {
+	{ .compatible = "ingenic,jz4740-dma" },
+	{},
+};
+MODULE_DEVICE_TABLE(of, jz4740_dma_of_match);
+
 #define JZ4740_DMA_BUSWIDTHS (BIT(DMA_SLAVE_BUSWIDTH_1_BYTE) | \
 	BIT(DMA_SLAVE_BUSWIDTH_2_BYTES) | BIT(DMA_SLAVE_BUSWIDTH_4_BYTES))
 
@@ -562,6 +569,13 @@ static int jz4740_dma_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_unregister;
 
+	if (pdev->dev.of_node) {
+		ret = of_dma_controller_register(pdev->dev.of_node,
+					of_dma_xlate_by_chan_id, dmadev);
+		if (ret)
+			goto err_unregister;
+	}
+
 	platform_set_drvdata(pdev, dmadev);
 
 	return 0;
@@ -604,6 +618,7 @@ static struct platform_driver jz4740_dma_driver = {
 	.remove = jz4740_dma_remove,
 	.driver = {
 		.name = "jz4740-dma",
+		.of_match_table = of_match_ptr(jz4740_dma_of_match),
 	},
 };
 module_platform_driver(jz4740_dma_driver);

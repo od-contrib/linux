@@ -1,0 +1,27 @@
+* Ingenic JZ4740 DMA Controller
+
+Required properties:
+
+- compatible: Should be "ingenic,jz4740-dma"
+- reg: should contain the DMA controller registers location and length;
+- interrupt for the DMA controller: syntax of interrupt client node
+	is described in interrupt-controller/interrupts.txt file.
+- #dma-cells: the length of the DMA specifier, must be <1>.
+	Each channel of this DMA controller has a peripheral request line,
+	the assignment is fixed in hardware. This one cell
+	in dmas property of a client device represents the channel number.
+
+Example:
+
+dma: dma@13420000 {
+	compatible = "ingenic,jz4740-dma";
+	reg = <0x13020000 0x320>;
+
+	clocks = <&cgu JZ4740_CLK_DMA>;
+	interrupt-parent = <&intc>;
+	interrupts = <20>;
+
+	#dma-cells = <1>;
+};
+
+DMA clients must use the format described in dma/dma.txt file.
