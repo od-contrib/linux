@@ -609,4 +609,14 @@ config ATCPIT100_TIMER
 	help
 	  This option enables support for the Andestech ATCPIT100 timers.
 
+config INGENIC_TIMER
+	bool "Clocksource/timer using the TCU in Ingenic JZ SoCs"
+	depends on MIPS || COMPILE_TEST
+	depends on COMMON_CLK
+	select TIMER_OF
+	select IRQ_DOMAIN
+	select REGMAP
+	help
+	  Support for the timer/counter unit of the Ingenic JZ SoCs.
+
 endmenu
