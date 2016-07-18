@@ -621,4 +621,14 @@ config RISCV_TIMER
 	  is accessed via both the SBI and the rdcycle instruction.  This is
 	  required for all RISC-V systems.
 
+config INGENIC_TIMER
+	bool "Clocksource/timer using the TCU in Ingenic JZ SoCs"
+	depends on MIPS || COMPILE_TEST
+	depends on COMMON_CLK
+	select TIMER_OF
+	select IRQ_DOMAIN
+	select REGMAP
+	help
+	  Support for the timer/counter unit of the Ingenic JZ SoCs.
+
 endmenu
