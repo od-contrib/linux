@@ -195,6 +195,21 @@
 		clock-names = "baud", "module";
 	};
 
+	nand: nand@13010000 {
+		compatible = "ingenic,jz4740-nand";
+		reg = <0x13010000 0x1000
+			   0x18000000 0xc0000
+			   0x14000000 0xc0000
+			   0x0c000000 0xc0000
+			   0x08000000 0xc0000>;
+		reg-names = "mmio", "bank1", "bank2", "bank3", "bank4";
+
+		nand-on-flash-bbt;
+		nand-ecc-mode = "hw_oob_first";
+
+		status = "disabled";
+	};
+
 	dmac: dma-controller@13020000 {
 		compatible = "ingenic,jz4740-dma";
 		reg = <0x13020000 0xbc
