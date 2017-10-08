@@ -8,6 +8,7 @@
 
 #include <linux/clk.h>
 #include <linux/delay.h>
+#include <linux/gpio.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/spi/spi.h>
@@ -46,6 +47,13 @@ MODULE_DEVICE_TABLE(of, spi_ingenic_of_match);
 
 static void spi_ingenic_set_cs(struct spi_device *spi, bool enable)
 {
+	struct spi_master *master = spi->master;
+	int gpio;
+
+	gpio = master->cs_gpios[spi->chip_select];
+
+	if (gpio >= 0)
+		gpio_set_value(gpio, enable);
 }
 
 static int spi_ingenic_transfer_one(struct spi_master *master,
