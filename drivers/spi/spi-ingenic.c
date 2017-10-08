@@ -152,6 +152,7 @@ static int spi_ingenic_probe(struct platform_device *pdev)
 {
 	struct ingenic_spi *ingenic_spi;
 	struct spi_master *master;
+	int ret;
 
 	master = spi_alloc_master(&pdev->dev, sizeof(*ingenic_spi));
 	if (!master) {
@@ -163,7 +164,7 @@ static int spi_ingenic_probe(struct platform_device *pdev)
 
 	ingenic_spi->clk = devm_clk_get(&pdev->dev, "spi");
 	if (IS_ERR(ingenic_spi->clk)) {
-		dev_warn(&pdev->dev, "Clock not found\n");
+		dev_err(&pdev->dev, "Clock not found\n");
 		spi_master_put(master);
 		return PTR_ERR(ingenic_spi->clk);
 	}
@@ -185,14 +186,17 @@ static int spi_ingenic_probe(struct platform_device *pdev)
 	master->handle_err = spi_ingenic_handle_err;
 	master->dev.of_node = pdev->dev.of_node;
 
-	return 0;
+	ret = devm_spi_register_master(&pdev->dev, master);
+	if (ret) {
+		dev_err(&pdev->dev, "Unable to register SPI master\n");
+		spi_master_put(master);
+	}
+	return ret;
 }
 
 static int spi_ingenic_remove(struct platform_device *pdev)
 {
 	struct spi_master *master = platform_get_drvdata(pdev);
-
-	dev_warn(&pdev->dev, "Hello world 2\n");
 
 	spi_master_put(master);
 
