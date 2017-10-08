@@ -256,10 +256,11 @@
 		};
 
 		spi0 {
-			compatible = "spi-gpio";
-			gpio-sck = <&gpe 15 GPIO_ACTIVE_HIGH>;
-			gpio-mosi = <&gpe 17 GPIO_ACTIVE_HIGH>;
+			compatible = "ingenic,ingenic-spi";
 			cs-gpios = <&gpe 16 GPIO_ACTIVE_HIGH>;
+			reg = <0x10043000 0x1c>;
+			clocks = <&cgu JZ4770_CLK_SSI0>;
+			clock-names = "spi";
 			num-chipselects = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
