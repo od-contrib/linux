@@ -23,9 +23,11 @@
 
 #define REG_SSICR1_FLEN_OFFSET	0x4
 #define REG_SSICR1_LFST			BIT(25)
+#define REG_SSICR1_UNFIN		BIT(23)
 #define REG_SSICR1_PHA			BIT(1)
 #define REG_SSICR1_POL			BIT(0)
 
+#define REG_SSISR_END			BIT(7)
 #define REG_SSISR_TFF			BIT(5)
 #define REG_SSISR_RFE			BIT(4)
 
@@ -35,6 +37,7 @@
 #define REG_SSICR0_RFLUSH		BIT(1)
 
 struct ingenic_spi {
+	struct device *dev;
 	struct clk *clk;
 	void __iomem *base;
 };
@@ -45,15 +48,84 @@ static const struct of_device_id spi_ingenic_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, spi_ingenic_of_match);
 
-static void spi_ingenic_set_cs(struct spi_device *spi, bool enable)
+static void spi_ingenic_enable(struct ingenic_spi *spi, bool enable)
 {
-	struct spi_master *master = spi->master;
-	int gpio;
+	u32 val = readl(spi->base + REG_SSICR0);
 
-	gpio = master->cs_gpios[spi->chip_select];
+	if (enable)
+		val |= REG_SSICR0_SSIE;
+	else
+		val &= ~REG_SSICR0_SSIE;
 
-	if (gpio >= 0)
-		gpio_set_value(gpio, enable);
+	writel(val, spi->base + REG_SSICR0);
+
+	dev_warn(spi->dev, "%sing hardware\n", enable ? "Start" : "Stopp");
+}
+
+static void spi_ingenic_set_transmit(struct ingenic_spi *spi, bool enable)
+{
+	u32 val = readl(spi->base + REG_SSICR1);
+
+	if (enable)
+		val |= REG_SSICR1_UNFIN;
+	else
+		val &= ~REG_SSICR1_UNFIN;
+
+	writel(val, spi->base + REG_SSICR1);
+	dev_warn(spi->dev, "%sing transmit\n", enable ? "Start" : "Stopp");
+}
+
+static u16 spi_ingenic_rw(struct ingenic_spi *spi, u16 val)
+{
+	writel(val, spi->base + REG_SSIDR);
+
+	return (u16) readl(spi->base + REG_SSIDR);
+}
+
+static void spi_ingenic_wait_idle(struct ingenic_spi *spi)
+{
+	unsigned long timeout = jiffies + msecs_to_jiffies(5);
+
+	do {
+		if (!(readl(spi->base + REG_SSISR) & REG_SSISR_TFF))
+			return;
+	} while (!time_after(jiffies, timeout));
+
+	/* TODO */
+	pr_warn("spi controller is in busy state!\n");
+}
+
+static void spi_ingenic_wait_end(struct ingenic_spi *spi)
+{
+	unsigned long timeout = jiffies + msecs_to_jiffies(5);
+
+	do {
+		if (!(readl(spi->base + REG_SSISR) & REG_SSISR_END))
+			return;
+	} while (!time_after(jiffies, timeout));
+
+	/* TODO */
+	pr_warn("spi controller is in busy state!\n");
+}
+
+static int spi_ingenic_prepare(struct spi_master *master)
+{
+	struct ingenic_spi *ingenic_spi = spi_master_get_devdata(master);
+
+	spi_ingenic_set_transmit(ingenic_spi, true);
+	spi_ingenic_enable(ingenic_spi, true);
+
+	return 0;
+}
+
+static int spi_ingenic_unprepare(struct spi_master *master)
+{
+	struct ingenic_spi *spi = spi_master_get_devdata(master);
+
+	spi_ingenic_set_transmit(spi, false);
+	spi_ingenic_enable(spi, false);
+
+	return 0;
 }
 
 static int spi_ingenic_transfer_one(struct spi_master *master,
@@ -61,49 +133,38 @@ static int spi_ingenic_transfer_one(struct spi_master *master,
 					struct spi_transfer *transfer)
 {
 	struct ingenic_spi *ingenic_spi = spi_master_get_devdata(master);
-	unsigned int bits = spi->bits_per_word;
-	unsigned int i, count;
+	unsigned int i, count, bits = spi->bits_per_word;
 	u32 val;
 
-	if (spi->bits_per_word <= 8)
+	if (bits <= 8)
 		count = transfer->len;
 	else
 		count = transfer->len / 2;
 
 	for (i = 0; i < count; i++) {
 		if (transfer->tx_buf) {
-			for (;;) {
-				u32 status = readl(ingenic_spi->base + REG_SSISR);
-
-				if (!(status & REG_SSISR_TFF))
-					break;
-
-				udelay(1);
-			}
+			spi_ingenic_wait_idle(ingenic_spi);
 
 			val = (bits <= 8) ?
 					((u8 *)transfer->tx_buf)[i] :
-					((u16 *)transfer->tx_buf)[i];
+					cpu_to_be16(((u16 *)transfer->tx_buf)[i]);
+			dev_warn(&spi->dev, "Sending word 0x%x\n", val);
 			writel(val, ingenic_spi->base + REG_SSIDR);
 		}
 
 		if (transfer->rx_buf) {
-			for (;;) {
-				u32 status = readl(ingenic_spi->base + REG_SSISR);
-
-				if (!(status & REG_SSISR_RFE))
-					break;
-
-				udelay(1);
-			}
+			spi_ingenic_wait_idle(ingenic_spi);
 
 			val = readl(ingenic_spi->base + REG_SSIDR);
+			dev_warn(&spi->dev, "Read word 0x%x\n", val);
 			if (bits <= 8)
 				((u8 *)transfer->rx_buf)[i] = val;
 			else
-				((u16 *)transfer->rx_buf)[i] = val; 
+				((u16 *)transfer->rx_buf)[i] = be16_to_cpu(val); 
 		}
 	}
+
+	spi_ingenic_wait_end(ingenic_spi);
 
 	return 0;
 }
@@ -120,9 +181,6 @@ static int spi_ingenic_setup(struct spi_device *spi)
 	u32 ctrl;
 	int ret;
 
-	if (spi->bits_per_word < 2 || spi->bits_per_word > 16)
-		return EINVAL;
-
 	ret = clk_prepare_enable(ingenic_spi->clk);
 	if (ret)
 		return ret;
@@ -138,9 +196,12 @@ static int spi_ingenic_setup(struct spi_device *spi)
 	if (spi->mode & SPI_CPOL)
 		ctrl |= REG_SSICR1_POL;
 
+	if (spi->mode & SPI_CS_HIGH)
+		ctrl |= BIT(30 + spi->chip_select);
+
 	writel(ctrl, ingenic_spi->base + REG_SSICR1);
 
-	ctrl = REG_SSICR0_SSIE | REG_SSICR0_TFLUSH | REG_SSICR0_RFLUSH;
+	ctrl = REG_SSICR0_TFLUSH | REG_SSICR0_RFLUSH;
 	writel(ctrl, ingenic_spi->base + REG_SSICR0);
 
 	return 0;
@@ -162,6 +223,8 @@ static int spi_ingenic_probe(struct platform_device *pdev)
 	struct spi_master *master;
 	int ret;
 
+	dev_warn(&pdev->dev, "SPI ingenic probe\n");
+
 	master = spi_alloc_master(&pdev->dev, sizeof(*ingenic_spi));
 	if (!master) {
 		dev_err(&pdev->dev, "Unable to allocate SPI master\n");
@@ -169,6 +232,7 @@ static int spi_ingenic_probe(struct platform_device *pdev)
 	}
 
 	ingenic_spi = spi_master_get_devdata(master);
+	ingenic_spi->dev = &pdev->dev;
 
 	ingenic_spi->clk = devm_clk_get(&pdev->dev, "spi");
 	if (IS_ERR(ingenic_spi->clk)) {
@@ -180,26 +244,35 @@ static int spi_ingenic_probe(struct platform_device *pdev)
 	ingenic_spi->base = devm_ioremap_resource(&pdev->dev,
 						platform_get_resource(pdev, IORESOURCE_MEM, 0));
 	if (IS_ERR(ingenic_spi->base)) {
+		dev_err(&pdev->dev, "Unable to map registers\n");
 		spi_master_put(master);
 		return PTR_ERR(ingenic_spi->base);
 	}
 
 	platform_set_drvdata(pdev, master);
 
+	master->dev.of_node = pdev->dev.of_node;
+	master->bus_num = -1;
+	master->mode_bits = SPI_MODE_3 | SPI_LSB_FIRST | SPI_CS_HIGH;
+	master->num_chipselect = 2;
+	master->bits_per_word_mask = SPI_BPW_RANGE_MASK(2, 16);
+
 	master->setup = spi_ingenic_setup;
 	master->cleanup = spi_ingenic_cleanup;
-	master->mode_bits = SPI_MODE_3 | SPI_LSB_FIRST;
-	master->set_cs = spi_ingenic_set_cs;
+	master->prepare_transfer_hardware = spi_ingenic_prepare;
+	master->unprepare_transfer_hardware = spi_ingenic_unprepare;
 	master->transfer_one = spi_ingenic_transfer_one;
 	master->handle_err = spi_ingenic_handle_err;
-	master->dev.of_node = pdev->dev.of_node;
 
 	ret = devm_spi_register_master(&pdev->dev, master);
 	if (ret) {
 		dev_err(&pdev->dev, "Unable to register SPI master\n");
 		spi_master_put(master);
+		return ret;
 	}
-	return ret;
+
+	dev_warn(&pdev->dev, "Probed\n");
+	return 0;
 }
 
 static int spi_ingenic_remove(struct platform_device *pdev)

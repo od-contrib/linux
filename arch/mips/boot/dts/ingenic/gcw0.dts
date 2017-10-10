@@ -256,19 +256,26 @@
 		};
 
 		spi0 {
-			compatible = "ingenic,ingenic-spi";
-			cs-gpios = <&gpe 16 GPIO_ACTIVE_HIGH>;
-			reg = <0x10043000 0x1c>;
-			clocks = <&cgu JZ4770_CLK_SSI0>;
-			clock-names = "spi";
-			num-chipselects = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+
+			compatible = "ingenic,ingenic-spi";
+			reg = <0x10043000 0x1c>;
+
+			clocks = <&cgu JZ4770_CLK_SSI0>;
+			clock-names = "spi";
+
+//			cs-gpios = <&gpe 16 GPIO_ACTIVE_HIGH>;
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&pins_spi0>;
 
 			lcd: nt39016@0 {
 				compatible = "novatek,nt39016";
 				reg = <0>;
 				spi-max-frequency = <3125000>;
+				spi-cs-high;
+				spi-cpol;
 				/* TODO: spi-3wire; */
 
 				reset-gpios = <&gpe 2 GPIO_ACTIVE_LOW>;
@@ -316,6 +323,15 @@
 	pinfunc_dc_charger: dc {
 		pins_dc_charger: dc-charger {
 			ingenic,pins = <&gpf 5 0 &pincfg_nobias>;
+		};
+	};
+
+	pinfunc_spi0: spi0 {
+		pins_spi0: spi0 {
+			ingenic,pins = <&gpe 14 0 &pincfg_nobias
+					&gpe 15 0 &pincfg_nobias
+					&gpe 16 0 &pincfg_nobias
+					&gpe 17 0 &pincfg_nobias>;
 		};
 	};
 };
@@ -420,6 +436,7 @@
 	 */
 	assigned-clocks =
 		<&cgu JZ4770_CLK_PLL1>,
+		<&cgu JZ4770_CLK_SSI_MUX>,
 		<&cgu JZ4770_CLK_RTC>,
 		<&cgu JZ4770_CLK_UHC>,
 		<&cgu JZ4770_CLK_LPCLK_MUX>,
@@ -427,13 +444,14 @@
 		<&cgu JZ4770_CLK_MMC1_MUX>;
 	assigned-clock-parents =
 		<0>,
+		<&cgu JZ4770_CLK_EXT>,
 		<&cgu JZ4770_CLK_OSC32K>,
 		<&cgu JZ4770_CLK_PLL1>,
 		<&cgu JZ4770_CLK_PLL1>,
 		<&cgu JZ4770_CLK_PLL1>,
 		<&cgu JZ4770_CLK_PLL1>;
 	assigned-clock-rates =
-		<432000000>;
+		<432000000>, <100000>;
 };
 
 &tcu {
