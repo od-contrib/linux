@@ -2,3 +2,6 @@
 	- this file.
 AU1xxx_IDE.README
 	- README for MIPS AU1XXX IDE driver.
+ingenic-tcu.txt
+	- Information file about the Timer/Counter Unit present
+	  in Ingenic JZ47xx SoCs.
