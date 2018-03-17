@@ -115,6 +115,7 @@ implementation.
    x86/index
    sh/index
    x86/index
+   mips/index
 
 Filesystem Documentation
 ------------------------
