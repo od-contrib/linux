@@ -367,6 +367,12 @@ notfound_id:
 	return ret;
 }
 
+static const struct of_device_id jz_nand_of_matches[] = {
+	{ .compatible = "ingenic,jz4740-nand" },
+	{},
+};
+MODULE_DEVICE_TABLE(of, jz_nand_of_matches);
+
 static int jz_nand_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -466,9 +472,7 @@ static int jz_nand_probe(struct platform_device *pdev)
 		goto err_unclaim_banks;
 	}
 
-	ret = mtd_device_parse_register(mtd, NULL, NULL,
-					pdata ? pdata->partitions : NULL,
-					pdata ? pdata->num_partitions : 0);
+	ret = mtd_device_register(mtd, NULL, 0);
 
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to add mtd device\n");
@@ -525,6 +529,7 @@ static struct platform_driver jz_nand_driver = {
 	.remove = jz_nand_remove,
 	.driver = {
 		.name = "jz4740-nand",
+		.of_match_table = of_match_ptr(jz_nand_of_matches),
 	},
 };
 
