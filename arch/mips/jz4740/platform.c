@@ -84,46 +84,6 @@ struct platform_device jz4740_i2c_device = {
 	.resource	= jz4740_i2c_resources,
 };
 
-/* NAND controller */
-static struct resource jz4740_nand_resources[] = {
-	{
-		.name	= "mmio",
-		.start	= JZ4740_EMC_BASE_ADDR,
-		.end	= JZ4740_EMC_BASE_ADDR + 0x1000 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.name	= "bank1",
-		.start	= 0x18000000,
-		.end	= 0x180C0000 - 1,
-		.flags = IORESOURCE_MEM,
-	},
-	{
-		.name	= "bank2",
-		.start	= 0x14000000,
-		.end	= 0x140C0000 - 1,
-		.flags = IORESOURCE_MEM,
-	},
-	{
-		.name	= "bank3",
-		.start	= 0x0C000000,
-		.end	= 0x0C0C0000 - 1,
-		.flags = IORESOURCE_MEM,
-	},
-	{
-		.name	= "bank4",
-		.start	= 0x08000000,
-		.end	= 0x080C0000 - 1,
-		.flags = IORESOURCE_MEM,
-	},
-};
-
-struct platform_device jz4740_nand_device = {
-	.name = "jz4740-nand",
-	.num_resources = ARRAY_SIZE(jz4740_nand_resources),
-	.resource = jz4740_nand_resources,
-};
-
 /* LCD controller */
 static struct resource jz4740_framebuffer_resources[] = {
 	{
