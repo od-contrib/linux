@@ -26,8 +26,6 @@
 
 #include <linux/gpio.h>
 
-#include <asm/mach-jz4740/jz4740_nand.h>
-
 #define JZ_REG_NAND_CTRL	0x50
 #define JZ_REG_NAND_ECC_CTRL	0x100
 #define JZ_REG_NAND_DATA	0x104
@@ -57,6 +55,8 @@
 
 #define JZ_NAND_MEM_CMD_OFFSET 0x08000
 #define JZ_NAND_MEM_ADDR_OFFSET 0x10000
+
+#define JZ_NAND_NUM_BANKS 4
 
 struct jz_nand {
 	struct nand_chip chip;
