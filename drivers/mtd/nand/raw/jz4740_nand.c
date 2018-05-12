@@ -368,6 +368,52 @@ notfound_id:
 	return ret;
 }
 
+static int jz_nand_lb60_ooblayout_ecc(struct mtd_info *mtd, int section,
+			struct mtd_oob_region *oobregion)
+{
+	if (section)
+		return -ERANGE;
+
+	oobregion->length = 36;
+	oobregion->offset = 6;
+
+	if (mtd->oobsize == 128) {
+		oobregion->length *= 2;
+		oobregion->offset *= 2;
+	}
+
+	return 0;
+}
+
+static int jz_nand_lb60_ooblayout_free(struct mtd_info *mtd, int section,
+			struct mtd_oob_region *oobregion)
+{
+	unsigned int eccbytes = 36, eccoff = 6;
+
+	if (section > 1)
+		return -ERANGE;
+
+	if (mtd->oobsize == 128) {
+		eccbytes *= 2;
+		eccoff *= 2;
+	}
+
+	if (!section) {
+		oobregion->offset = 2;
+		oobregion->length = eccoff - 2;
+	} else {
+		oobregion->offset = eccoff + eccbytes;
+		oobregion->length = mtd->oobsize - oobregion->offset;
+	}
+
+	return 0;
+}
+
+static const struct mtd_ooblayout_ops jz_nand_lb60_ooblayout_ops = {
+	.ecc = jz_nand_lb60_ooblayout_ecc,
+	.free = jz_nand_lb60_ooblayout_free,
+};
+
 static const struct of_device_id jz_nand_of_matches[] = {
 	{ .compatible = "ingenic,jz4740-nand" },
 	{},
@@ -470,9 +516,23 @@ static int jz_nand_probe(struct platform_device *pdev)
 		goto err_iounmap_mmio;
 	}
 
-	if (pdata && pdata->ident_callback) {
-		pdata->ident_callback(pdev, mtd, &pdata->partitions,
-					&pdata->num_partitions);
+	if (device_property_present(&pdev->dev, "ingenic,oob-layout")) {
+		const char *ooblayout;
+
+		ret = device_property_read_string(&pdev->dev,
+					"ingenic,oob-layout", &ooblayout);
+		if (ret)
+			goto err_unclaim_banks;
+
+		if (!strcmp(ooblayout, "qi,lb60")) {
+			mtd_set_ooblayout(mtd, &jz_nand_lb60_ooblayout_ops);
+		} else {
+			ret = -EINVAL;
+			dev_err(&pdev->dev, "Unknown OOB layout %s\n", ooblayout);
+			goto err_unclaim_banks;
+		}
+	} else {
+		mtd_set_ooblayout(mtd, &nand_ooblayout_lp_ops);
 	}
 
 	ret = nand_scan_tail(mtd);
