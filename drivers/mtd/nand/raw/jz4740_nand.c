@@ -17,6 +17,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/property.h>
 #include <linux/slab.h>
 
 #include <linux/mtd/mtd.h>
@@ -379,9 +380,17 @@ static int jz_nand_probe(struct platform_device *pdev)
 	struct jz_nand *nand;
 	struct nand_chip *chip;
 	struct mtd_info *mtd;
-	struct jz_nand_platform_data *pdata = dev_get_platdata(&pdev->dev);
 	size_t chipnr, bank_idx;
 	uint8_t nand_maf_id = 0, nand_dev_id = 0;
+
+	/* If there is no platform data, look for NAND in bank 1,
+	 * which is the most likely bank since it is the only one
+	 * that can be booted from.
+	 */
+	u8 banks[JZ_NAND_NUM_BANKS] = { 1, 0 };
+
+	device_property_read_u8_array(&pdev->dev, "ingenic,banks", banks,
+				JZ_NAND_NUM_BANKS);
 
 	nand = kzalloc(sizeof(*nand), GFP_KERNEL);
 	if (!nand)
@@ -437,7 +446,7 @@ static int jz_nand_probe(struct platform_device *pdev)
 		 * which is the most likely bank since it is the only one
 		 * that can be booted from.
 		 */
-		bank = pdata ? pdata->banks[bank_idx] : bank_idx ^ 1;
+		bank = banks[bank_idx];
 		if (bank == 0)
 			break;
 		if (bank > JZ_NAND_NUM_BANKS) {
