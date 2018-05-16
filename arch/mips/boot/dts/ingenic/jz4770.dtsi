@@ -209,4 +209,22 @@
 
 		status = "disabled";
 	};
+
+	vpu: remote-processor@132A0000 {
+		compatible = "ingenic,jz4770-remoteproc";
+
+		reg = <0x132a0000 0x20 /* AUX */
+		       0x13200000 0x04 /* SCH */
+		       0xf4000000 0x4000 /* TCSM0 */
+		       0x132c0000 0xc000 /* TCSM1 */
+		       0x132f0000 0x7000 /* SRAM */
+		>;
+		reg-names = "aux", "sch", "tcsm0", "tcsm1", "sram";
+
+		clocks = <&cgu JZ4770_CLK_AUX>, <&cgu JZ4770_CLK_VPU>;
+		clock-names = "aux", "vpu";
+
+		interrupt-parent = <&cpuintc>;
+		interrupts = <3>;
+	};
 };
