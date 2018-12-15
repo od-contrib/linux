@@ -238,6 +238,25 @@
 		cap-sdio-irq;
 	};
 
+	adc: adc@10070000 {
+		compatible = "ingenic,jz4740-adc";
+		reg = <0x10070000 0x30>;
+
+		#address-cells = <0>;
+		#size-cells = <0>;
+
+		clocks = <&cgu JZ4725B_CLK_ADC>;
+		clock-names = "adc";
+
+		interrupt-parent = <&intc>;
+		interrupts = <18>;
+
+		battery: battery {
+			compatible = "ingenic,jz4740-adc,battery",
+				     "ingenic,jz4740-battery";
+		};
+	};
+
 	uart: serial@10030000 {
 		compatible = "ingenic,jz4740-uart";
 		reg = <0x10030000 0x100>;
