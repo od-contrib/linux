@@ -197,6 +197,12 @@ static const struct mfd_cell jz4740_adc_cells[] = {
 	},
 };
 
+static void jz4740_adc_destroy_irq_chip(struct irq_chip_generic *gc)
+{
+	irq_destroy_generic_chip(gc, IRQ_MSK(JZ_ADC_IRQ_NUM),
+				 0, IRQ_NOPROBE | IRQ_LEVEL);
+}
+
 static int jz4740_adc_probe(struct platform_device *pdev)
 {
 	struct irq_chip_generic *gc;
@@ -256,8 +262,16 @@ static int jz4740_adc_probe(struct platform_device *pdev)
 	devm_add_action(&pdev->dev, (void (*)(void *))irq_domain_remove,
 				adc->irq_domain);
 
-	gc = devm_irq_alloc_generic_chip(&pdev->dev, "ADC", 1, 0,
-		adc->base, handle_level_irq);
+	ret = irq_alloc_domain_generic_chips(adc->irq_domain, JZ_ADC_IRQ_NUM,
+					     1, "ADC", handle_level_irq,
+					     0, IRQ_NOPROBE | IRQ_LEVEL,
+					     IRQ_GC_INIT_MASK_CACHE);
+	if (ret)
+		return ret;
+	adc->gc = gc = irq_get_domain_generic_chip(adc->irq_domain, 0);
+
+	devm_add_action(&pdev->dev,
+			(void (*)(void *))jz4740_adc_destroy_irq_chip, gc);
 
 	ct = gc->chip_types;
 	ct->regs.mask = JZ_REG_ADC_CTRL;
@@ -265,12 +279,6 @@ static int jz4740_adc_probe(struct platform_device *pdev)
 	ct->chip.irq_mask = irq_gc_mask_set_bit;
 	ct->chip.irq_unmask = irq_gc_mask_clr_bit;
 	ct->chip.irq_ack = irq_gc_ack_set_bit;
-
-	devm_irq_setup_generic_chip(&pdev->dev, gc, IRQ_MSK(JZ_ADC_IRQ_NUM),
-			       IRQ_GC_INIT_MASK_CACHE, 0,
-			       IRQ_NOPROBE | IRQ_LEVEL);
-
-	adc->gc = gc;
 
 	irq_set_chained_handler_and_data(adc->irq, jz4740_adc_irq_demux, adc);
 
