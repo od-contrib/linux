@@ -257,6 +257,7 @@
 		battery: battery {
 			compatible = "ingenic,jz4740-adc,battery",
 				     "ingenic,jz4740-battery";
+			interrupts = <1>;
 		};
 	};
 
