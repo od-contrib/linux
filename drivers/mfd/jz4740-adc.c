@@ -59,7 +59,6 @@ struct jz4740_adc {
 	void __iomem *base;
 
 	int irq;
-	struct irq_domain *irq_domain;
 
 	struct clk *clk;
 
@@ -205,6 +204,7 @@ static void jz4740_adc_destroy_irq_chip(struct irq_chip_generic *gc)
 
 static int jz4740_adc_probe(struct platform_device *pdev)
 {
+	struct irq_domain *domain;
 	struct irq_chip_generic *gc;
 	struct irq_chip_type *ct;
 	struct jz4740_adc *adc;
@@ -264,21 +264,21 @@ static int jz4740_adc_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, adc);
 
-	adc->irq_domain = irq_domain_add_linear(pdev->dev.of_node,
-				JZ_ADC_IRQ_NUM, &irq_domain_simple_ops, NULL);
-	if (!adc->irq_domain)
+	domain = irq_domain_add_linear(pdev->dev.of_node, JZ_ADC_IRQ_NUM,
+				       &irq_domain_simple_ops, NULL);
+	if (!domain)
 		return -EINVAL;
 
 	devm_add_action(&pdev->dev, (void (*)(void *))irq_domain_remove,
-				adc->irq_domain);
+				    domain);
 
-	ret = irq_alloc_domain_generic_chips(adc->irq_domain, JZ_ADC_IRQ_NUM,
+	ret = irq_alloc_domain_generic_chips(domain, JZ_ADC_IRQ_NUM,
 					     1, "ADC", handle_level_irq,
 					     0, IRQ_NOPROBE | IRQ_LEVEL,
 					     IRQ_GC_INIT_MASK_CACHE);
 	if (ret)
 		return ret;
-	gc = irq_get_domain_generic_chip(adc->irq_domain, 0);
+	gc = irq_get_domain_generic_chip(domain, 0);
 
 	devm_add_action(&pdev->dev,
 			(void (*)(void *))jz4740_adc_destroy_irq_chip, gc);
@@ -291,11 +291,11 @@ static int jz4740_adc_probe(struct platform_device *pdev)
 	ct->chip.irq_ack = irq_gc_ack_set_bit;
 
 	irq_set_chained_handler_and_data(adc->irq, jz4740_adc_irq_demux,
-					 adc->irq_domain);
+					 domain);
 
 	return devm_mfd_add_devices(&pdev->dev, 0, jz4740_adc_cells,
-			       ARRAY_SIZE(jz4740_adc_cells), mem_base,
-			       0, adc->irq_domain);
+				    ARRAY_SIZE(jz4740_adc_cells), mem_base,
+				    0, domain);
 }
 
 #ifdef CONFIG_OF
