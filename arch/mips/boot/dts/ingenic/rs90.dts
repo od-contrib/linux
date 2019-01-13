@@ -189,6 +189,24 @@
 			nand-ecc-step-size = <512>;
 			nand-ecc-strength = <8>;
 			nand-ecc-mode = "hw";
+			nand-is-boot-medium;
+			nand-on-flash-bbt;
+
+			partitions {
+				compatible = "fixed-partitions";
+				#address-cells = <1>;
+				#size-cells = <1>;
+
+				partition@0 {
+					label = "bootloader";
+					reg = <0x0 0x20000>;
+				};
+
+				partition@20000 {
+					label = "system";
+					reg = <0x20000 0xffa0000>;
+				};
+			};
 		};
 	};
 };
