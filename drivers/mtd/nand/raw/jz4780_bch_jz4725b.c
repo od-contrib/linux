@@ -14,6 +14,7 @@
 #include "jz4780_bch_internal.h"
 
 #define BCH_BHCR			0x0
+#define BCH_BHCSR			0x4
 #define BCH_BHCCR			0x8
 #define BCH_BHCNT			0xc
 #define BCH_BHDR			0x10
@@ -44,6 +45,8 @@
 #define BCH_BHINT_ERRC_MASK		(0xf << BCH_BHINT_ERRC_SHIFT)
 #define BCH_BHINT_TERRC_SHIFT		16
 #define BCH_BHINT_TERRC_MASK		(0x7f << BCH_BHINT_TERRC_SHIFT)
+#define BCH_BHINT_ALL_0			BIT(5)
+#define BCH_BHINT_ALL_F			BIT(4)
 #define BCH_BHINT_DECF			BIT(3)
 #define BCH_BHINT_ENCF			BIT(2)
 #define BCH_BHINT_UNCOR			BIT(1)
@@ -60,17 +63,26 @@ static void jz4725b_bch_init(struct jz4780_bch *bch,
 	/* Clear interrupt status. */
 	writel(readl(bch->base + BCH_BHINT), bch->base + BCH_BHINT);
 
+	/* Initialise and enable BCH. */
+	writel(0x1f, bch->base + BCH_BHCCR);
+	writel(BCH_BHCR_BCHE, bch->base + BCH_BHCSR);
+
+	if (params->strength == 8)
+		writel(BCH_BHCR_BSEL_MASK, bch->base + BCH_BHCSR);
+	else
+		writel(BCH_BHCR_BSEL_MASK, bch->base + BCH_BHCCR);
+
+	if (encode)
+		writel(BCH_BHCR_ENCE, bch->base + BCH_BHCSR);
+	else
+		writel(BCH_BHCR_ENCE, bch->base + BCH_BHCCR);
+
+	writel(BCH_BHCR_INIT, bch->base + BCH_BHCSR);
+
 	/* Set up BCH count register. */
 	reg = params->size << BCH_BHCNT_ENC_COUNT_SHIFT;
 	reg |= (params->size + params->bytes) << BCH_BHCNT_DEC_COUNT_SHIFT;
 	writel(reg, bch->base + BCH_BHCNT);
-
-	/* Initialise and enable BCH. */
-	reg = BCH_BHCR_BCHE | BCH_BHCR_INIT;
-	reg |= (params->strength / 4) << BCH_BHCR_BSEL_SHIFT;
-	if (encode)
-		reg |= BCH_BHCR_ENCE;
-	writel(reg, bch->base + BCH_BHCR);
 }
 
 static void jz4725b_bch_disable(struct jz4780_bch *bch)
@@ -179,8 +191,14 @@ static int jz4725b_correct(struct jz4780_bch *bch, struct jz4780_bch_params *par
 		goto out;
 	}
 
+	if (reg & (BCH_BHINT_ALL_F | BCH_BHINT_ALL_0)) {
+		/* Data and ECC is all 0xff or 0x00 - nothing to correct */
+		ret = 0;
+		goto out;
+	}
+
 	if (reg & BCH_BHINT_UNCOR) {
-		dev_warn(bch->dev, "uncorrectable ECC error\n");
+		/* Uncorrectable ECC error */
 		ret = -EBADMSG;
 		goto out;
 	}
