@@ -107,6 +107,44 @@
 				debounce-interval = <10>;
 			};
 		};
+
+		amp: audio-amp {
+			compatible = "simple-audio-amplifier";
+			enable-gpios = <&gpc 15 GPIO_ACTIVE_HIGH>;
+		};
+
+		sound-card {
+			compatible = "simple-audio-card";
+
+			simple-audio-card,name = "rs90-audio";
+			simple-audio-card,format = "i2s";
+
+			simple-audio-card,widgets =
+				"Speaker", "Speaker",
+				"Headphone", "Headphones";
+			simple-audio-card,routing =
+				"INL", "LHPOUT",
+				"INR", "RHPOUT",
+				"Headphones", "LHPOUT",
+				"Headphones", "RHPOUT",
+				"Speaker", "OUTL",
+				"Speaker", "OUTR";
+
+			simple-audio-card,hp-det-gpio = <&gpd 16 GPIO_ACTIVE_LOW>;
+			simple-audio-card,aux-devs = <&amp>;
+
+			simple-audio-card,bitclock-master = <&dai_codec>;
+			simple-audio-card,frame-master = <&dai_codec>;
+
+			dai_cpu: simple-audio-card,cpu {
+				sound-dai = <&aic>;
+			};
+
+			dai_codec: simple-audio-card,codec {
+				sound-dai = <&codec>;
+			};
+
+		};
 	};
 };
 
