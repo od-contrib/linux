@@ -340,7 +340,6 @@ static int jz4725b_codec_dev_probe(struct snd_soc_component *component)
 	struct regmap *map = icdc->regmap;
 
 	clk_prepare_enable(icdc->clk);
-	msleep(1);
 
 	/* Write CONFIGn (n=1 to 8) bits */
 	regmap_write(map, JZ4725B_CODEC_REG_AICR,
