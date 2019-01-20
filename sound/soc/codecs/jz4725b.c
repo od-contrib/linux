@@ -369,10 +369,7 @@ static const struct snd_soc_component_driver jz4725b_codec = {
 	.dapm_routes		= jz4725b_codec_dapm_routes,
 	.num_dapm_routes	= ARRAY_SIZE(jz4725b_codec_dapm_routes),
 	.suspend_bias_off	= 1,
-	.idle_bias_on		= 1,
 	.use_pmdown_time	= 1,
-	.endianness		= 1,
-	.non_legacy_dai_naming	= 1,
 };
 
 static const unsigned int jz4725b_codec_sample_rates[] = {
