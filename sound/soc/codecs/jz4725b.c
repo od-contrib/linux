@@ -129,6 +129,9 @@ enum {
 #define REG_PMR2_SB_OFFSET		1
 #define REG_PMR2_SB_SLEEP_OFFSET	0
 
+#define REG_IFR_RAMP_UP_DONE_OFFSET	3
+#define REG_IFR_RAMP_DOWN_DONE_OFFSET	2
+
 #define REG_CGR1_GODL_OFFSET		4
 #define REG_CGR1_GODL_MASK		(0xf << REG_CGR1_GODL_OFFSET)
 #define REG_CGR1_GODR_OFFSET		0
@@ -191,6 +194,35 @@ static const struct snd_kcontrol_new jz4725b_codec_mixer_controls[] = {
 			REG_CR1_BYPASS_OFFSET, 1, 0),
 };
 
+static int jz4725b_out_stage_enable(struct snd_soc_dapm_widget *w,
+				    struct snd_kcontrol *kcontrol,
+				    int event)
+{
+	struct snd_soc_component *codec = snd_soc_dapm_to_component(w->dapm);
+	struct jz_icdc *icdc = snd_soc_component_get_drvdata(codec);
+	struct regmap *map = icdc->regmap;
+	unsigned int val;
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		return regmap_update_bits(map, JZ4725B_CODEC_REG_IFR,
+				   BIT(REG_IFR_RAMP_UP_DONE_OFFSET), 0);
+	case SND_SOC_DAPM_POST_PMU:
+		return regmap_read_poll_timeout(map, JZ4725B_CODEC_REG_IFR,
+					       val, val & BIT(REG_IFR_RAMP_UP_DONE_OFFSET),
+					       100000, 500000);
+	case SND_SOC_DAPM_PRE_PMD:
+		return regmap_update_bits(map, JZ4725B_CODEC_REG_IFR,
+				   BIT(REG_IFR_RAMP_DOWN_DONE_OFFSET), 0);
+	case SND_SOC_DAPM_POST_PMD:
+		return regmap_read_poll_timeout(map, JZ4725B_CODEC_REG_IFR,
+					       val, val & BIT(REG_IFR_RAMP_DOWN_DONE_OFFSET),
+					       100000, 500000);
+	default:
+		return -EINVAL;
+	}
+}
+
 static const struct snd_soc_dapm_widget jz4725b_codec_dapm_widgets[] = {
 	/* DAC */
 	SND_SOC_DAPM_DAC("DAC", "Playback",
@@ -220,8 +252,11 @@ static const struct snd_soc_dapm_widget jz4725b_codec_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER("Mic 2", JZ4725B_CODEC_REG_CR3,
 			   REG_CR3_SB_MIC2_OFFSET, 1, NULL, 0),
 
-	SND_SOC_DAPM_MIXER("Out Stage", JZ4725B_CODEC_REG_PMR1,
-			   REG_PMR1_SB_OUT_OFFSET, 1, NULL, 0),
+	SND_SOC_DAPM_MIXER_E("Out Stage", JZ4725B_CODEC_REG_PMR1,
+			     REG_PMR1_SB_OUT_OFFSET, 1, NULL, 0,
+			     jz4725b_out_stage_enable,
+			     SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			     SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MIXER("Mixer to ADC", JZ4725B_CODEC_REG_PMR1,
 			   REG_PMR1_SB_IND_OFFSET, 1, NULL, 0),
 
