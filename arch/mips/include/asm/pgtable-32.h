@@ -55,7 +55,11 @@ extern int add_temporary_entry(unsigned long entrylo0, unsigned long entrylo1,
 #define __PGD_ORDER	(32 - 3 * PAGE_SHIFT + PGD_T_LOG2 + PTE_T_LOG2)
 #define PGD_ORDER	(__PGD_ORDER >= 0 ? __PGD_ORDER : 0)
 #define PUD_ORDER	aieeee_attempt_to_allocate_pud
+#ifdef CONFIG_MIPS_HUGE_TLB_SUPPORT
+#define PMD_ORDER	0
+#else
 #define PMD_ORDER	1
+#endif
 #define PTE_ORDER	0
 
 #define PTRS_PER_PGD	(USER_PTRS_PER_PGD * 2)
@@ -87,7 +91,7 @@ extern int add_temporary_entry(unsigned long entrylo0, unsigned long entrylo1,
 
 extern void load_pgd(unsigned long pg_dir);
 
-extern pte_t invalid_pte_table[PAGE_SIZE/sizeof(pte_t)];
+extern pte_t invalid_pte_table[PTRS_PER_PTE];
 
 /*
  * Empty pgd/pmd entries point to the invalid_pte_table.
@@ -97,7 +101,19 @@ static inline int pmd_none(pmd_t pmd)
 	return pmd_val(pmd) == (unsigned long) invalid_pte_table;
 }
 
-#define pmd_bad(pmd)		(pmd_val(pmd) & ~PAGE_MASK)
+static inline int pmd_bad(pmd_t pmd)
+{
+#ifdef CONFIG_MIPS_HUGE_TLB_SUPPORT
+	/* pmd_huge(pmd) but inline */
+	if (unlikely(pmd_val(pmd) & _PAGE_HUGE))
+		return 0;
+#endif
+
+	if (unlikely(pmd_val(pmd) & ~PAGE_MASK))
+		return 1;
+
+	return 0;
+}
 
 static inline int pmd_present(pmd_t pmd)
 {
@@ -138,6 +154,8 @@ static inline pte_t pfn_pte(unsigned long pfn, pgprot_t prot)
 	return pte;
 }
 
+#define pfn_pmd(pfn, prot)	__pmd(((pfn) << _PFN_SHIFT) | pgprot_val(prot))
+
 #else
 
 #ifdef CONFIG_CPU_VR41XX
@@ -159,6 +177,7 @@ static inline pte_t pfn_pte(unsigned long pfn, pgprot_t prot)
 #define pgd_offset_k(address) pgd_offset(&init_mm, address)
 
 #define pgd_index(address)	(((address) >> PGDIR_SHIFT) & (PTRS_PER_PGD-1))
+#define pmd_index(address)	(((address) >> PMD_SHIFT) & (PTRS_PER_PMD-1))
 
 /* to find an entry in a page-table-directory */
 #define pgd_offset(mm, addr)	((mm)->pgd + pgd_index(addr))

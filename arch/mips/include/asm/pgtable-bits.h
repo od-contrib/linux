@@ -78,6 +78,9 @@ enum pgtable_bits {
 	_PAGE_WRITE_SHIFT,
 	_PAGE_ACCESSED_SHIFT,
 	_PAGE_MODIFIED_SHIFT,
+#if defined(CONFIG_MIPS_HUGE_TLB_SUPPORT)
+	_PAGE_HUGE_SHIFT,
+#endif
 };
 
 #elif defined(CONFIG_CPU_R3000) || defined(CONFIG_CPU_TX39XX)
