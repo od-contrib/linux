@@ -388,8 +388,12 @@ static int jzfb_set_par(struct fb_info *info)
 
 	mutex_unlock(&jzfb->lock);
 
+#if 0
 	clk_set_rate(jzfb->lpclk, rate);
 	clk_set_rate(jzfb->ldclk, rate * 3);
+#else
+	clk_set_rate(jzfb->ldclk, /*rate*/ 3000000);
+#endif
 
 	return 0;
 }
@@ -563,12 +567,14 @@ static int jzfb_probe(struct platform_device *pdev)
 		goto err_framebuffer_release;
 	}
 
+#if 0
 	jzfb->lpclk = devm_clk_get(&pdev->dev, "lcd_pclk");
 	if (IS_ERR(jzfb->lpclk)) {
 		ret = PTR_ERR(jzfb->lpclk);
 		dev_err(&pdev->dev, "Failed to get lcd pixel clock: %d\n", ret);
 		goto err_framebuffer_release;
 	}
+#endif
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	jzfb->base = devm_ioremap_resource(&pdev->dev, mem);
