@@ -145,6 +145,30 @@
 			};
 
 		};
+
+		regulators {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "simple-bus";
+
+			vcc: regulator@0 {
+				compatible = "regulator-fixed";
+
+				regulator-name = "vcc";
+				regulaor-min-microvolt = <3300000>;
+				regulaor-max-microvolt = <3300000>;
+				regulator-always-on;
+			};
+		};
+
+		usb-phy {
+			compatible = "usb-nop-xceiv";
+			#phy-cells = <0>;
+
+			clocks = <&cgu JZ4725B_CLK_UDC_PHY>;
+			clock-names = "main_clk";
+			vcc-supply = <&vcc>;
+		};
 	};
 };
 
