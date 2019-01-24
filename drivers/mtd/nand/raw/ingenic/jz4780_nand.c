@@ -166,8 +166,12 @@ static int jz4780_nand_attach_chip(struct nand_chip *chip)
 	struct jz4780_nand_controller *nfc = to_jz4780_nand_controller(chip->controller);
 	int eccbytes;
 
-	chip->ecc.bytes = fls((1 + 8) * chip->ecc.size)	*
-				(chip->ecc.strength / 8);
+	if (chip->ecc.strength < 8) {
+		chip->ecc.bytes = 2 * chip->ecc.strength + 1;
+	} else {
+		chip->ecc.bytes = fls((1 + 8) * chip->ecc.size)	*
+				  (chip->ecc.strength / 8);
+	}
 
 	switch (chip->ecc.mode) {
 	case NAND_ECC_HW:
