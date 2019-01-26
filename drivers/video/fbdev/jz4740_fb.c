@@ -361,7 +361,7 @@ static int jzfb_set_par(struct fb_info *info)
 		writel(pdata->special_tft_config.spl, jzfb->base + JZ_REG_LCD_SPL);
 		writel(pdata->special_tft_config.cls, jzfb->base + JZ_REG_LCD_CLS);
 		writel(pdata->special_tft_config.ps, jzfb->base + JZ_REG_LCD_PS);
-		writel(pdata->special_tft_config.ps, jzfb->base + JZ_REG_LCD_REV);
+		writel(pdata->special_tft_config.rev, jzfb->base + JZ_REG_LCD_REV);
 		break;
 	default:
 		cfg |= JZ_LCD_CFG_PS_DISABLE;
