@@ -362,6 +362,8 @@ static int jzfb_set_par(struct fb_info *info)
 		writel(pdata->special_tft_config.cls, jzfb->base + JZ_REG_LCD_CLS);
 		writel(pdata->special_tft_config.ps, jzfb->base + JZ_REG_LCD_PS);
 		writel(pdata->special_tft_config.rev, jzfb->base + JZ_REG_LCD_REV);
+		/* MtH: For RS90, not sure if it's a good idea in general. */
+		cfg |= JZ_LCD_CFG_REV_POLARITY;
 		break;
 	default:
 		cfg |= JZ_LCD_CFG_PS_DISABLE;
@@ -392,7 +394,7 @@ static int jzfb_set_par(struct fb_info *info)
 	clk_set_rate(jzfb->lpclk, rate);
 	clk_set_rate(jzfb->ldclk, rate * 3);
 #else
-	clk_set_rate(jzfb->ldclk, /*rate*/ 3000000);
+	clk_set_rate(jzfb->ldclk, /*rate*/ 4200000);
 #endif
 
 	return 0;
