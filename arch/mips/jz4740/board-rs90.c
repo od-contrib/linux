@@ -10,13 +10,13 @@ static struct fb_videomode rs90_video_modes[] = {
 	{
 		.name = "240x160",
 		/* Use 228 lines of 308 ticks each, like GBA. */
-		.hsync_len = 2,
-		.left_margin = 2,
-		.right_margin = 64,
+		.hsync_len = 1,
+		.left_margin = 1,
+		.right_margin = 66,
 		.xres = 240,
-		.vsync_len = 2,
-		.upper_margin = 0,
-		.lower_margin = 66,
+		.vsync_len = 10,
+		.upper_margin = 6,
+		.lower_margin = 52,
 		.yres = 160,
 		.sync = FB_SYNC_HOR_HIGH_ACT,
 		.vmode = FB_VMODE_NONINTERLACED,
@@ -29,11 +29,11 @@ static struct jz4740_fb_platform_data rs90_fb_pdata = {
 	.num_modes	= ARRAY_SIZE(rs90_video_modes),
 	.modes		= rs90_video_modes,
 	.bpp		= 16,
-	.lcd_type	= JZ_LCD_TYPE_SPECIAL_TFT_1, // ???
-	.pixclk_falling_edge = 0, // ???
+	.lcd_type	= JZ_LCD_TYPE_SPECIAL_TFT_2,
+	.pixclk_falling_edge = 1,
 	.special_tft_config = {
 		.spl = (0 << 16) | 1, // ???
-		.cls = (0 << 16) | 2, // ???
+		.cls = (8 << 16) | 168, // ???
 		.ps = (0 << 16) | 2, // ???
 		.rev = (2 << 16), // ???
 	},
