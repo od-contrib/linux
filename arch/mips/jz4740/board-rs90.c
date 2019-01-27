@@ -32,10 +32,10 @@ static struct jz4740_fb_platform_data rs90_fb_pdata = {
 	.lcd_type	= JZ_LCD_TYPE_SPECIAL_TFT_2,
 	.pixclk_falling_edge = 1,
 	.special_tft_config = {
-		.spl = (0 << 16) | 1, // ???
-		.cls = (8 << 16) | 168, // ???
-		.ps = (0 << 16) | 2, // ???
-		.rev = (2 << 16), // ???
+		.spl = (1 << 16) | 2, /* immediately following HSYNC */
+		.cls = (248 << 16) | 249, /* near the end of the line */
+		.ps  = (248 << 16) | 249, /* same as PS */
+		.rev = (512 << 16), /* deliberately after line end */
 	},
 };
 
