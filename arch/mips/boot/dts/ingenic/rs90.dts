@@ -169,6 +169,26 @@
 			clock-names = "main_clk";
 			vcc-supply = <&vcc>;
 		};
+
+		adc-keys {
+			compatible = "adc-keys";
+			io-channels = <&adc 0>;
+			io-channel-names = "buttons";
+			keyup-threshold-microvolt = <1400000>;
+			poll-interval = <30>;
+			autorepeat = <1>;
+
+			left-shoulder {
+				label = "Left shoulder button";
+				linux,code = <KEY_TAB>;
+				press-threshold-microvolt = <800000>;
+			};
+			button-select {
+				label = "Select button";
+				linux,code = <KEY_ESC>;
+				press-threshold-microvolt = <1100000>;
+			};
+		};
 	};
 };
 
