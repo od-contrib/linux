@@ -100,16 +100,11 @@
 		debounce-delay-ms = <10>;
 		wakeup-source;
 
-		row-gpios = <
-		  &gpd 18 GPIO_ACTIVE_LOW &gpd 19 GPIO_ACTIVE_LOW
-		  &gpd 20 GPIO_ACTIVE_LOW &gpd 21 GPIO_ACTIVE_LOW
-		  &gpd 22 GPIO_ACTIVE_LOW &gpd 23 GPIO_ACTIVE_LOW
-		  &gpd 24 GPIO_ACTIVE_LOW &gpd 26 GPIO_ACTIVE_LOW>;
-		col-gpios = <
-		  &gpc 10 GPIO_ACTIVE_LOW &gpc 11 GPIO_ACTIVE_LOW
-		  &gpc 12 GPIO_ACTIVE_LOW &gpc 13 GPIO_ACTIVE_LOW
-		  &gpc 14 GPIO_ACTIVE_LOW &gpc 15 GPIO_ACTIVE_LOW
-		  &gpc 16 GPIO_ACTIVE_LOW &gpc 17 GPIO_ACTIVE_LOW>;
+		row-gpios = <&gpd 18 0 &gpd 19 0 &gpd 20 0 &gpd 21 0
+			     &gpd 22 0 &gpd 23 0 &gpd 24 0 &gpd 26 0>;
+		col-gpios = <&gpc 10 0 &gpc 11 0 &gpc 12 0 &gpc 13 0
+			     &gpc 14 0 &gpc 15 0 &gpc 16 0 &gpc 17 0>;
+		gpio-activelow;
 
 		linux,keymap = <
 			MATRIX_KEY(0, 0, KEY_F1)	/* S2 */
