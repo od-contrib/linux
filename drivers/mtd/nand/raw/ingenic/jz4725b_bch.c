@@ -30,9 +30,8 @@
 #define BCH_BHINTEC			0x40
 #define BCH_BHINTE			0x38
 
-#define BCH_BHCR_BSEL_SHIFT		2
-#define BCH_BHCR_BSEL_MASK		(0x1 << BCH_BHCR_BSEL_SHIFT)
 #define BCH_BHCR_ENCE			BIT(3)
+#define BCH_BHCR_BSEL			BIT(2)
 #define BCH_BHCR_INIT			BIT(1)
 #define BCH_BHCR_BCHE			BIT(0)
 
@@ -73,9 +72,9 @@ static void jz4725b_bch_init(struct ingenic_ecc *bch,
 	writel(BCH_BHCR_BCHE, bch->base + BCH_BHCSR);
 
 	if (params->strength == 8)
-		writel(BCH_BHCR_BSEL_MASK, bch->base + BCH_BHCSR);
+		writel(BCH_BHCR_BSEL, bch->base + BCH_BHCSR);
 	else
-		writel(BCH_BHCR_BSEL_MASK, bch->base + BCH_BHCCR);
+		writel(BCH_BHCR_BSEL, bch->base + BCH_BHCCR);
 
 	if (encode)
 		writel(BCH_BHCR_ENCE, bch->base + BCH_BHCSR);
