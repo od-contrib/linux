@@ -21,6 +21,7 @@
 
 #include <linux/clk.h>
 #include <linux/delay.h>
+#include <linux/regmap.h>
 
 #include <linux/console.h>
 #include <linux/fb.h>
@@ -118,6 +119,7 @@ struct jzfb {
 	struct fb_info *fb;
 	struct platform_device *pdev;
 	void __iomem *base;
+	struct regmap *map;
 	struct resource *mem;
 	struct jz4740_fb_platform_data *pdata;
 
@@ -134,6 +136,31 @@ struct jzfb {
 	struct mutex lock;
 
 	uint32_t pseudo_palette[16];
+};
+
+static bool jz4740_drm_writeable_reg(struct device *dev, unsigned int reg)
+{
+	switch (reg) {
+	case JZ_REG_LCD_IID:
+	case JZ_REG_LCD_SA0:
+	case JZ_REG_LCD_FID0:
+	case JZ_REG_LCD_CMD0:
+	case JZ_REG_LCD_SA1:
+	case JZ_REG_LCD_FID1:
+	case JZ_REG_LCD_CMD1:
+		return false;
+	default:
+		return true;
+	}
+}
+
+static const struct regmap_config jz4740_fb_regmap_config = {
+	.reg_bits = 32,
+	.val_bits = 32,
+	.reg_stride = 4,
+
+	.max_register = JZ_REG_LCD_CMD1,
+	.writeable_reg = jz4740_drm_writeable_reg,
 };
 
 static const struct fb_fix_screeninfo jzfb_fix = {
@@ -358,10 +385,10 @@ static int jzfb_set_par(struct fb_info *info)
 	case JZ_LCD_TYPE_SPECIAL_TFT_1:
 	case JZ_LCD_TYPE_SPECIAL_TFT_2:
 	case JZ_LCD_TYPE_SPECIAL_TFT_3:
-		writel(pdata->special_tft_config.spl, jzfb->base + JZ_REG_LCD_SPL);
-		writel(pdata->special_tft_config.cls, jzfb->base + JZ_REG_LCD_CLS);
-		writel(pdata->special_tft_config.ps, jzfb->base + JZ_REG_LCD_PS);
-		writel(pdata->special_tft_config.rev, jzfb->base + JZ_REG_LCD_REV);
+		regmap_write(jzfb->map, JZ_REG_LCD_SPL, pdata->special_tft_config.spl);
+		regmap_write(jzfb->map, JZ_REG_LCD_CLS, pdata->special_tft_config.cls);
+		regmap_write(jzfb->map, JZ_REG_LCD_PS, pdata->special_tft_config.ps);
+		regmap_write(jzfb->map, JZ_REG_LCD_REV, pdata->special_tft_config.rev);
 		/* MtH: For RS90, not sure if it's a good idea in general. */
 		cfg |= JZ_LCD_CFG_REV_POLARITY;
 		break;
@@ -373,17 +400,16 @@ static int jzfb_set_par(struct fb_info *info)
 		break;
 	}
 
-	writel(mode->hsync_len, jzfb->base + JZ_REG_LCD_HSYNC);
-	writel(mode->vsync_len, jzfb->base + JZ_REG_LCD_VSYNC);
+	regmap_write(jzfb->map, JZ_REG_LCD_HSYNC, mode->hsync_len);
+	regmap_write(jzfb->map, JZ_REG_LCD_VSYNC, mode->vsync_len);
 
-	writel((ht << 16) | vt, jzfb->base + JZ_REG_LCD_VAT);
+	regmap_write(jzfb->map, JZ_REG_LCD_VAT, (ht << 16) | vt);
 
-	writel((hds << 16) | hde, jzfb->base + JZ_REG_LCD_DAH);
-	writel((vds << 16) | vde, jzfb->base + JZ_REG_LCD_DAV);
+	regmap_write(jzfb->map, JZ_REG_LCD_DAH, (hds << 16) | hde);
+	regmap_write(jzfb->map, JZ_REG_LCD_DAV, (vds << 16) | vde);
 
-	writel(cfg, jzfb->base + JZ_REG_LCD_CFG);
-
-	writel(ctrl, jzfb->base + JZ_REG_LCD_CTRL);
+	regmap_write(jzfb->map, JZ_REG_LCD_CFG, cfg);
+	regmap_write(jzfb->map, JZ_REG_LCD_CTRL, ctrl);
 
 	if (!jzfb->is_enabled)
 		clk_disable_unprepare(jzfb->ldclk);
@@ -402,32 +428,28 @@ static int jzfb_set_par(struct fb_info *info)
 
 static void jzfb_enable(struct jzfb *jzfb)
 {
-	uint32_t ctrl;
-
 	clk_prepare_enable(jzfb->ldclk);
 
 	pinctrl_pm_select_default_state(&jzfb->pdev->dev);
 
-	writel(0, jzfb->base + JZ_REG_LCD_STATE);
+	regmap_write(jzfb->map, JZ_REG_LCD_STATE, 0);
+	regmap_write(jzfb->map, JZ_REG_LCD_DA0, jzfb->framedesc->next);
 
-	writel(jzfb->framedesc->next, jzfb->base + JZ_REG_LCD_DA0);
-
-	ctrl = readl(jzfb->base + JZ_REG_LCD_CTRL);
-	ctrl |= JZ_LCD_CTRL_ENABLE;
-	ctrl &= ~JZ_LCD_CTRL_DISABLE;
-	writel(ctrl, jzfb->base + JZ_REG_LCD_CTRL);
+	regmap_update_bits(jzfb->map, JZ_REG_LCD_CTRL,
+			   JZ_LCD_CTRL_ENABLE | JZ_LCD_CTRL_DISABLE,
+			   JZ_LCD_CTRL_ENABLE);
 }
 
 static void jzfb_disable(struct jzfb *jzfb)
 {
+	unsigned int var;
 	uint32_t ctrl;
 
-	ctrl = readl(jzfb->base + JZ_REG_LCD_CTRL);
-	ctrl |= JZ_LCD_CTRL_DISABLE;
-	writel(ctrl, jzfb->base + JZ_REG_LCD_CTRL);
-	do {
-		ctrl = readl(jzfb->base + JZ_REG_LCD_STATE);
-	} while (!(ctrl & JZ_LCD_STATE_DISABLED));
+	regmap_update_bits(jzfb->map, JZ_REG_LCD_CTRL,
+			   JZ_LCD_CTRL_DISABLE, JZ_LCD_CTRL_DISABLE);
+	regmap_read_poll_timeout(jzfb->map, JZ_REG_LCD_STATE, var,
+				 var & JZ_LCD_STATE_DISABLED,
+				 1000, 0);
 
 	pinctrl_pm_select_sleep_state(&jzfb->pdev->dev);
 
@@ -538,6 +560,7 @@ static struct  fb_ops jzfb_ops = {
 
 static int jzfb_probe(struct platform_device *pdev)
 {
+	struct device *dev = &pdev->dev;
 	int ret;
 	struct jzfb *jzfb;
 	struct fb_info *fb;
@@ -585,6 +608,12 @@ static int jzfb_probe(struct platform_device *pdev)
 		goto err_framebuffer_release;
 	}
 
+	jzfb->map = regmap_init_mmio(dev, jzfb->base, &jz4740_fb_regmap_config);
+	if (IS_ERR(jzfb->map)) {
+		dev_err(dev, "Failed to create regmap\n");
+		return PTR_ERR(jzfb->map);
+	}
+
 	platform_set_drvdata(pdev, jzfb);
 
 	mutex_init(&jzfb->lock);
@@ -615,7 +644,7 @@ static int jzfb_probe(struct platform_device *pdev)
 	clk_prepare_enable(jzfb->ldclk);
 	jzfb->is_enabled = 1;
 
-	writel(jzfb->framedesc->next, jzfb->base + JZ_REG_LCD_DA0);
+	regmap_write(jzfb->map, JZ_REG_LCD_DA0, jzfb->framedesc->next);
 
 	fb->mode = NULL;
 	jzfb_set_par(fb);
