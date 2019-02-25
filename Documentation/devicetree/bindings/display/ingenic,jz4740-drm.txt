@@ -1,0 +1,27 @@
+Ingenic JZ4740 DRM driver
+
+Required properties:
+- compatible: "ingenic,jz4740-drm"
+- reg: LCD registers location and length
+- clocks: LCD pixclock and device clock specifiers.
+- clock-names: "lcd_pclk" and "lcd"
+- interrupts: Specifies the interrupt line the LCD controller is connected to.
+
+Optional properties:
+- ingenic,panel: phandle to a display panel, if one is present
+- ingenic,lcd-mode: LCD mode to use with the display panel.
+                    See <dt-bindings/display/ingenic,jz4740-drm.h> for
+		    possible values.
+
+Example:
+
+lcd: lcd-controller@13050000 {
+	compatible = "ingenic,jz4740-drm";
+	reg = <0x13050000 0x1000>;
+
+	interrupt-parent = <&intc>;
+	interrupts = <31>;
+
+	clocks = <&cgu JZ4725B_CLK_LCD>;
+	clock-names = "lcd";
+};
