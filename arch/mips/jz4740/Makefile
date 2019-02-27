@@ -5,7 +5,7 @@
 
 # Object file lists.
 
-obj-y += prom.o reset.o setup.o platform.o
+obj-y += prom.o reset.o setup.o
 
 CFLAGS_setup.o = -I$(src)/../../../scripts/dtc/libfdt
 
