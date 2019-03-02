@@ -10,18 +10,23 @@
  */
 
 #include <linux/debugfs.h>
+#include <linux/delay.h>
 #include <linux/dma-buf.h>
 #include <linux/gpio/consumer.h>
 #include <linux/module.h>
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
 
+#include <drm/drm_damage_helper.h>
+#include <drm/drm_drv.h>
 #include <drm/drm_fb_cma_helper.h>
 #include <drm/drm_gem_cma_helper.h>
+#include <drm/drm_fourcc.h>
 #include <drm/drm_gem_framebuffer_helper.h>
+#include <drm/drm_vblank.h>
+#include <drm/drm_rect.h>
 #include <drm/tinydrm/mipi-dbi.h>
 #include <drm/tinydrm/tinydrm-helpers.h>
-#include <uapi/drm/drm.h>
 #include <video/mipi_display.h>
 
 #define MIPI_DBI_MAX_SPI_READ_SPEED 2000000 /* 2MHz */
@@ -169,7 +174,7 @@ EXPORT_SYMBOL(mipi_dbi_command_buf);
  * Zero on success, negative error code on failure.
  */
 int mipi_dbi_buf_copy(void *dst, struct drm_framebuffer *fb,
-		      struct drm_clip_rect *clip, bool swap)
+		      struct drm_rect *clip, bool swap)
 {
 	struct drm_gem_cma_object *cma_obj = drm_fb_cma_get_gem_obj(fb, 0);
 	struct dma_buf_attachment *import_attach = cma_obj->base.import_attach;
@@ -208,58 +213,74 @@ int mipi_dbi_buf_copy(void *dst, struct drm_framebuffer *fb,
 }
 EXPORT_SYMBOL(mipi_dbi_buf_copy);
 
-static int mipi_dbi_fb_dirty(struct drm_framebuffer *fb,
-			     struct drm_file *file_priv,
-			     unsigned int flags, unsigned int color,
-			     struct drm_clip_rect *clips,
-			     unsigned int num_clips)
+static void mipi_dbi_fb_dirty(struct drm_framebuffer *fb, struct drm_rect *rect)
 {
 	struct drm_gem_cma_object *cma_obj = drm_fb_cma_get_gem_obj(fb, 0);
-	struct tinydrm_device *tdev = fb->dev->dev_private;
-	struct mipi_dbi *mipi = mipi_dbi_from_tinydrm(tdev);
+	struct mipi_dbi *mipi = drm_to_mipi_dbi(fb->dev);
+	unsigned int height = rect->y2 - rect->y1;
+	unsigned int width = rect->x2 - rect->x1;
 	bool swap = mipi->swap_bytes;
-	struct drm_clip_rect clip;
 	int ret = 0;
 	bool full;
 	void *tr;
 
 	if (!mipi->enabled)
-		return 0;
+		return;
 
-	full = tinydrm_merge_clips(&clip, clips, num_clips, flags,
-				   fb->width, fb->height);
+	full = width == fb->width && height == fb->height;
 
-	DRM_DEBUG("Flushing [FB:%d] x1=%u, x2=%u, y1=%u, y2=%u\n", fb->base.id,
-		  clip.x1, clip.x2, clip.y1, clip.y2);
+	DRM_DEBUG_KMS("Flushing [FB:%d] " DRM_RECT_FMT "\n", fb->base.id, DRM_RECT_ARG(rect));
 
 	if (!mipi->dc || !full || swap ||
 	    fb->format->format == DRM_FORMAT_XRGB8888) {
 		tr = mipi->tx_buf;
-		ret = mipi_dbi_buf_copy(mipi->tx_buf, fb, &clip, swap);
+		ret = mipi_dbi_buf_copy(mipi->tx_buf, fb, rect, swap);
 		if (ret)
-			return ret;
+			goto err_msg;
 	} else {
 		tr = cma_obj->vaddr;
 	}
 
 	mipi_dbi_command(mipi, MIPI_DCS_SET_COLUMN_ADDRESS,
-			 (clip.x1 >> 8) & 0xFF, clip.x1 & 0xFF,
-			 ((clip.x2 - 1) >> 8) & 0xFF, (clip.x2 - 1) & 0xFF);
+			 (rect->x1 >> 8) & 0xff, rect->x1 & 0xff,
+			 ((rect->x2 - 1) >> 8) & 0xff, (rect->x2 - 1) & 0xff);
 	mipi_dbi_command(mipi, MIPI_DCS_SET_PAGE_ADDRESS,
-			 (clip.y1 >> 8) & 0xFF, clip.y1 & 0xFF,
-			 ((clip.y2 - 1) >> 8) & 0xFF, (clip.y2 - 1) & 0xFF);
+			 (rect->y1 >> 8) & 0xff, rect->y1 & 0xff,
+			 ((rect->y2 - 1) >> 8) & 0xff, (rect->y2 - 1) & 0xff);
 
 	ret = mipi_dbi_command_buf(mipi, MIPI_DCS_WRITE_MEMORY_START, tr,
-				(clip.x2 - clip.x1) * (clip.y2 - clip.y1) * 2);
-
-	return ret;
+				   width * height * 2);
+err_msg:
+	if (ret)
+		dev_err_once(fb->dev->dev, "Failed to update display %d\n", ret);
 }
 
-static const struct drm_framebuffer_funcs mipi_dbi_fb_funcs = {
-	.destroy	= drm_gem_fb_destroy,
-	.create_handle	= drm_gem_fb_create_handle,
-	.dirty		= tinydrm_fb_dirty,
-};
+/**
+ * mipi_dbi_pipe_update - Display pipe update helper
+ * @pipe: Simple display pipe
+ * @old_state: Old plane state
+ *
+ * This function handles framebuffer flushing and vblank events. Drivers can use
+ * this as their &drm_simple_display_pipe_funcs->update callback.
+ */
+void mipi_dbi_pipe_update(struct drm_simple_display_pipe *pipe,
+			  struct drm_plane_state *old_state)
+{
+	struct drm_plane_state *state = pipe->plane.state;
+	struct drm_crtc *crtc = &pipe->crtc;
+	struct drm_rect rect;
+
+	if (drm_atomic_helper_damage_merged(old_state, state, &rect))
+		mipi_dbi_fb_dirty(state->fb, &rect);
+
+	if (crtc->state->event) {
+		spin_lock_irq(&crtc->dev->event_lock);
+		drm_crtc_send_vblank_event(crtc, crtc->state->event);
+		spin_unlock_irq(&crtc->dev->event_lock);
+		crtc->state->event = NULL;
+	}
+}
+EXPORT_SYMBOL(mipi_dbi_pipe_update);
 
 /**
  * mipi_dbi_enable_flush - MIPI DBI enable helper
@@ -270,18 +291,25 @@ static const struct drm_framebuffer_funcs mipi_dbi_fb_funcs = {
  * This function sets &mipi_dbi->enabled, flushes the whole framebuffer and
  * enables the backlight. Drivers can use this in their
  * &drm_simple_display_pipe_funcs->enable callback.
+ *
+ * Note: Drivers which don't use mipi_dbi_pipe_update() because they have custom
+ * framebuffer flushing, can't use this function since they both use the same
+ * flushing code.
  */
 void mipi_dbi_enable_flush(struct mipi_dbi *mipi,
 			   struct drm_crtc_state *crtc_state,
 			   struct drm_plane_state *plane_state)
 {
-	struct tinydrm_device *tdev = &mipi->tinydrm;
 	struct drm_framebuffer *fb = plane_state->fb;
+	struct drm_rect rect = {
+		.x1 = 0,
+		.x2 = fb->width,
+		.y1 = 0,
+		.y2 = fb->height,
+	};
 
 	mipi->enabled = true;
-	if (fb)
-		tdev->fb_dirty(fb, NULL, 0, 0, NULL, 0);
-
+	mipi_dbi_fb_dirty(fb, &rect);
 	backlight_enable(mipi->backlight);
 }
 EXPORT_SYMBOL(mipi_dbi_enable_flush);
@@ -313,8 +341,7 @@ static void mipi_dbi_blank(struct mipi_dbi *mipi)
  */
 void mipi_dbi_pipe_disable(struct drm_simple_display_pipe *pipe)
 {
-	struct tinydrm_device *tdev = pipe_to_tinydrm(pipe);
-	struct mipi_dbi *mipi = mipi_dbi_from_tinydrm(tdev);
+	struct mipi_dbi *mipi = drm_to_mipi_dbi(pipe->crtc.dev);
 
 	DRM_DEBUG_KMS("\n");
 
@@ -373,20 +400,20 @@ int mipi_dbi_init(struct device *dev, struct mipi_dbi *mipi,
 	if (!mipi->tx_buf)
 		return -ENOMEM;
 
-	ret = devm_tinydrm_init(dev, tdev, &mipi_dbi_fb_funcs, driver);
+	ret = devm_tinydrm_init(dev, tdev, driver);
 	if (ret)
 		return ret;
 
-	tdev->fb_dirty = mipi_dbi_fb_dirty;
-
 	/* TODO: Maybe add DRM_MODE_CONNECTOR_SPI */
-	ret = tinydrm_display_pipe_init(tdev, pipe_funcs,
+	ret = tinydrm_display_pipe_init(tdev->drm, &tdev->pipe, pipe_funcs,
 					DRM_MODE_CONNECTOR_VIRTUAL,
 					mipi_dbi_formats,
 					ARRAY_SIZE(mipi_dbi_formats), mode,
 					rotation);
 	if (ret)
 		return ret;
+
+	drm_plane_enable_fb_damage_clips(&tdev->pipe.plane);
 
 	tdev->drm->mode_config.preferred_depth = 16;
 	mipi->rotation = rotation;
@@ -897,7 +924,7 @@ int mipi_dbi_spi_init(struct spi_device *spi, struct mipi_dbi *mipi,
 	 * Even though it's not the SPI device that does DMA (the master does),
 	 * the dma mask is necessary for the dma_alloc_wc() in
 	 * drm_gem_cma_create(). The dma_addr returned will be a physical
-	 * adddress which might be different from the bus address, but this is
+	 * address which might be different from the bus address, but this is
 	 * not a problem since the address will not be used.
 	 * The virtual address is used in the transfer and the SPI core
 	 * re-maps it on the SPI master device using the DMA streaming API
@@ -1059,8 +1086,7 @@ static const struct file_operations mipi_dbi_debugfs_command_fops = {
  */
 int mipi_dbi_debugfs_init(struct drm_minor *minor)
 {
-	struct tinydrm_device *tdev = minor->dev->dev_private;
-	struct mipi_dbi *mipi = mipi_dbi_from_tinydrm(tdev);
+	struct mipi_dbi *mipi = drm_to_mipi_dbi(minor->dev);
 	umode_t mode = S_IFREG | S_IWUSR;
 
 	if (mipi->read_commands)

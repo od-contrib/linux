@@ -826,6 +826,33 @@ static struct drm_prop_enum_list drm_cp_enum_list[] = {
 };
 DRM_ENUM_NAME_FN(drm_get_content_protection_name, drm_cp_enum_list)
 
+static const struct drm_prop_enum_list hdmi_colorspaces[] = {
+	/* For Default case, driver will set the colorspace */
+	{ DRM_MODE_COLORIMETRY_DEFAULT, "Default" },
+	/* Standard Definition Colorimetry based on CEA 861 */
+	{ DRM_MODE_COLORIMETRY_SMPTE_170M_YCC, "SMPTE_170M_YCC" },
+	{ DRM_MODE_COLORIMETRY_BT709_YCC, "BT709_YCC" },
+	/* Standard Definition Colorimetry based on IEC 61966-2-4 */
+	{ DRM_MODE_COLORIMETRY_XVYCC_601, "XVYCC_601" },
+	/* High Definition Colorimetry based on IEC 61966-2-4 */
+	{ DRM_MODE_COLORIMETRY_XVYCC_709, "XVYCC_709" },
+	/* Colorimetry based on IEC 61966-2-1/Amendment 1 */
+	{ DRM_MODE_COLORIMETRY_SYCC_601, "SYCC_601" },
+	/* Colorimetry based on IEC 61966-2-5 [33] */
+	{ DRM_MODE_COLORIMETRY_OPYCC_601, "opYCC_601" },
+	/* Colorimetry based on IEC 61966-2-5 */
+	{ DRM_MODE_COLORIMETRY_OPRGB, "opRGB" },
+	/* Colorimetry based on ITU-R BT.2020 */
+	{ DRM_MODE_COLORIMETRY_BT2020_CYCC, "BT2020_CYCC" },
+	/* Colorimetry based on ITU-R BT.2020 */
+	{ DRM_MODE_COLORIMETRY_BT2020_RGB, "BT2020_RGB" },
+	/* Colorimetry based on ITU-R BT.2020 */
+	{ DRM_MODE_COLORIMETRY_BT2020_YCC, "BT2020_YCC" },
+	/* Added as part of Additional Colorimetry Extension in 861.G */
+	{ DRM_MODE_COLORIMETRY_DCI_P3_RGB_D65, "DCI-P3_RGB_D65" },
+	{ DRM_MODE_COLORIMETRY_DCI_P3_RGB_THEATER, "DCI-P3_RGB_Theater" },
+};
+
 /**
  * DOC: standard connector properties
  *
@@ -1066,7 +1093,7 @@ EXPORT_SYMBOL(drm_mode_create_dvi_i_properties);
  *
  * content type (HDMI specific):
  *	Indicates content type setting to be used in HDMI infoframes to indicate
- *	content type for the external device, so that it adjusts it's display
+ *	content type for the external device, so that it adjusts its display
  *	settings accordingly.
  *
  *	The value of this property can be one of the following:
@@ -1138,7 +1165,71 @@ void drm_hdmi_avi_infoframe_content_type(struct hdmi_avi_infoframe *frame,
 EXPORT_SYMBOL(drm_hdmi_avi_infoframe_content_type);
 
 /**
- * drm_create_tv_properties - create TV specific connector properties
+ * drm_mode_attach_tv_margin_properties - attach TV connector margin properties
+ * @connector: DRM connector
+ *
+ * Called by a driver when it needs to attach TV margin props to a connector.
+ * Typically used on SDTV and HDMI connectors.
+ */
+void drm_connector_attach_tv_margin_properties(struct drm_connector *connector)
+{
+	struct drm_device *dev = connector->dev;
+
+	drm_object_attach_property(&connector->base,
+				   dev->mode_config.tv_left_margin_property,
+				   0);
+	drm_object_attach_property(&connector->base,
+				   dev->mode_config.tv_right_margin_property,
+				   0);
+	drm_object_attach_property(&connector->base,
+				   dev->mode_config.tv_top_margin_property,
+				   0);
+	drm_object_attach_property(&connector->base,
+				   dev->mode_config.tv_bottom_margin_property,
+				   0);
+}
+EXPORT_SYMBOL(drm_connector_attach_tv_margin_properties);
+
+/**
+ * drm_mode_create_tv_margin_properties - create TV connector margin properties
+ * @dev: DRM device
+ *
+ * Called by a driver's HDMI connector initialization routine, this function
+ * creates the TV margin properties for a given device. No need to call this
+ * function for an SDTV connector, it's already called from
+ * drm_mode_create_tv_properties().
+ */
+int drm_mode_create_tv_margin_properties(struct drm_device *dev)
+{
+	if (dev->mode_config.tv_left_margin_property)
+		return 0;
+
+	dev->mode_config.tv_left_margin_property =
+		drm_property_create_range(dev, 0, "left margin", 0, 100);
+	if (!dev->mode_config.tv_left_margin_property)
+		return -ENOMEM;
+
+	dev->mode_config.tv_right_margin_property =
+		drm_property_create_range(dev, 0, "right margin", 0, 100);
+	if (!dev->mode_config.tv_right_margin_property)
+		return -ENOMEM;
+
+	dev->mode_config.tv_top_margin_property =
+		drm_property_create_range(dev, 0, "top margin", 0, 100);
+	if (!dev->mode_config.tv_top_margin_property)
+		return -ENOMEM;
+
+	dev->mode_config.tv_bottom_margin_property =
+		drm_property_create_range(dev, 0, "bottom margin", 0, 100);
+	if (!dev->mode_config.tv_bottom_margin_property)
+		return -ENOMEM;
+
+	return 0;
+}
+EXPORT_SYMBOL(drm_mode_create_tv_margin_properties);
+
+/**
+ * drm_mode_create_tv_properties - create TV specific connector properties
  * @dev: DRM device
  * @num_modes: number of different TV formats (modes) supported
  * @modes: array of pointers to strings containing name of each format
@@ -1183,24 +1274,7 @@ int drm_mode_create_tv_properties(struct drm_device *dev,
 	/*
 	 * Other, TV specific properties: margins & TV modes.
 	 */
-	dev->mode_config.tv_left_margin_property =
-		drm_property_create_range(dev, 0, "left margin", 0, 100);
-	if (!dev->mode_config.tv_left_margin_property)
-		goto nomem;
-
-	dev->mode_config.tv_right_margin_property =
-		drm_property_create_range(dev, 0, "right margin", 0, 100);
-	if (!dev->mode_config.tv_right_margin_property)
-		goto nomem;
-
-	dev->mode_config.tv_top_margin_property =
-		drm_property_create_range(dev, 0, "top margin", 0, 100);
-	if (!dev->mode_config.tv_top_margin_property)
-		goto nomem;
-
-	dev->mode_config.tv_bottom_margin_property =
-		drm_property_create_range(dev, 0, "bottom margin", 0, 100);
-	if (!dev->mode_config.tv_bottom_margin_property)
+	if (drm_mode_create_tv_margin_properties(dev))
 		goto nomem;
 
 	dev->mode_config.tv_mode_property =
@@ -1320,7 +1394,7 @@ EXPORT_SYMBOL(drm_mode_create_scaling_mode_property);
  *
  *	Absence of the property should indicate absence of support.
  *
- * "vrr_enabled":
+ * "VRR_ENABLED":
  *	Default &drm_crtc boolean property that notifies the driver that the
  *	content on the CRTC is suitable for variable refresh rate presentation.
  *	The driver will take this property as a hint to enable variable
@@ -1499,6 +1573,57 @@ int drm_mode_create_aspect_ratio_property(struct drm_device *dev)
 	return 0;
 }
 EXPORT_SYMBOL(drm_mode_create_aspect_ratio_property);
+
+/**
+ * DOC: standard connector properties
+ *
+ * Colorspace:
+ *     drm_mode_create_colorspace_property - create colorspace property
+ *     This property helps select a suitable colorspace based on the sink
+ *     capability. Modern sink devices support wider gamut like BT2020.
+ *     This helps switch to BT2020 mode if the BT2020 encoded video stream
+ *     is being played by the user, same for any other colorspace. Thereby
+ *     giving a good visual experience to users.
+ *
+ *     The expectation from userspace is that it should parse the EDID
+ *     and get supported colorspaces. Use this property and switch to the
+ *     one supported. Sink supported colorspaces should be retrieved by
+ *     userspace from EDID and driver will not explicitly expose them.
+ *
+ *     Basically the expectation from userspace is:
+ *      - Set up CRTC DEGAMMA/CTM/GAMMA to convert to some sink
+ *        colorspace
+ *      - Set this new property to let the sink know what it
+ *        converted the CRTC output to.
+ *      - This property is just to inform sink what colorspace
+ *        source is trying to drive.
+ *
+ * Called by a driver the first time it's needed, must be attached to desired
+ * connectors.
+ */
+int drm_mode_create_colorspace_property(struct drm_connector *connector)
+{
+	struct drm_device *dev = connector->dev;
+	struct drm_property *prop;
+
+	if (connector->connector_type == DRM_MODE_CONNECTOR_HDMIA ||
+	    connector->connector_type == DRM_MODE_CONNECTOR_HDMIB) {
+		prop = drm_property_create_enum(dev, DRM_MODE_PROP_ENUM,
+						"Colorspace",
+						hdmi_colorspaces,
+						ARRAY_SIZE(hdmi_colorspaces));
+		if (!prop)
+			return -ENOMEM;
+	} else {
+		DRM_DEBUG_KMS("Colorspace property not supported\n");
+		return 0;
+	}
+
+	connector->colorspace_property = prop;
+
+	return 0;
+}
+EXPORT_SYMBOL(drm_mode_create_colorspace_property);
 
 /**
  * drm_mode_create_content_type_property - create content type property
@@ -2077,7 +2202,7 @@ EXPORT_SYMBOL(drm_mode_get_tile_group);
  * identifier for the tile group.
  *
  * RETURNS:
- * new tile group or error.
+ * new tile group or NULL.
  */
 struct drm_tile_group *drm_mode_create_tile_group(struct drm_device *dev,
 						  char topology[8])
@@ -2087,7 +2212,7 @@ struct drm_tile_group *drm_mode_create_tile_group(struct drm_device *dev,
 
 	tg = kzalloc(sizeof(*tg), GFP_KERNEL);
 	if (!tg)
-		return ERR_PTR(-ENOMEM);
+		return NULL;
 
 	kref_init(&tg->refcount);
 	memcpy(tg->group_data, topology, 8);
@@ -2099,7 +2224,7 @@ struct drm_tile_group *drm_mode_create_tile_group(struct drm_device *dev,
 		tg->id = ret;
 	} else {
 		kfree(tg);
-		tg = ERR_PTR(ret);
+		tg = NULL;
 	}
 
 	mutex_unlock(&dev->mode_config.idr_mutex);

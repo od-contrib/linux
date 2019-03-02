@@ -472,7 +472,7 @@ struct drm_crtc_funcs {
 	/**
 	 * @destroy:
 	 *
-	 * Clean up plane resources. This is only called at driver unload time
+	 * Clean up CRTC resources. This is only called at driver unload time
 	 * through drm_mode_config_cleanup() since a CRTC cannot be hotplugged
 	 * in DRM.
 	 */
@@ -1148,9 +1148,6 @@ static inline uint32_t drm_crtc_mask(const struct drm_crtc *crtc)
 {
 	return 1 << drm_crtc_index(crtc);
 }
-
-int drm_crtc_force_disable(struct drm_crtc *crtc);
-int drm_crtc_force_disable_all(struct drm_device *dev);
 
 int drm_mode_set_config_internal(struct drm_mode_set *set);
 struct drm_crtc *drm_crtc_from_index(struct drm_device *dev, int idx);

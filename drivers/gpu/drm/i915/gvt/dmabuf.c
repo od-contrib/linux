@@ -29,7 +29,6 @@
  */
 
 #include <linux/dma-buf.h>
-#include <drm/drmP.h>
 #include <linux/vfio.h>
 
 #include "i915_drv.h"
@@ -154,7 +153,7 @@ static struct drm_i915_gem_object *vgpu_create_gem(struct drm_device *dev,
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct drm_i915_gem_object *obj;
 
-	obj = i915_gem_object_alloc(dev_priv);
+	obj = i915_gem_object_alloc();
 	if (obj == NULL)
 		return NULL;
 
@@ -164,9 +163,7 @@ static struct drm_i915_gem_object *vgpu_create_gem(struct drm_device *dev,
 
 	obj->read_domains = I915_GEM_DOMAIN_GTT;
 	obj->write_domain = 0;
-	if (IS_SKYLAKE(dev_priv)
-		|| IS_KABYLAKE(dev_priv)
-		|| IS_BROXTON(dev_priv)) {
+	if (INTEL_GEN(dev_priv) >= 9) {
 		unsigned int tiling_mode = 0;
 		unsigned int stride = 0;
 

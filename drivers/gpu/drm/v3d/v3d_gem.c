@@ -130,38 +130,31 @@ v3d_flush_l3(struct v3d_dev *v3d)
 	}
 }
 
-/* Invalidates the (read-only) L2 cache. */
+/* Invalidates the (read-only) L2C cache.  This was the L2 cache for
+ * uniforms and instructions on V3D 3.2.
+ */
 static void
-v3d_invalidate_l2(struct v3d_dev *v3d, int core)
+v3d_invalidate_l2c(struct v3d_dev *v3d, int core)
 {
+	if (v3d->ver > 32)
+		return;
+
 	V3D_CORE_WRITE(core, V3D_CTL_L2CACTL,
 		       V3D_L2CACTL_L2CCLR |
 		       V3D_L2CACTL_L2CENA);
-}
-
-static void
-v3d_invalidate_l1td(struct v3d_dev *v3d, int core)
-{
-	V3D_CORE_WRITE(core, V3D_CTL_L2TCACTL, V3D_L2TCACTL_TMUWCF);
-	if (wait_for(!(V3D_CORE_READ(core, V3D_CTL_L2TCACTL) &
-		       V3D_L2TCACTL_L2TFLS), 100)) {
-		DRM_ERROR("Timeout waiting for L1T write combiner flush\n");
-	}
 }
 
 /* Invalidates texture L2 cachelines */
 static void
 v3d_flush_l2t(struct v3d_dev *v3d, int core)
 {
-	v3d_invalidate_l1td(v3d, core);
-
+	/* While there is a busy bit (V3D_L2TCACTL_L2TFLS), we don't
+	 * need to wait for completion before dispatching the job --
+	 * L2T accesses will be stalled until the flush has completed.
+	 */
 	V3D_CORE_WRITE(core, V3D_CTL_L2TCACTL,
 		       V3D_L2TCACTL_L2TFLS |
 		       V3D_SET_FIELD(V3D_L2TCACTL_FLM_FLUSH, V3D_L2TCACTL_FLM));
-	if (wait_for(!(V3D_CORE_READ(core, V3D_CTL_L2TCACTL) &
-		       V3D_L2TCACTL_L2TFLS), 100)) {
-		DRM_ERROR("Timeout waiting for L2T flush\n");
-	}
 }
 
 /* Invalidates the slice caches.  These are read-only caches. */
@@ -175,35 +168,18 @@ v3d_invalidate_slices(struct v3d_dev *v3d, int core)
 		       V3D_SET_FIELD(0xf, V3D_SLCACTL_ICC));
 }
 
-/* Invalidates texture L2 cachelines */
-static void
-v3d_invalidate_l2t(struct v3d_dev *v3d, int core)
-{
-	V3D_CORE_WRITE(core,
-		       V3D_CTL_L2TCACTL,
-		       V3D_L2TCACTL_L2TFLS |
-		       V3D_SET_FIELD(V3D_L2TCACTL_FLM_CLEAR, V3D_L2TCACTL_FLM));
-	if (wait_for(!(V3D_CORE_READ(core, V3D_CTL_L2TCACTL) &
-		       V3D_L2TCACTL_L2TFLS), 100)) {
-		DRM_ERROR("Timeout waiting for L2T invalidate\n");
-	}
-}
-
 void
 v3d_invalidate_caches(struct v3d_dev *v3d)
 {
+	/* Invalidate the caches from the outside in.  That way if
+	 * another CL's concurrent use of nearby memory were to pull
+	 * an invalidated cacheline back in, we wouldn't leave stale
+	 * data in the inner cache.
+	 */
 	v3d_flush_l3(v3d);
-
-	v3d_invalidate_l2(v3d, 0);
-	v3d_invalidate_slices(v3d, 0);
+	v3d_invalidate_l2c(v3d, 0);
 	v3d_flush_l2t(v3d, 0);
-}
-
-void
-v3d_flush_caches(struct v3d_dev *v3d)
-{
-	v3d_invalidate_l1td(v3d, 0);
-	v3d_invalidate_l2t(v3d, 0);
+	v3d_invalidate_slices(v3d, 0);
 }
 
 static void
@@ -214,7 +190,7 @@ v3d_attach_object_fences(struct v3d_bo **bos, int bo_count,
 
 	for (i = 0; i < bo_count; i++) {
 		/* XXX: Use shared fences for read-only objects. */
-		reservation_object_add_excl_fence(bos[i]->resv, fence);
+		reservation_object_add_excl_fence(bos[i]->base.resv, fence);
 	}
 }
 
@@ -226,7 +202,7 @@ v3d_unlock_bo_reservations(struct v3d_bo **bos,
 	int i;
 
 	for (i = 0; i < bo_count; i++)
-		ww_mutex_unlock(&bos[i]->resv->lock);
+		ww_mutex_unlock(&bos[i]->base.resv->lock);
 
 	ww_acquire_fini(acquire_ctx);
 }
@@ -252,7 +228,7 @@ retry:
 	if (contended_lock != -1) {
 		struct v3d_bo *bo = bos[contended_lock];
 
-		ret = ww_mutex_lock_slow_interruptible(&bo->resv->lock,
+		ret = ww_mutex_lock_slow_interruptible(&bo->base.resv->lock,
 						       acquire_ctx);
 		if (ret) {
 			ww_acquire_done(acquire_ctx);
@@ -264,18 +240,18 @@ retry:
 		if (i == contended_lock)
 			continue;
 
-		ret = ww_mutex_lock_interruptible(&bos[i]->resv->lock,
+		ret = ww_mutex_lock_interruptible(&bos[i]->base.resv->lock,
 						  acquire_ctx);
 		if (ret) {
 			int j;
 
 			for (j = 0; j < i; j++)
-				ww_mutex_unlock(&bos[j]->resv->lock);
+				ww_mutex_unlock(&bos[j]->base.resv->lock);
 
 			if (contended_lock != -1 && contended_lock >= i) {
 				struct v3d_bo *bo = bos[contended_lock];
 
-				ww_mutex_unlock(&bo->resv->lock);
+				ww_mutex_unlock(&bo->base.resv->lock);
 			}
 
 			if (ret == -EDEADLK) {
@@ -294,7 +270,7 @@ retry:
 	 * before we commit the CL to the hardware.
 	 */
 	for (i = 0; i < bo_count; i++) {
-		ret = reservation_object_reserve_shared(bos[i]->resv, 1);
+		ret = reservation_object_reserve_shared(bos[i]->base.resv, 1);
 		if (ret) {
 			v3d_unlock_bo_reservations(bos, bo_count,
 						   acquire_ctx);
@@ -453,8 +429,6 @@ v3d_wait_bo_ioctl(struct drm_device *dev, void *data,
 {
 	int ret;
 	struct drm_v3d_wait_bo *args = data;
-	struct drm_gem_object *gem_obj;
-	struct v3d_bo *bo;
 	ktime_t start = ktime_get();
 	u64 delta_ns;
 	unsigned long timeout_jiffies =
@@ -463,21 +437,8 @@ v3d_wait_bo_ioctl(struct drm_device *dev, void *data,
 	if (args->pad != 0)
 		return -EINVAL;
 
-	gem_obj = drm_gem_object_lookup(file_priv, args->handle);
-	if (!gem_obj) {
-		DRM_DEBUG("Failed to look up GEM BO %d\n", args->handle);
-		return -EINVAL;
-	}
-	bo = to_v3d_bo(gem_obj);
-
-	ret = reservation_object_wait_timeout_rcu(bo->resv,
-						  true, true,
-						  timeout_jiffies);
-
-	if (ret == 0)
-		ret = -ETIME;
-	else if (ret > 0)
-		ret = 0;
+	ret = drm_gem_reservation_object_wait(file_priv, args->handle,
+					      true, timeout_jiffies);
 
 	/* Decrement the user's timeout, in case we got interrupted
 	 * such that the ioctl will be restarted.
@@ -491,8 +452,6 @@ v3d_wait_bo_ioctl(struct drm_device *dev, void *data,
 	/* Asked to wait beyond the jiffie/scheduler precision? */
 	if (ret == -ETIME && args->timeout_ns)
 		ret = -EAGAIN;
-
-	drm_gem_object_put_unlocked(gem_obj);
 
 	return ret;
 }

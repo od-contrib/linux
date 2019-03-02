@@ -30,7 +30,6 @@
 #include <linux/firmware.h>
 #include <acpi/video.h>
 
-#include <drm/drmP.h>
 #include <drm/i915_drm.h>
 
 #include "intel_opregion.h"
@@ -975,7 +974,8 @@ int intel_opregion_setup(struct drm_i915_private *dev_priv)
 		 * opregion base, and should never point within opregion.
 		 */
 		if (opregion->header->over.major > 2 ||
-		    opregion->header->over.minor >= 1) {
+		    opregion->header->over.minor >= 1 ||
+		    IS_ICELAKE(dev_priv)) {
 			WARN_ON(rvda < OPREGION_SIZE);
 
 			rvda += asls;

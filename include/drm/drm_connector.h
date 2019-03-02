@@ -253,6 +253,34 @@ enum drm_panel_orientation {
 	DRM_MODE_PANEL_ORIENTATION_RIGHT_UP,
 };
 
+/*
+ * This is a consolidated colorimetry list supported by HDMI and
+ * DP protocol standard. The respective connectors will register
+ * a property with the subset of this list (supported by that
+ * respective protocol). Userspace will set the colorspace through
+ * a colorspace property which will be created and exposed to
+ * userspace.
+ */
+
+/* For Default case, driver will set the colorspace */
+#define DRM_MODE_COLORIMETRY_DEFAULT			0
+/* CEA 861 Normal Colorimetry options */
+#define DRM_MODE_COLORIMETRY_NO_DATA			0
+#define DRM_MODE_COLORIMETRY_SMPTE_170M_YCC		1
+#define DRM_MODE_COLORIMETRY_BT709_YCC			2
+/* CEA 861 Extended Colorimetry Options */
+#define DRM_MODE_COLORIMETRY_XVYCC_601			3
+#define DRM_MODE_COLORIMETRY_XVYCC_709			4
+#define DRM_MODE_COLORIMETRY_SYCC_601			5
+#define DRM_MODE_COLORIMETRY_OPYCC_601			6
+#define DRM_MODE_COLORIMETRY_OPRGB			7
+#define DRM_MODE_COLORIMETRY_BT2020_CYCC		8
+#define DRM_MODE_COLORIMETRY_BT2020_RGB			9
+#define DRM_MODE_COLORIMETRY_BT2020_YCC			10
+/* Additional Colorimetry extension added as part of CTA 861.G */
+#define DRM_MODE_COLORIMETRY_DCI_P3_RGB_D65		11
+#define DRM_MODE_COLORIMETRY_DCI_P3_RGB_THEATER		12
+
 /**
  * struct drm_display_info - runtime data about the connected sink
  *
@@ -366,6 +394,12 @@ struct drm_display_info {
 	bool has_hdmi_infoframe;
 
 	/**
+	 * @rgb_quant_range_selectable: Does the sink support selecting
+	 * the RGB quantization range?
+	 */
+	bool rgb_quant_range_selectable;
+
+	/**
 	 * @edid_hdmi_dc_modes: Mask of supported hdmi deep color modes. Even
 	 * more stuff redundant with @bus_formats.
 	 */
@@ -394,7 +428,7 @@ int drm_display_info_set_bus_formats(struct drm_display_info *info,
 /**
  * struct drm_tv_connector_state - TV connector related states
  * @subconnector: selected subconnector
- * @margins: margins
+ * @margins: margins (all margins are expressed in pixels)
  * @margins.left: left margin
  * @margins.right: right margin
  * @margins.top: top margin
@@ -495,6 +529,13 @@ struct drm_connector_state {
 	 * protection. This is most commonly used for HDCP.
 	 */
 	unsigned int content_protection;
+
+	/**
+	 * @colorspace: State variable for Connector property to request
+	 * colorspace change on Sink. This is most commonly used to switch
+	 * to wider color gamuts like BT2020.
+	 */
+	u32 colorspace;
 
 	/**
 	 * @writeback_job: Writeback job for writeback connectors
@@ -906,7 +947,7 @@ struct drm_connector {
 	/**
 	 * @ycbcr_420_allowed : This bool indicates if this connector is
 	 * capable of handling YCBCR 420 output. While parsing the EDID
-	 * blocks, its very helpful to know, if the source is capable of
+	 * blocks it's very helpful to know if the source is capable of
 	 * handling YCBCR 420 outputs.
 	 */
 	bool ycbcr_420_allowed;
@@ -987,6 +1028,12 @@ struct drm_connector {
 	 * protection. See drm_connector_attach_content_protection_property().
 	 */
 	struct drm_property *content_protection_property;
+
+	/**
+	 * @colorspace_property: Connector property to set the suitable
+	 * colorspace supported by the sink.
+	 */
+	struct drm_property *colorspace_property;
 
 	/**
 	 * @path_blob_ptr:
@@ -1249,9 +1296,11 @@ const char *drm_get_tv_select_name(int val);
 const char *drm_get_content_protection_name(int val);
 
 int drm_mode_create_dvi_i_properties(struct drm_device *dev);
+int drm_mode_create_tv_margin_properties(struct drm_device *dev);
 int drm_mode_create_tv_properties(struct drm_device *dev,
 				  unsigned int num_modes,
 				  const char * const modes[]);
+void drm_connector_attach_tv_margin_properties(struct drm_connector *conn);
 int drm_mode_create_scaling_mode_property(struct drm_device *dev);
 int drm_connector_attach_content_type_property(struct drm_connector *dev);
 int drm_connector_attach_scaling_mode_property(struct drm_connector *connector,
@@ -1261,6 +1310,7 @@ int drm_connector_attach_vrr_capable_property(
 int drm_connector_attach_content_protection_property(
 		struct drm_connector *connector);
 int drm_mode_create_aspect_ratio_property(struct drm_device *dev);
+int drm_mode_create_colorspace_property(struct drm_connector *connector);
 int drm_mode_create_content_type_property(struct drm_device *dev);
 void drm_hdmi_avi_infoframe_content_type(struct hdmi_avi_infoframe *frame,
 					 const struct drm_connector_state *conn_state);
