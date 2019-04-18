@@ -556,6 +556,10 @@ static int simple_parse_of(struct simple_priv *priv)
 	if (ret < 0)
 		return ret;
 
+	ret = asoc_simple_card_of_parse_pin_switches(card, PREFIX);
+	if (ret < 0)
+		return ret;
+
 	/* Single/Muti DAI link(s) & New style of DT node */
 	memset(&li, 0, sizeof(li));
 	for (li.cpu = 1; li.cpu >= 0; li.cpu--) {
