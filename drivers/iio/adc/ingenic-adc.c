@@ -22,6 +22,7 @@
 #define JZ_ADC_REG_ADTCH		0x18
 #define JZ_ADC_REG_ADBDAT		0x1c
 #define JZ_ADC_REG_ADSDAT		0x20
+#define JZ_ADC_REG_ADCLK		0x28
 
 #define JZ_ADC_REG_CFG_BAT_MD		BIT(4)
 
@@ -322,6 +323,8 @@ static int ingenic_adc_probe(struct platform_device *pdev)
 	/* Put hardware in a known passive state. */
 	writeb(0x00, adc->base + JZ_ADC_REG_ENABLE);
 	writeb(0xff, adc->base + JZ_ADC_REG_CTRL);
+	/* Set clock to 6 MHz. */
+	writel(((60 - 1) << 16) | (2 - 1), adc->base + JZ_ADC_REG_ADCLK);
 	clk_disable(adc->clk);
 
 	ret = devm_add_action_or_reset(dev, ingenic_adc_clk_cleanup, adc->clk);
