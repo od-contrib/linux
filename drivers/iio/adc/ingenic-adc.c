@@ -35,6 +35,8 @@
 #define JZ4740_ADC_BATTERY_HIGH_VREF		(7500 * 0.986)
 #define JZ4740_ADC_BATTERY_HIGH_VREF_BITS	12
 
+struct ingenic_adc;
+
 struct ingenic_adc_soc_data {
 	unsigned int battery_high_vref;
 	unsigned int battery_high_vref_bits;
@@ -42,6 +44,7 @@ struct ingenic_adc_soc_data {
 	size_t battery_raw_avail_size;
 	const int *battery_scale_avail;
 	size_t battery_scale_avail_size;
+	void (*init_clk_div)(struct ingenic_adc *adc);
 };
 
 struct ingenic_adc {
@@ -152,6 +155,15 @@ static const int jz4740_adc_battery_scale_avail[] = {
 	JZ_ADC_BATTERY_LOW_VREF, JZ_ADC_BATTERY_LOW_VREF_BITS,
 };
 
+static void jz4725b_init_clk_div(struct ingenic_adc *adc)
+{
+	/*
+	 * The JZ4725B ADC works at 500 kHz to 8 MHz.
+	 * We pick 6 MHz, the highest we can derive from the 12 MHz EXT clock.
+	 */
+	writel(((60 - 1) << 16) | (2 - 1), adc->base + JZ_ADC_REG_ADCLK);
+}
+
 static const struct ingenic_adc_soc_data jz4725b_adc_soc_data = {
 	.battery_high_vref = JZ4725B_ADC_BATTERY_HIGH_VREF,
 	.battery_high_vref_bits = JZ4725B_ADC_BATTERY_HIGH_VREF_BITS,
@@ -159,6 +171,7 @@ static const struct ingenic_adc_soc_data jz4725b_adc_soc_data = {
 	.battery_raw_avail_size = ARRAY_SIZE(jz4725b_adc_battery_raw_avail),
 	.battery_scale_avail = jz4725b_adc_battery_scale_avail,
 	.battery_scale_avail_size = ARRAY_SIZE(jz4725b_adc_battery_scale_avail),
+	.init_clk_div = jz4725b_init_clk_div,
 };
 
 static const struct ingenic_adc_soc_data jz4740_adc_soc_data = {
@@ -168,6 +181,7 @@ static const struct ingenic_adc_soc_data jz4740_adc_soc_data = {
 	.battery_raw_avail_size = ARRAY_SIZE(jz4740_adc_battery_raw_avail),
 	.battery_scale_avail = jz4740_adc_battery_scale_avail,
 	.battery_scale_avail_size = ARRAY_SIZE(jz4740_adc_battery_scale_avail),
+	.init_clk_div = NULL, /* no ADCLK register on JZ4740 */
 };
 
 static int ingenic_adc_read_avail(struct iio_dev *iio_dev,
@@ -320,11 +334,13 @@ static int ingenic_adc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	/* Set clock dividers. */
+	if (soc_data->init_clk_div)
+		soc_data->init_clk_div(adc);
+
 	/* Put hardware in a known passive state. */
 	writeb(0x00, adc->base + JZ_ADC_REG_ENABLE);
 	writeb(0xff, adc->base + JZ_ADC_REG_CTRL);
-	/* Set clock to 6 MHz. */
-	writel(((60 - 1) << 16) | (2 - 1), adc->base + JZ_ADC_REG_ADCLK);
 	clk_disable(adc->clk);
 
 	ret = devm_add_action_or_reset(dev, ingenic_adc_clk_cleanup, adc->clk);
