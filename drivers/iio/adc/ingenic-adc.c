@@ -11,6 +11,7 @@
 #include <linux/iio/iio.h>
 #include <linux/io.h>
 #include <linux/iopoll.h>
+#include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/platform_device.h>
@@ -44,7 +45,7 @@ struct ingenic_adc_soc_data {
 	size_t battery_raw_avail_size;
 	const int *battery_scale_avail;
 	size_t battery_scale_avail_size;
-	void (*init_clk_div)(struct ingenic_adc *adc);
+	int (*init_clk_div)(struct device *dev, struct ingenic_adc *adc);
 };
 
 struct ingenic_adc {
@@ -155,13 +156,45 @@ static const int jz4740_adc_battery_scale_avail[] = {
 	JZ_ADC_BATTERY_LOW_VREF, JZ_ADC_BATTERY_LOW_VREF_BITS,
 };
 
-static void jz4725b_init_clk_div(struct ingenic_adc *adc)
+static int jz4725b_init_clk_div(struct device *dev, struct ingenic_adc *adc)
 {
+	struct clk *parent_clk;
+	unsigned long parent_rate, rate;
+	unsigned div_main, div_10us;
+
+	parent_clk = clk_get_parent(adc->clk);
+	if (!parent_clk) {
+		dev_err(dev, "ADC clock has no parent\n");
+		return -ENODEV;
+	}
+	parent_rate = clk_get_rate(parent_clk);
+
 	/*
 	 * The JZ4725B ADC works at 500 kHz to 8 MHz.
-	 * We pick 6 MHz, the highest we can derive from the 12 MHz EXT clock.
+	 * We pick the highest rate possible.
+	 * In practice we typically get 6 MHz, half of the 12 MHz EXT clock.
 	 */
-	writel(((60 - 1) << 16) | (2 - 1), adc->base + JZ_ADC_REG_ADCLK);
+	div_main = DIV_ROUND_UP(parent_rate, 8000000);
+	div_main = clamp(div_main, 1u, 64u);
+	rate = parent_rate / div_main;
+	if (rate < 500000 || rate > 8000000) {
+		dev_err(dev, "No valid divider for ADC main clock\n");
+		return -EINVAL;
+	}
+
+	/*
+	 * We also need a divider that produces a 10us clock.
+	 */
+	div_10us = DIV_ROUND_UP(rate, 100000);
+	if (div_10us < 1 || div_10us > 128) {
+		dev_err(dev, "No valid divider for ADC 10us clock\n");
+		return -EINVAL;
+	}
+
+	writel(((div_10us - 1) << 16) | (div_main - 1),
+			adc->base + JZ_ADC_REG_ADCLK);
+
+	return 0;
 }
 
 static const struct ingenic_adc_soc_data jz4725b_adc_soc_data = {
@@ -335,8 +368,11 @@ static int ingenic_adc_probe(struct platform_device *pdev)
 	}
 
 	/* Set clock dividers. */
-	if (soc_data->init_clk_div)
-		soc_data->init_clk_div(adc);
+	if (soc_data->init_clk_div) {
+		ret = soc_data->init_clk_div(dev, adc);
+		if (ret)
+			return ret;
+	}
 
 	/* Put hardware in a known passive state. */
 	writeb(0x00, adc->base + JZ_ADC_REG_ENABLE);
