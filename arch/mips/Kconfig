@@ -403,6 +403,8 @@ config MACH_INGENIC
 	select GENERIC_IRQ_CHIP
 	select BUILTIN_DTB if MIPS_NO_APPENDED_DTB
 	select USE_OF
+	select CPU_SUPPORTS_CPUFREQ
+	select MIPS_EXTERNAL_TIMER
 
 config LANTIQ
 	bool "Lantiq based platforms"
