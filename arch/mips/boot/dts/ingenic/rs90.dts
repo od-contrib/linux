@@ -279,6 +279,10 @@
 	pinctrl-0 = <&pins_mmc1>;
 
 	cd-gpios = <&gpc 20 GPIO_ACTIVE_LOW>;
+
+	/* Disable DMA; Always use PIO */
+	dmas;
+	dma-names;
 };
 
 &uart {
