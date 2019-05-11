@@ -286,9 +286,9 @@ config MIPS_GIC
 	select MIPS_CM
 
 config INGENIC_IRQ
-	bool
-	depends on MACH_INGENIC
-	default y
+	bool "Ingenic JZ47xx IRQ controller driver"
+	depends on MIPS
+	default MACH_INGENIC
 
 config RENESAS_H8300H_INTC
         bool
