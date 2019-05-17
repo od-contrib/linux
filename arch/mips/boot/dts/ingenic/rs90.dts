@@ -16,7 +16,7 @@
 		serial0 = &uart;
 	};
 
-	chosen {
+	chosen: chosen {
 		stdout-path = "serial0:57600n8";
 		bootargs = "quiet -- model=rs90 hwvariant=v21";
 	};
