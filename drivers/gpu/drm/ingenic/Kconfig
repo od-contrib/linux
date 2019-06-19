@@ -14,3 +14,12 @@ config DRM_INGENIC
 	  Choose this option for DRM support for the Ingenic SoCs.
 
 	  If M is selected the module will be called ingenic-drm.
+
+config DRM_INGENIC_SLCD
+	tristate "Smart LCD support for Ingenic SoCs"
+	depends on DRM_INGENIC
+	help
+	  Choose this option to support Smart LCDs (MIPI DSI, etc)
+	  on Ingenic SoCs.
+
+	  If M is selected the module will be called ingenic-slcd.
