@@ -4,6 +4,8 @@
 //
 // Copyright (C) 2019, Paul Cercueil <paul@crapouillou.net>
 
+#include "ingenic_drm.h"
+
 #include <linux/clk.h>
 #include <linux/dma-mapping.h>
 #include <linux/module.h>
@@ -22,126 +24,13 @@
 #include <drm/drm_fourcc.h>
 #include <drm/drm_gem_framebuffer_helper.h>
 #include <drm/drm_irq.h>
+#include <drm/drm_mipi_dsi.h>
 #include <drm/drm_of.h>
 #include <drm/drm_panel.h>
 #include <drm/drm_plane.h>
 #include <drm/drm_plane_helper.h>
 #include <drm/drm_probe_helper.h>
 #include <drm/drm_vblank.h>
-
-#define JZ_REG_LCD_CFG				0x00
-#define JZ_REG_LCD_VSYNC			0x04
-#define JZ_REG_LCD_HSYNC			0x08
-#define JZ_REG_LCD_VAT				0x0C
-#define JZ_REG_LCD_DAH				0x10
-#define JZ_REG_LCD_DAV				0x14
-#define JZ_REG_LCD_PS				0x18
-#define JZ_REG_LCD_CLS				0x1C
-#define JZ_REG_LCD_SPL				0x20
-#define JZ_REG_LCD_REV				0x24
-#define JZ_REG_LCD_CTRL				0x30
-#define JZ_REG_LCD_STATE			0x34
-#define JZ_REG_LCD_IID				0x38
-#define JZ_REG_LCD_DA0				0x40
-#define JZ_REG_LCD_SA0				0x44
-#define JZ_REG_LCD_FID0				0x48
-#define JZ_REG_LCD_CMD0				0x4C
-#define JZ_REG_LCD_DA1				0x50
-#define JZ_REG_LCD_SA1				0x54
-#define JZ_REG_LCD_FID1				0x58
-#define JZ_REG_LCD_CMD1				0x5C
-
-#define JZ_LCD_CFG_SLCD				BIT(31)
-#define JZ_LCD_CFG_PS_DISABLE			BIT(23)
-#define JZ_LCD_CFG_CLS_DISABLE			BIT(22)
-#define JZ_LCD_CFG_SPL_DISABLE			BIT(21)
-#define JZ_LCD_CFG_REV_DISABLE			BIT(20)
-#define JZ_LCD_CFG_HSYNCM			BIT(19)
-#define JZ_LCD_CFG_PCLKM			BIT(18)
-#define JZ_LCD_CFG_INV				BIT(17)
-#define JZ_LCD_CFG_SYNC_DIR			BIT(16)
-#define JZ_LCD_CFG_PS_POLARITY			BIT(15)
-#define JZ_LCD_CFG_CLS_POLARITY			BIT(14)
-#define JZ_LCD_CFG_SPL_POLARITY			BIT(13)
-#define JZ_LCD_CFG_REV_POLARITY			BIT(12)
-#define JZ_LCD_CFG_HSYNC_ACTIVE_LOW		BIT(11)
-#define JZ_LCD_CFG_PCLK_FALLING_EDGE		BIT(10)
-#define JZ_LCD_CFG_DE_ACTIVE_LOW		BIT(9)
-#define JZ_LCD_CFG_VSYNC_ACTIVE_LOW		BIT(8)
-#define JZ_LCD_CFG_18_BIT			BIT(7)
-#define JZ_LCD_CFG_PDW				(BIT(5) | BIT(4))
-
-#define JZ_LCD_CFG_MODE_GENERIC_16BIT		0
-#define JZ_LCD_CFG_MODE_GENERIC_18BIT		BIT(7)
-#define JZ_LCD_CFG_MODE_GENERIC_24BIT		BIT(6)
-
-#define JZ_LCD_CFG_MODE_SPECIAL_TFT_1		1
-#define JZ_LCD_CFG_MODE_SPECIAL_TFT_2		2
-#define JZ_LCD_CFG_MODE_SPECIAL_TFT_3		3
-
-#define JZ_LCD_CFG_MODE_TV_OUT_P		4
-#define JZ_LCD_CFG_MODE_TV_OUT_I		6
-
-#define JZ_LCD_CFG_MODE_SINGLE_COLOR_STN	8
-#define JZ_LCD_CFG_MODE_SINGLE_MONOCHROME_STN	9
-#define JZ_LCD_CFG_MODE_DUAL_COLOR_STN		10
-#define JZ_LCD_CFG_MODE_DUAL_MONOCHROME_STN	11
-
-#define JZ_LCD_CFG_MODE_8BIT_SERIAL		12
-#define JZ_LCD_CFG_MODE_LCM			13
-
-#define JZ_LCD_VSYNC_VPS_OFFSET			16
-#define JZ_LCD_VSYNC_VPE_OFFSET			0
-
-#define JZ_LCD_HSYNC_HPS_OFFSET			16
-#define JZ_LCD_HSYNC_HPE_OFFSET			0
-
-#define JZ_LCD_VAT_HT_OFFSET			16
-#define JZ_LCD_VAT_VT_OFFSET			0
-
-#define JZ_LCD_DAH_HDS_OFFSET			16
-#define JZ_LCD_DAH_HDE_OFFSET			0
-
-#define JZ_LCD_DAV_VDS_OFFSET			16
-#define JZ_LCD_DAV_VDE_OFFSET			0
-
-#define JZ_LCD_CTRL_BURST_4			(0x0 << 28)
-#define JZ_LCD_CTRL_BURST_8			(0x1 << 28)
-#define JZ_LCD_CTRL_BURST_16			(0x2 << 28)
-#define JZ_LCD_CTRL_RGB555			BIT(27)
-#define JZ_LCD_CTRL_OFUP			BIT(26)
-#define JZ_LCD_CTRL_FRC_GRAYSCALE_16		(0x0 << 24)
-#define JZ_LCD_CTRL_FRC_GRAYSCALE_4		(0x1 << 24)
-#define JZ_LCD_CTRL_FRC_GRAYSCALE_2		(0x2 << 24)
-#define JZ_LCD_CTRL_PDD_MASK			(0xff << 16)
-#define JZ_LCD_CTRL_EOF_IRQ			BIT(13)
-#define JZ_LCD_CTRL_SOF_IRQ			BIT(12)
-#define JZ_LCD_CTRL_OFU_IRQ			BIT(11)
-#define JZ_LCD_CTRL_IFU0_IRQ			BIT(10)
-#define JZ_LCD_CTRL_IFU1_IRQ			BIT(9)
-#define JZ_LCD_CTRL_DD_IRQ			BIT(8)
-#define JZ_LCD_CTRL_QDD_IRQ			BIT(7)
-#define JZ_LCD_CTRL_REVERSE_ENDIAN		BIT(6)
-#define JZ_LCD_CTRL_LSB_FISRT			BIT(5)
-#define JZ_LCD_CTRL_DISABLE			BIT(4)
-#define JZ_LCD_CTRL_ENABLE			BIT(3)
-#define JZ_LCD_CTRL_BPP_1			0x0
-#define JZ_LCD_CTRL_BPP_2			0x1
-#define JZ_LCD_CTRL_BPP_4			0x2
-#define JZ_LCD_CTRL_BPP_8			0x3
-#define JZ_LCD_CTRL_BPP_15_16			0x4
-#define JZ_LCD_CTRL_BPP_18_24			0x5
-#define JZ_LCD_CTRL_BPP_MASK			(JZ_LCD_CTRL_RGB555 | (0x7 << 0))
-
-#define JZ_LCD_CMD_SOF_IRQ			BIT(31)
-#define JZ_LCD_CMD_EOF_IRQ			BIT(30)
-#define JZ_LCD_CMD_ENABLE_PAL			BIT(28)
-
-#define JZ_LCD_SYNC_MASK			0x3ff
-
-#define JZ_LCD_STATE_EOF_IRQ			BIT(5)
-#define JZ_LCD_STATE_SOF_IRQ			BIT(4)
-#define JZ_LCD_STATE_DISABLED			BIT(0)
 
 struct ingenic_dma_hwdesc {
 	u32 next;
@@ -159,6 +48,7 @@ struct ingenic_drm {
 	struct drm_plane primary;
 	struct drm_crtc crtc;
 	struct drm_encoder encoder;
+	struct mipi_dsi_host dsi_host;
 
 	struct device *dev;
 	struct regmap *map;
@@ -199,7 +89,7 @@ static const struct regmap_config ingenic_drm_regmap_config = {
 	.val_bits = 32,
 	.reg_stride = 4,
 
-	.max_register = JZ_REG_LCD_CMD1,
+	.max_register = JZ_REG_LCD_SLCD_MDATA,
 	.writeable_reg = ingenic_drm_writeable_reg,
 };
 
@@ -479,7 +369,7 @@ static void ingenic_drm_encoder_atomic_mode_set(struct drm_encoder *encoder,
 		}
 	}
 
-	regmap_write(priv->map, JZ_REG_LCD_CFG, cfg);
+	regmap_update_bits(priv->map, JZ_REG_LCD_CFG, ~JZ_LCD_CFG_SLCD, cfg);
 }
 
 static int ingenic_drm_encoder_atomic_check(struct drm_encoder *encoder,
@@ -639,6 +529,11 @@ static void ingenic_drm_free_dma_hwdesc(void *d)
 			  priv->dma_hwdesc, priv->dma_hwdesc_phys);
 }
 
+static void ingenic_drm_disable_clk(void *d)
+{
+	clk_disable_unprepare(d);
+}
+
 static int ingenic_drm_probe(struct platform_device *pdev)
 {
 	const struct jz_soc_info *soc_info;
@@ -694,6 +589,12 @@ static int ingenic_drm_probe(struct platform_device *pdev)
 		return PTR_ERR(priv->map);
 	}
 
+	ret = regmap_attach_dev(dev, priv->map, &ingenic_drm_regmap_config);
+	if (ret) {
+		dev_err(dev, "Failed to attach regmap");
+		return ret;
+	}
+
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
 		dev_err(dev, "Failed to get platform irq");
@@ -712,6 +613,50 @@ static int ingenic_drm_probe(struct platform_device *pdev)
 	if (IS_ERR(priv->pix_clk)) {
 		dev_err(dev, "Failed to get pixel clock");
 		return PTR_ERR(priv->pix_clk);
+	}
+
+	ret = clk_prepare_enable(priv->pix_clk);
+	if (ret) {
+		dev_err(dev, "Unable to start pixel clock");
+		return ret;
+	}
+
+	ret = devm_add_action_or_reset(dev, ingenic_drm_disable_clk,
+				       priv->pix_clk);
+	if (ret)
+		return ret;
+
+	if (priv->lcd_clk) {
+		parent_clk = clk_get_parent(priv->lcd_clk);
+		parent_rate = clk_get_rate(parent_clk);
+
+		/* LCD Device clock must be 3x the pixel clock for STN panels,
+		 * or 1.5x the pixel clock for TFT panels. To avoid having to
+		 * check for the LCD device clock everytime we do a mode change,
+		 * we set the LCD device clock to the highest rate possible.
+		 */
+		ret = clk_set_rate(priv->lcd_clk, parent_rate);
+		if (ret) {
+			dev_err(dev, "Unable to set LCD clock rate");
+			return ret;
+		}
+
+		ret = clk_prepare_enable(priv->lcd_clk);
+		if (ret) {
+			dev_err(dev, "Unable to start lcd clock");
+			return ret;
+		}
+
+		ret = devm_add_action_or_reset(dev, ingenic_drm_disable_clk,
+					       priv->lcd_clk);
+		if (ret)
+			return ret;
+	}
+
+	ret = devm_ingenic_drm_init_dsi(dev, &priv->dsi_host);
+	if (ret) {
+		dev_err(dev, "Unable to init DSI host");
+		return ret;
 	}
 
 	ret = drm_of_find_panel_or_bridge(dev->of_node, 0, 0, &panel, &bridge);
@@ -792,41 +737,13 @@ static int ingenic_drm_probe(struct platform_device *pdev)
 
 	drm_mode_config_reset(drm);
 
-	ret = clk_prepare_enable(priv->pix_clk);
-	if (ret) {
-		dev_err(dev, "Unable to start pixel clock");
-		return ret;
-	}
-
-	if (priv->lcd_clk) {
-		parent_clk = clk_get_parent(priv->lcd_clk);
-		parent_rate = clk_get_rate(parent_clk);
-
-		/* LCD Device clock must be 3x the pixel clock for STN panels,
-		 * or 1.5x the pixel clock for TFT panels. To avoid having to
-		 * check for the LCD device clock everytime we do a mode change,
-		 * we set the LCD device clock to the highest rate possible.
-		 */
-		ret = clk_set_rate(priv->lcd_clk, parent_rate);
-		if (ret) {
-			dev_err(dev, "Unable to set LCD clock rate");
-			goto err_pixclk_disable;
-		}
-
-		ret = clk_prepare_enable(priv->lcd_clk);
-		if (ret) {
-			dev_err(dev, "Unable to start lcd clock");
-			goto err_pixclk_disable;
-		}
-	}
-
 	priv->clock_nb.notifier_call = ingenic_drm_update_pixclk;
 
 	parent_clk = clk_get_parent(priv->pix_clk);
 	ret = clk_notifier_register(parent_clk, &priv->clock_nb);
 	if (ret) {
 		dev_err(dev, "Unable to register clock notifier");
-		goto err_devclk_disable;
+		return ret;
 	}
 
 	ret = drm_dev_register(drm, 0);
@@ -843,11 +760,6 @@ static int ingenic_drm_probe(struct platform_device *pdev)
 
 err_clk_notifier_unregister:
 	clk_notifier_unregister(parent_clk, &priv->clock_nb);
-err_devclk_disable:
-	if (priv->lcd_clk)
-		clk_disable_unprepare(priv->lcd_clk);
-err_pixclk_disable:
-	clk_disable_unprepare(priv->pix_clk);
 	return ret;
 }
 
@@ -857,10 +769,6 @@ static int ingenic_drm_remove(struct platform_device *pdev)
 	struct clk *parent_clk = clk_get_parent(priv->pix_clk);
 
 	clk_notifier_unregister(parent_clk, &priv->clock_nb);
-	if (priv->lcd_clk)
-		clk_disable_unprepare(priv->lcd_clk);
-	clk_disable_unprepare(priv->pix_clk);
-
 	drm_dev_unregister(&priv->drm);
 	drm_atomic_helper_shutdown(&priv->drm);
 
