@@ -14,3 +14,15 @@ config DRM_INGENIC
 	  Choose this option for DRM support for the Ingenic SoCs.
 
 	  If M is selected the module will be called ingenic-drm.
+
+if DRM_INGENIC
+
+config DRM_INGENIC_SLCD
+	bool "Support DSI panels"
+	select DRM_MIPI_DSI
+	help
+	  Choose this option to support MIPI DSI panels.
+
+	  When in doubt, say Y.
+
+endif
