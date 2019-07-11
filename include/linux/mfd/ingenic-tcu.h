@@ -6,6 +6,10 @@
 #define __LINUX_MFD_INGENIC_TCU_H_
 
 #include <linux/bitops.h>
+#include <linux/init.h>
+
+struct device_node;
+struct regmap;
 
 #define TCU_REG_WDT_TDR		0x00
 #define TCU_REG_WDT_TCER	0x04
@@ -52,5 +56,7 @@
 #define TCU_REG_TDHRc(c)	(TCU_REG_TDHR0 + ((c) * TCU_CHANNEL_STRIDE))
 #define TCU_REG_TCNTc(c)	(TCU_REG_TCNT0 + ((c) * TCU_CHANNEL_STRIDE))
 #define TCU_REG_TCSRc(c)	(TCU_REG_TCSR0 + ((c) * TCU_CHANNEL_STRIDE))
+
+struct regmap * __init ingenic_tcu_get_regmap(struct device_node *np);
 
 #endif /* __LINUX_MFD_INGENIC_TCU_H_ */
