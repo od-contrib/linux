@@ -759,6 +759,12 @@ ingenic_cgu_new(const struct ingenic_cgu_clk_info *clock_info,
 
 	spin_lock_init(&cgu->lock);
 
+	/*
+	 * Remove the OF_POPULATED flag, in order to probe children when the
+	 * device node is compatible with "simple-mfd".
+	 */
+	of_node_clear_flag(np, OF_POPULATED);
+
 	return cgu;
 
 err_out_free:
