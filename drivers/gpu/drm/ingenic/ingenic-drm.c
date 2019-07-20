@@ -51,6 +51,13 @@
 #define JZ_REG_LCD_SA1				0x54
 #define JZ_REG_LCD_FID1				0x58
 #define JZ_REG_LCD_CMD1				0x5C
+#define JZ_REG_LCD_OSDC				0x100
+#define JZ_REG_LCD_OSDCTRL			0x104
+#define JZ_REG_LCD_OSDS				0x108
+#define JZ_REG_LCD_XYP0				0x120
+#define JZ_REG_LCD_XYP1				0x124
+#define JZ_REG_LCD_SIZE0			0x128
+#define JZ_REG_LCD_SIZE1			0x12c
 
 #define JZ_LCD_CFG_SLCD				BIT(31)
 #define JZ_LCD_CFG_PS_DISABLE			BIT(23)
@@ -144,6 +151,16 @@
 #define JZ_LCD_STATE_SOF_IRQ			BIT(4)
 #define JZ_LCD_STATE_DISABLED			BIT(0)
 
+#define JZ_LCD_OSDC_OSDEN			BIT(0)
+#define JZ_LCD_OSDC_F0EN			BIT(3)
+#define JZ_LCD_OSDC_F1EN			BIT(4)
+
+#define JZ_LCD_XYP01_XPOS_LSB			0
+#define JZ_LCD_XYP01_YPOS_LSB			16
+
+#define JZ_LCD_SIZE01_WIDTH_LSB			0
+#define JZ_LCD_SIZE01_HEIGHT_LSB		16
+
 struct ingenic_dma_hwdesc {
 	u32 next;
 	u32 addr;
@@ -153,6 +170,7 @@ struct ingenic_dma_hwdesc {
 
 struct jz_soc_info {
 	bool needs_dev_clk;
+	bool has_osd;
 	unsigned int max_width, max_height;
 };
 
@@ -372,6 +390,61 @@ static void ingenic_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	}
 }
 
+static int ingenic_drm_plane_atomic_check(struct drm_plane *plane,
+					  struct drm_plane_state *state)
+{
+	struct ingenic_drm *priv = drm_plane_get_priv(plane);
+	struct drm_crtc *crtc = state->crtc;
+	struct drm_crtc_state *crtc_state;
+	int ret;
+
+	crtc_state = drm_atomic_get_existing_crtc_state(state->state, crtc);
+	if (WARN_ON(!crtc_state))
+		return -EINVAL;
+
+	ret = drm_atomic_helper_check_plane_state(state, crtc_state,
+						  DRM_PLANE_HELPER_NO_SCALING,
+						  DRM_PLANE_HELPER_NO_SCALING,
+						  priv->soc_info->has_osd,
+						  false);
+	if (ret)
+		return ret;
+
+	if (state->src_x != 0 ||
+	    (state->src_w >> 16) != state->crtc_w ||
+	    (state->src_h >> 16) != state->crtc_h)
+		return -EINVAL;
+
+	return 0;
+}
+
+static void ingenic_drm_plane_osd_config(struct drm_plane *plane)
+{
+	struct ingenic_drm *priv = drm_plane_get_priv(plane);
+	struct drm_plane_state *state = plane->state;
+	unsigned int xy_reg, size_reg, en_bit;
+
+	if (plane->index == 0) {
+		xy_reg = JZ_REG_LCD_XYP0;
+		size_reg = JZ_REG_LCD_SIZE0;
+		en_bit = JZ_LCD_OSDC_F0EN;
+	} else {
+		xy_reg = JZ_REG_LCD_XYP1;
+		size_reg = JZ_REG_LCD_SIZE1;
+		en_bit = JZ_LCD_OSDC_F1EN;
+	}
+
+	regmap_update_bits(priv->map, JZ_REG_LCD_OSDC,
+			   JZ_LCD_OSDC_OSDEN | en_bit,
+			   JZ_LCD_OSDC_OSDEN | en_bit);
+	regmap_write(priv->map, xy_reg,
+		     state->crtc_x << JZ_LCD_XYP01_XPOS_LSB |
+		     state->crtc_y << JZ_LCD_XYP01_YPOS_LSB);
+	regmap_write(priv->map, size_reg,
+		     state->crtc_w << JZ_LCD_SIZE01_WIDTH_LSB |
+		     state->crtc_h << JZ_LCD_SIZE01_HEIGHT_LSB);
+}
+
 static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 					    struct drm_plane_state *oldstate)
 {
@@ -389,6 +462,9 @@ static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 		priv->dma_hwdesc->addr = addr;
 		priv->dma_hwdesc->cmd = width * height * cpp / 4;
 		priv->dma_hwdesc->cmd |= JZ_LCD_CMD_EOF_IRQ;
+
+		if (priv->soc_info->has_osd)
+			ingenic_drm_plane_osd_config(plane);
 	}
 }
 
@@ -570,6 +646,7 @@ static const struct drm_crtc_funcs ingenic_drm_crtc_funcs = {
 
 static const struct drm_plane_helper_funcs ingenic_drm_plane_helper_funcs = {
 	.atomic_update		= ingenic_drm_plane_atomic_update,
+	.atomic_check		= ingenic_drm_plane_atomic_check,
 	.prepare_fb		= drm_gem_fb_prepare_fb,
 };
 
@@ -821,18 +898,21 @@ static int ingenic_drm_remove(struct platform_device *pdev)
 
 static const struct jz_soc_info jz4740_soc_info = {
 	.needs_dev_clk = true,
+	.has_osd = false,
 	.max_width = 800,
 	.max_height = 600,
 };
 
 static const struct jz_soc_info jz4725b_soc_info = {
 	.needs_dev_clk = false,
+	.has_osd = true,
 	.max_width = 800,
 	.max_height = 600,
 };
 
 static const struct jz_soc_info jz4770_soc_info = {
 	.needs_dev_clk = false,
+	.has_osd = true,
 	.max_width = 1280,
 	.max_height = 720,
 };
