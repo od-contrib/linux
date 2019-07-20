@@ -393,6 +393,24 @@ static void ingenic_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	}
 }
 
+static int ingenic_drm_plane_atomic_check(struct drm_plane *plane,
+					  struct drm_plane_state *state)
+{
+	struct ingenic_drm *priv = drm_plane_get_priv(plane);
+	struct drm_crtc *crtc = state->crtc;
+	struct drm_crtc_state *crtc_state;
+	int ret;
+
+	crtc_state = drm_atomic_get_existing_crtc_state(state->state, crtc);
+	if (WARN_ON(!crtc_state))
+		return -EINVAL;
+
+	return drm_atomic_helper_check_plane_state(state, crtc_state,
+						   DRM_PLANE_HELPER_NO_SCALING,
+						   DRM_PLANE_HELPER_NO_SCALING,
+						   false, false);
+}
+
 static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 					    struct drm_plane_state *oldstate)
 {
@@ -586,6 +604,7 @@ static const struct drm_crtc_funcs ingenic_drm_crtc_funcs = {
 
 static const struct drm_plane_helper_funcs ingenic_drm_plane_helper_funcs = {
 	.atomic_update		= ingenic_drm_plane_atomic_update,
+	.atomic_check		= ingenic_drm_plane_atomic_check,
 	.prepare_fb		= drm_gem_fb_prepare_fb,
 };
 
