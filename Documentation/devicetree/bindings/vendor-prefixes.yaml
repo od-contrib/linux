@@ -1021,6 +1021,8 @@ patternProperties:
     description: Xilinx
   "^xunlong,.*":
     description: Shenzhen Xunlong Software CO.,Limited
+  "^ylm,.*":
+    description: Shenzhen Yangliming Electronic Technology Co., Ltd.
   "^yones-toptech,.*":
     description: Yones Toptech Co., Ltd.
   "^ysoft,.*":
