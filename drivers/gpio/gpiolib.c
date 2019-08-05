@@ -4678,6 +4678,7 @@ static void gpiolib_dbg_show(struct seq_file *s, struct gpio_device *gdev)
 	bool			active_low;
 
 	for (i = 0; i < gdev->ngpio; i++, gpio++, gdesc++) {
+#if 0
 		if (!test_bit(FLAG_REQUESTED, &gdesc->flags)) {
 			if (gdesc->name) {
 				seq_printf(s, " gpio-%-3d (%-20.20s)\n",
@@ -4685,6 +4686,7 @@ static void gpiolib_dbg_show(struct seq_file *s, struct gpio_device *gdev)
 			}
 			continue;
 		}
+#endif
 
 		gpiod_get_direction(gdesc);
 		is_out = test_bit(FLAG_IS_OUT, &gdesc->flags);
