@@ -505,6 +505,139 @@ static int ingenic_drm_encoder_atomic_check(struct drm_encoder *encoder,
 	}
 }
 
+static void ingenic_drm_commit_disables(struct drm_device *dev,
+					struct drm_atomic_state *old_state)
+{
+	struct drm_connector *connector;
+	struct drm_connector_state *old_conn_state, *new_conn_state;
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *old_crtc_state, *new_crtc_state;
+	int i;
+
+	for_each_oldnew_connector_in_state(old_state, connector, old_conn_state, new_conn_state, i) {
+		if (!old_conn_state->crtc)
+			continue;
+
+		old_crtc_state = drm_atomic_get_old_crtc_state(old_state, old_conn_state->crtc);
+
+		if (!old_crtc_state->active ||
+		    !drm_atomic_crtc_needs_modeset(old_conn_state->crtc->state))
+			continue;
+
+		drm_bridge_disable(old_conn_state->best_encoder->bridge);
+	}
+
+	for_each_oldnew_crtc_in_state(old_state, crtc, old_crtc_state, new_crtc_state, i) {
+		/* Shut down everything that needs a full modeset. */
+		if (!drm_atomic_crtc_needs_modeset(new_crtc_state))
+			continue;
+
+		if (!old_crtc_state->active)
+			continue;
+
+		ingenic_drm_crtc_atomic_disable(crtc, old_crtc_state);
+
+		if (!(dev->irq_enabled && dev->num_crtcs))
+			continue;
+
+		if (!drm_crtc_vblank_get(crtc))
+			drm_crtc_vblank_put(crtc);
+	}
+
+	for_each_oldnew_connector_in_state(old_state, connector, old_conn_state, new_conn_state, i) {
+		if (!old_conn_state->crtc)
+			continue;
+
+		old_crtc_state = drm_atomic_get_old_crtc_state(old_state, old_conn_state->crtc);
+
+		if (!old_crtc_state->active ||
+		    !drm_atomic_crtc_needs_modeset(old_conn_state->crtc->state))
+			continue;
+
+		drm_bridge_post_disable(old_conn_state->best_encoder->bridge);
+	}
+
+	for_each_new_connector_in_state(old_state, connector, new_conn_state, i) {
+		const struct drm_encoder_helper_funcs *funcs;
+		struct drm_encoder *encoder;
+		struct drm_display_mode *mode, *adjusted_mode;
+
+		if (!new_conn_state->best_encoder)
+			continue;
+
+		encoder = new_conn_state->best_encoder;
+		funcs = encoder->helper_private;
+		new_crtc_state = new_conn_state->crtc->state;
+		mode = &new_crtc_state->mode;
+		adjusted_mode = &new_crtc_state->adjusted_mode;
+
+		if (!new_crtc_state->mode_changed)
+			continue;
+
+		ingenic_drm_encoder_atomic_mode_set(encoder, new_crtc_state,
+						    new_conn_state);
+		drm_bridge_mode_set(encoder->bridge, mode, adjusted_mode);
+	}
+}
+
+static void ingenic_drm_commit_enables(struct drm_device *dev,
+				       struct drm_atomic_state *old_state)
+{
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *old_crtc_state;
+	struct drm_crtc_state *new_crtc_state;
+	struct drm_connector *connector;
+	struct drm_connector_state *new_conn_state;
+	int i;
+
+	for_each_new_connector_in_state(old_state, connector, new_conn_state, i) {
+		if (!new_conn_state->best_encoder ||
+		    !new_conn_state->crtc->state->active ||
+		    !drm_atomic_crtc_needs_modeset(new_conn_state->crtc->state))
+			continue;
+
+		drm_bridge_pre_enable(new_conn_state->best_encoder->bridge);
+	}
+
+	for_each_oldnew_crtc_in_state(old_state, crtc, old_crtc_state, new_crtc_state, i) {
+		/* Need to filter out CRTCs where only planes change. */
+		if (!drm_atomic_crtc_needs_modeset(new_crtc_state) ||
+		    !new_crtc_state->active)
+			continue;
+
+		if (new_crtc_state->enable)
+			ingenic_drm_crtc_atomic_enable(crtc, old_crtc_state);
+	}
+
+	for_each_new_connector_in_state(old_state, connector, new_conn_state, i) {
+		if (!new_conn_state->best_encoder ||
+		    !new_conn_state->crtc->state->active ||
+		    !drm_atomic_crtc_needs_modeset(new_conn_state->crtc->state))
+			continue;
+
+		drm_bridge_enable(new_conn_state->best_encoder->bridge);
+	}
+}
+
+static void ingenic_drm_atomic_commit_tail(struct drm_atomic_state *old_state)
+{
+	struct drm_device *dev = old_state->dev;
+
+	ingenic_drm_commit_disables(dev, old_state);
+
+	drm_atomic_helper_commit_planes(dev, old_state, 0);
+
+	ingenic_drm_commit_enables(dev, old_state);
+
+	drm_atomic_helper_fake_vblank(old_state);
+
+	drm_atomic_helper_commit_hw_done(old_state);
+
+	drm_atomic_helper_wait_for_vblanks(dev, old_state);
+
+	drm_atomic_helper_cleanup_planes(dev, old_state);
+}
+
 static irqreturn_t ingenic_drm_irq_handler(int irq, void *arg)
 {
 	struct ingenic_drm *priv = arg;
@@ -620,6 +753,10 @@ static const struct drm_encoder_helper_funcs ingenic_drm_encoder_helper_funcs = 
 	.atomic_check		= ingenic_drm_encoder_atomic_check,
 };
 
+static const struct drm_mode_config_helper_funcs ingenic_drm_mode_config_helper = {
+	.atomic_commit_tail	= ingenic_drm_atomic_commit_tail,
+};
+
 static const struct drm_mode_config_funcs ingenic_drm_mode_config_funcs = {
 	.fb_create		= drm_gem_fb_create,
 	.output_poll_changed	= drm_fb_helper_output_poll_changed,
@@ -680,6 +817,7 @@ static int ingenic_drm_probe(struct platform_device *pdev)
 	drm->mode_config.max_width = 800;
 	drm->mode_config.max_height = 600 * 3;
 	drm->mode_config.funcs = &ingenic_drm_mode_config_funcs;
+	drm->mode_config.helper_private = &ingenic_drm_mode_config_helper;
 
 	base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(base)) {
