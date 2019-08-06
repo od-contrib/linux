@@ -220,6 +220,8 @@ static int jz4725b_mmc0_4bit_pins[] = { 0x5d, 0x5b, 0x56, };
 static int jz4725b_mmc1_1bit_pins[] = { 0x7a, 0x7b, 0x7c, };
 static int jz4725b_mmc1_4bit_pins[] = { 0x7d, 0x7e, 0x7f, };
 static int jz4725b_uart_data_pins[] = { 0x4c, 0x4d, };
+static int jz4725b_uart_tx_pins[] = { 0x4c, };
+static int jz4725b_uart_rx_pins[] = { 0x4d, };
 static int jz4725b_nand_cs1_pins[] = { 0x55, };
 static int jz4725b_nand_cs2_pins[] = { 0x56, };
 static int jz4725b_nand_cs3_pins[] = { 0x57, };
@@ -252,6 +254,8 @@ static int jz4725b_mmc0_4bit_funcs[] = { 1, 0, 1, };
 static int jz4725b_mmc1_1bit_funcs[] = { 0, 0, 0, };
 static int jz4725b_mmc1_4bit_funcs[] = { 0, 0, 0, };
 static int jz4725b_uart_data_funcs[] = { 1, 1, };
+static int jz4725b_uart_tx_funcs[] = { 1, };
+static int jz4725b_uart_rx_funcs[] = { 1, };
 static int jz4725b_nand_cs1_funcs[] = { 0, };
 static int jz4725b_nand_cs2_funcs[] = { 0, };
 static int jz4725b_nand_cs3_funcs[] = { 0, };
@@ -278,6 +282,8 @@ static const struct group_desc jz4725b_groups[] = {
 	INGENIC_PIN_GROUP("mmc1-1bit", jz4725b_mmc1_1bit),
 	INGENIC_PIN_GROUP("mmc1-4bit", jz4725b_mmc1_4bit),
 	INGENIC_PIN_GROUP("uart-data", jz4725b_uart_data),
+	INGENIC_PIN_GROUP("uart-tx", jz4725b_uart_tx),
+	INGENIC_PIN_GROUP("uart-rx", jz4725b_uart_rx),
 	INGENIC_PIN_GROUP("nand-cs1", jz4725b_nand_cs1),
 	INGENIC_PIN_GROUP("nand-cs2", jz4725b_nand_cs2),
 	INGENIC_PIN_GROUP("nand-cs3", jz4725b_nand_cs3),
@@ -301,7 +307,9 @@ static const struct group_desc jz4725b_groups[] = {
 
 static const char *jz4725b_mmc0_groups[] = { "mmc0-1bit", "mmc0-4bit", };
 static const char *jz4725b_mmc1_groups[] = { "mmc1-1bit", "mmc1-4bit", };
-static const char *jz4725b_uart_groups[] = { "uart-data", };
+static const char *jz4725b_uart_groups[] = {
+	"uart-data", "uart-tx", "uart-rx",
+};
 static const char *jz4725b_nand_groups[] = {
 	"nand-cs1", "nand-cs2", "nand-cs3", "nand-cs4",
 	"nand-cle-ale", "nand-fre-fwe",
