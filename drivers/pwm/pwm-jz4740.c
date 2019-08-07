@@ -6,7 +6,6 @@
  * Limitations:
  * - The .apply callback doesn't complete the currently running period before
  *   reconfiguring the hardware.
- * - Each period starts with the inactive part.
  */
 
 #include <linux/clk.h>
@@ -178,8 +177,14 @@ static int jz4740_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 	/* Reset counter to 0 */
 	regmap_write(jz4740->map, TCU_REG_TCNTc(pwm->hwpwm), 0);
 
+	/*
+	 * The PWM will always start with the inactive part. To counter that,
+	 * when PWM is enabled we switch the configured polarity, and use
+	 * 'period - duty' as the real duty.
+	 */
+
 	/* Set duty */
-	regmap_write(jz4740->map, TCU_REG_TDHRc(pwm->hwpwm), duty);
+	regmap_write(jz4740->map, TCU_REG_TDHRc(pwm->hwpwm), period - duty);
 
 	/* Set period */
 	regmap_write(jz4740->map, TCU_REG_TDFRc(pwm->hwpwm), period);
@@ -189,17 +194,13 @@ static int jz4740_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 			   TCU_TCSR_PWM_SD, TCU_TCSR_PWM_SD);
 
 	/* Set polarity */
-	switch (state->polarity) {
-	case PWM_POLARITY_NORMAL:
+	if ((state->polarity != PWM_POLARITY_INVERSED) ^ state->enabled)
 		regmap_update_bits(jz4740->map, TCU_REG_TCSRc(pwm->hwpwm),
 				   TCU_TCSR_PWM_INITL_HIGH, 0);
-		break;
-	case PWM_POLARITY_INVERSED:
+	else
 		regmap_update_bits(jz4740->map, TCU_REG_TCSRc(pwm->hwpwm),
 				   TCU_TCSR_PWM_INITL_HIGH,
 				   TCU_TCSR_PWM_INITL_HIGH);
-		break;
-	}
 
 	if (state->enabled)
 		jz4740_pwm_enable(chip, pwm);
