@@ -317,5 +317,8 @@
 
 		clocks = <&cgu JZ4740_CLK_LCD_PCLK>, <&cgu JZ4740_CLK_LCD>;
 		clock-names = "lcd_pclk", "lcd";
+
+		dmas = <&dmac 30 0xffffffff>;
+		dma-names = "slcd";
 	};
 };
