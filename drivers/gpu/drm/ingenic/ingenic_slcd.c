@@ -50,8 +50,8 @@ static ssize_t ingenic_slcd_dsi_transfer(struct mipi_dsi_host *host,
 		return ret;
 	}
 
-	for (i = 1; i < msg->tx_len; i++) {
-		ret = ingenic_slcd_send_data(map, buf[i], false);
+	for (i = 1; i < msg->tx_len; i += 2) {
+		ret = ingenic_slcd_send_data(map, buf[1] << 8 | buf[2], false);
 		if (ret) {
 			dev_err(host->dev, "Unable to send data: %d", ret);
 			return ret;
@@ -71,8 +71,8 @@ static int ingenic_slcd_dsi_attach(struct mipi_dsi_host *host,
 			   JZ_LCD_CFG_SLCD, JZ_LCD_CFG_SLCD);
 
 	/* Configure for serial transfer, 8-bit commands and 8-bit data */
-	regmap_write(map, JZ_REG_LCD_SLCD_MCFG, JZ_SLCD_MCFG_TYPE_SERIAL |
-		     JZ_SLCD_MCFG_DWIDTH_8BIT | JZ_SLCD_MCFG_CWIDTH_8BIT);
+	regmap_write(map, JZ_REG_LCD_SLCD_MCFG,
+		     JZ_SLCD_MCFG_DWIDTH_16BIT | JZ_SLCD_MCFG_CWIDTH_8BIT);
 
 	return 0;
 }
