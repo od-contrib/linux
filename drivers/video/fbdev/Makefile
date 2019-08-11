@@ -135,3 +135,5 @@ obj-$(CONFIG_FB_SIMPLE)           += simplefb.o
 
 # the test framebuffer is last
 obj-$(CONFIG_FB_VIRTUAL)          += vfb.o
+
+obj-$(CONFIG_FB_JZ4740_SLCD)      += jz4740_slcd_fb.o jz4740_slcd_panels.o
