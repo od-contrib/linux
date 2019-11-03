@@ -75,6 +75,7 @@ static const struct musb_hdrc_config jz4740_musb_config = {
 static int jz4740_musb_init(struct musb *musb)
 {
 	struct device *dev = musb->controller->parent;
+	u8 power;
 	int err;
 
 	if (dev->of_node)
@@ -96,6 +97,14 @@ static int jz4740_musb_init(struct musb *musb)
 
 	musb->isr = jz4740_musb_interrupt;
 	musb->dma_share_usb_irq = true;
+
+	/*
+	 * If the SoC booted from USB the pullup might still be set.
+	 * Disable it until a gadget is bound.
+	 */
+	power = musb_readb(musb->mregs, MUSB_POWER);
+	power &= ~MUSB_POWER_SOFTCONN;
+	musb_writeb(musb->mregs, MUSB_POWER, power);
 
 	return 0;
 }
