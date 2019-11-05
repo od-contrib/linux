@@ -1,0 +1,24 @@
+Generic USB charger bindings
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Required properties :
+ - compatible : should be "usb-charger"
+ - phys: phandle to the USB PHY
+
+Example:
+
+usb_con: extcon {
+	compatible = "linux,extcon-usb-gpio";
+	vbus-gpios = <&gpb 5 GPIO_ACTIVE_HIGH>;
+};
+
+usb_phy: usb-phy@0 {
+	compatible = "usb-nop-xceiv";
+	#phy-cells = <0>;
+	extcon = <&usb_con>;
+};
+
+usb_charger: usb-charger {
+	compatible = "usb-charger";
+	phys = <&usb_phy>;
+};
