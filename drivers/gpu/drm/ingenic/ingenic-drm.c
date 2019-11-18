@@ -374,8 +374,8 @@ static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 	struct drm_framebuffer *fb = state->fb;
 
 	if (fb) {
-		width = state->crtc->state->adjusted_mode.hdisplay;
-		height = state->crtc->state->adjusted_mode.vdisplay;
+		width = state->src_w >> 16;
+		height = state->src_h >> 16;
 		cpp = fb->format->cpp[plane->index];
 
 		priv->dma_hwdesc->addr = drm_fb_cma_get_gem_addr(fb, state, 0);
