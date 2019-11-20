@@ -1378,6 +1378,32 @@ static const struct panel_desc evervision_vgg804821 = {
 	.bus_flags = DRM_BUS_FLAG_DE_HIGH | DRM_BUS_FLAG_PIXDATA_NEGEDGE,
 };
 
+static const struct drm_display_mode frida_frd350h54004_mode = {
+	.clock = 6777,
+	.hdisplay = 320,
+	.hsync_start = 320 + 70,
+	.hsync_end = 320 + 70 + 50,
+	.htotal = 320 + 70 + 50 + 10,
+	.vdisplay = 240,
+	.vsync_start = 240 + 5,
+	.vsync_end = 240 + 5 + 1,
+	.vtotal = 240 + 5 + 1 + 5,
+	.vrefresh = 60,
+	.flags = DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC,
+};
+
+static const struct panel_desc frida_frd350h54004 = {
+	.modes = &frida_frd350h54004_mode,
+	.num_modes = 1,
+	.bpc = 8,
+	.size = {
+		.width = 77,
+		.height = 64,
+	},
+	.bus_format = MEDIA_BUS_FMT_RGB888_1X24,
+	.bus_flags = DRM_BUS_FLAG_DE_HIGH | DRM_BUS_FLAG_PIXDATA_POSEDGE,
+};
+
 static const struct drm_display_mode foxlink_fl500wvr00_a0t_mode = {
 	.clock = 32260,
 	.hdisplay = 800,
@@ -3186,6 +3212,9 @@ static const struct of_device_id platform_of_match[] = {
 	}, {
 		.compatible = "evervision,vgg804821",
 		.data = &evervision_vgg804821,
+	}, {
+		.compatible = "frida,frd350h54004",
+		.data = &frida_frd350h54004,
 	}, {
 		.compatible = "foxlink,fl500wvr00-a0t",
 		.data = &foxlink_fl500wvr00_a0t,
