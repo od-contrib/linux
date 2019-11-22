@@ -783,6 +783,36 @@ struct mipi_dbi *of_find_mipi_dbi_host_by_node(struct device_node *node)
 }
 EXPORT_SYMBOL(of_find_mipi_dbi_host_by_node);
 
+/**
+ * mipi_dbi_attach - attach a DBI device to its DBI host
+ * @dbi: DBI peripheral
+ */
+int mipi_dbi_attach(struct mipi_dbi_dev *dbidev)
+{
+	const struct mipi_dbi_host_ops *ops = dbidev->dbi->host_ops;
+
+	if (!ops || !ops->attach)
+		return -ENOSYS;
+
+	return ops->attach(dbidev->dbi, dbidev);
+}
+EXPORT_SYMBOL(mipi_dbi_attach);
+
+/**
+ * mipi_dbi_detach - detach a DBI device from its DBI host
+ * @dbi: DBI peripheral
+ */
+int mipi_dbi_detach(struct mipi_dbi_dev *dbidev)
+{
+	const struct mipi_dbi_host_ops *ops = dbidev->dbi->host_ops;
+
+	if (!ops || !ops->detach)
+		return -ENOSYS;
+
+	return ops->detach(dbidev->dbi, dbidev);
+}
+EXPORT_SYMBOL(mipi_dbi_detach);
+
 #if IS_ENABLED(CONFIG_SPI)
 
 /**

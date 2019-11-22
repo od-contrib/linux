@@ -15,6 +15,7 @@
 
 struct drm_rect;
 struct mipi_dbi;
+struct mipi_dbi_dev;
 struct spi_device;
 struct gpio_desc;
 struct regulator;
@@ -23,6 +24,8 @@ struct regulator;
  * struct mipi_dbi_host_ops - Bus specific callbacks.
  */
 struct mipi_dbi_host_ops {
+	int (*attach)(struct mipi_dbi *host, struct mipi_dbi_dev *dbi);
+	int (*detach)(struct mipi_dbi *host, struct mipi_dbi_dev *dbi);
 	/**
 	 * @command: Bus specific callback to send a DBI command.
 	 */
@@ -151,6 +154,9 @@ int mipi_dbi_spi_init(struct spi_device *spi, struct mipi_dbi *dbi,
 int mipi_dbi_host_register(struct mipi_dbi *host);
 void mipi_dbi_host_unregister(struct mipi_dbi *host);
 struct mipi_dbi *of_find_mipi_dbi_host_by_node(struct device_node *node);
+
+int mipi_dbi_attach(struct mipi_dbi_dev *dbidev);
+int mipi_dbi_detach(struct mipi_dbi_dev *dbidev);
 
 int mipi_dbi_dev_init_with_formats(struct mipi_dbi_dev *dbidev,
 				   const struct drm_simple_display_pipe_funcs *funcs,
