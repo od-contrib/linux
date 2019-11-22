@@ -8,6 +8,7 @@
 #ifndef __LINUX_MIPI_DBI_H
 #define __LINUX_MIPI_DBI_H
 
+#include <linux/device.h>
 #include <linux/mutex.h>
 #include <drm/drm_device.h>
 #include <drm/drm_simple_kms_helper.h>
@@ -36,6 +37,10 @@ struct mipi_dbi {
 	 * @cmdlock: Command lock
 	 */
 	struct mutex cmdlock;
+
+	struct device *dev;
+
+	struct list_head list;
 
 	/**
 	 * @host_ops: Bus specific callbacks.
@@ -143,6 +148,10 @@ static inline struct mipi_dbi_dev *drm_to_mipi_dbi_dev(struct drm_device *drm)
 
 int mipi_dbi_spi_init(struct spi_device *spi, struct mipi_dbi *dbi,
 		      struct gpio_desc *dc);
+int mipi_dbi_host_register(struct mipi_dbi *host);
+void mipi_dbi_host_unregister(struct mipi_dbi *host);
+struct mipi_dbi *of_find_mipi_dbi_host_by_node(struct device_node *node);
+
 int mipi_dbi_dev_init_with_formats(struct mipi_dbi_dev *dbidev,
 				   const struct drm_simple_display_pipe_funcs *funcs,
 				   const uint32_t *formats, unsigned int format_count,

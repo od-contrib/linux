@@ -721,6 +721,68 @@ int mipi_dbi_poweron_conditional_reset(struct mipi_dbi_dev *dbidev)
 }
 EXPORT_SYMBOL(mipi_dbi_poweron_conditional_reset);
 
+static DEFINE_MUTEX(host_lock);
+static LIST_HEAD(host_list);
+
+int mipi_dbi_host_register(struct mipi_dbi *host)
+{
+	struct device_node *node;
+
+	/* TODO: probe children devices */
+
+	mutex_lock(&host_lock);
+	list_add_tail(&host->list, &host_list);
+	mutex_unlock(&host_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL(mipi_dbi_host_register);
+
+static int mipi_dbi_remove_device_fn(struct device *dev, void *priv)
+{
+	device_unregister(dev);
+
+	return 0;
+}
+
+void mipi_dbi_host_unregister(struct mipi_dbi *host)
+{
+	device_for_each_child(host->dev, NULL, mipi_dbi_remove_device_fn);
+
+	mutex_lock(&host_lock);
+	list_del_init(&host->list);
+	mutex_unlock(&host_lock);
+}
+EXPORT_SYMBOL(mipi_dbi_host_unregister);
+
+/**
+ * of_find_mipi_dbi_host_by_node() - find the MIPI DBI host matching a
+ *				     device tree node
+ * @node: device tree node
+ *
+ * Returns:
+ * A pointer to the MIPI DBI host corresponding to @node or NULL if no
+ * such device exists (or has not been registered yet).
+ */
+struct mipi_dbi *of_find_mipi_dbi_host_by_node(struct device_node *node)
+{
+	struct mipi_dbi *host;
+
+	mutex_lock(&host_lock);
+
+	list_for_each_entry(host, &host_list, list) {
+		if (host->dev->of_node == node) {
+			mutex_unlock(&host_lock);
+			return host;
+		}
+	}
+
+	mutex_unlock(&host_lock);
+
+	return NULL;
+}
+EXPORT_SYMBOL(of_find_mipi_dbi_host_by_node);
+
 #if IS_ENABLED(CONFIG_SPI)
 
 /**
