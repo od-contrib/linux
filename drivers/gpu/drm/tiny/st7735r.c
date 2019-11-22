@@ -161,7 +161,13 @@ static int st7735r_probe(struct spi_device *spi)
 	if (!dbidev)
 		return -ENOMEM;
 
-	dbi = &dbidev->dbi;
+	dbi = kzalloc(sizeof(*dbi), GFP_KERNEL);
+	if (!dbi) {
+		kfree(dbidev);
+		return -ENOMEM;
+	}
+
+	dbidev->dbi = dbi;
 	drm = &dbidev->drm;
 	ret = devm_drm_dev_init(dev, drm, &st7735r_driver);
 	if (ret) {

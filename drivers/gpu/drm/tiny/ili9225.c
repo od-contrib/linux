@@ -393,10 +393,17 @@ static int ili9225_probe(struct spi_device *spi)
 	if (!dbidev)
 		return -ENOMEM;
 
-	dbi = &dbidev->dbi;
+	dbi = kzalloc(sizeof(*dbi), GFP_KERNEL);
+	if (!dbi) {
+		kfree(dbidev);
+		return -ENOMEM;
+	}
+
+	dbidev->dbi = dbi;
 	drm = &dbidev->drm;
 	ret = devm_drm_dev_init(dev, drm, &ili9225_driver);
 	if (ret) {
+		kfree(dbidev->dbi);
 		kfree(dbidev);
 		return ret;
 	}

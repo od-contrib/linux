@@ -230,6 +230,12 @@ static int hx8357d_probe(struct spi_device *spi)
 	if (!dbidev)
 		return -ENOMEM;
 
+	dbi = kzalloc(sizeof(*dbi), GFP_KERNEL);
+	if (!dbi) {
+		kfree(dbidev);
+		return -ENOMEM;
+	}
+
 	drm = &dbidev->drm;
 	ret = devm_drm_dev_init(dev, drm, &hx8357d_driver);
 	if (ret) {
@@ -251,7 +257,7 @@ static int hx8357d_probe(struct spi_device *spi)
 
 	device_property_read_u32(dev, "rotation", &rotation);
 
-	ret = mipi_dbi_spi_init(spi, &dbidev->dbi, dc);
+	ret = mipi_dbi_spi_init(spi, dbidev->dbi, dc);
 	if (ret)
 		return ret;
 

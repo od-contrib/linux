@@ -191,7 +191,13 @@ static int mi0283qt_probe(struct spi_device *spi)
 	if (!dbidev)
 		return -ENOMEM;
 
-	dbi = &dbidev->dbi;
+	dbi = kzalloc(sizeof(*dbi), GFP_KERNEL);
+	if (!dbi) {
+		kfree(dbidev);
+		return -ENOMEM;
+	}
+
+	dbidev->dbi = dbi;
 	drm = &dbidev->drm;
 	ret = devm_drm_dev_init(dev, drm, &mi0283qt_driver);
 	if (ret) {

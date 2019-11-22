@@ -133,7 +133,7 @@ struct mipi_dbi_dev {
 	/**
 	 * @dbi: MIPI DBI interface
 	 */
-	struct mipi_dbi dbi;
+	struct mipi_dbi *dbi;
 };
 
 static inline struct mipi_dbi_dev *drm_to_mipi_dbi_dev(struct drm_device *drm)

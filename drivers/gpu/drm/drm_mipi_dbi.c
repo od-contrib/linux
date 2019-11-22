@@ -245,7 +245,7 @@ static void mipi_dbi_fb_dirty(struct drm_framebuffer *fb, struct drm_rect *rect)
 	struct mipi_dbi_dev *dbidev = drm_to_mipi_dbi_dev(fb->dev);
 	unsigned int height = rect->y2 - rect->y1;
 	unsigned int width = rect->x2 - rect->x1;
-	struct mipi_dbi *dbi = &dbidev->dbi;
+	struct mipi_dbi *dbi = dbidev->dbi;
 	bool swap = dbi->swap_bytes;
 	int idx, ret = 0;
 	bool full;
@@ -357,7 +357,7 @@ static void mipi_dbi_blank(struct mipi_dbi_dev *dbidev)
 	struct drm_device *drm = &dbidev->drm;
 	u16 height = drm->mode_config.min_height;
 	u16 width = drm->mode_config.min_width;
-	struct mipi_dbi *dbi = &dbidev->dbi;
+	struct mipi_dbi *dbi = dbidev->dbi;
 	size_t len = width * height * 2;
 	int idx;
 
@@ -506,7 +506,8 @@ int mipi_dbi_dev_init_with_formats(struct mipi_dbi_dev *dbidev,
 	struct drm_device *drm = &dbidev->drm;
 	int ret;
 
-	if (!dbidev->dbi.host_ops || !dbidev->dbi.host_ops->command)
+	if (!dbidev->dbi || !dbidev->dbi->host_ops ||
+	    !dbidev->dbi->host_ops->command)
 		return -EINVAL;
 
 	dbidev->tx_buf = devm_kmalloc(drm->dev, tx_buf_size, GFP_KERNEL);
@@ -650,7 +651,7 @@ EXPORT_SYMBOL(mipi_dbi_display_is_on);
 static int mipi_dbi_poweron_reset_conditional(struct mipi_dbi_dev *dbidev, bool cond)
 {
 	struct device *dev = dbidev->drm.dev;
-	struct mipi_dbi *dbi = &dbidev->dbi;
+	struct mipi_dbi *dbi = dbidev->dbi;
 	int ret;
 
 	if (dbidev->regulator) {
@@ -1237,7 +1238,7 @@ static ssize_t mipi_dbi_debugfs_command_write(struct file *file,
 		}
 	}
 
-	ret = mipi_dbi_command_buf(&dbidev->dbi, cmd, parameters, i);
+	ret = mipi_dbi_command_buf(dbidev->dbi, cmd, parameters, i);
 
 err_free:
 	kfree(buf);
@@ -1250,7 +1251,7 @@ err_exit:
 static int mipi_dbi_debugfs_command_show(struct seq_file *m, void *unused)
 {
 	struct mipi_dbi_dev *dbidev = m->private;
-	struct mipi_dbi *dbi = &dbidev->dbi;
+	struct mipi_dbi *dbi = dbidev->dbi;
 	u8 cmd, val[4];
 	int ret, idx;
 	size_t len;
@@ -1324,7 +1325,7 @@ int mipi_dbi_debugfs_init(struct drm_minor *minor)
 	struct mipi_dbi_dev *dbidev = drm_to_mipi_dbi_dev(minor->dev);
 	umode_t mode = S_IFREG | S_IWUSR;
 
-	if (dbidev->dbi.read_commands)
+	if (dbidev->dbi->read_commands)
 		mode |= S_IRUGO;
 	debugfs_create_file("command", mode, minor->debugfs_root, dbidev,
 			    &mipi_dbi_debugfs_command_fops);
