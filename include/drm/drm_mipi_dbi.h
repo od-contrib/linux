@@ -13,9 +13,20 @@
 #include <drm/drm_simple_kms_helper.h>
 
 struct drm_rect;
+struct mipi_dbi;
 struct spi_device;
 struct gpio_desc;
 struct regulator;
+
+/**
+ * struct mipi_dbi_host_ops - Bus specific callbacks.
+ */
+struct mipi_dbi_host_ops {
+	/**
+	 * @command: Bus specific callback to send a DBI command.
+	 */
+	int (*command)(struct mipi_dbi *dbi, u8 *cmd, u8 *param, size_t num);
+};
 
 /**
  * struct mipi_dbi - MIPI DBI interface
@@ -27,9 +38,9 @@ struct mipi_dbi {
 	struct mutex cmdlock;
 
 	/**
-	 * @command: Bus specific callback executing commands.
+	 * @host_ops: Bus specific callbacks.
 	 */
-	int (*command)(struct mipi_dbi *dbi, u8 *cmd, u8 *param, size_t num);
+	const struct mipi_dbi_host_ops *host_ops;
 
 	/**
 	 * @read_commands: Array of read commands terminated by a zero entry.

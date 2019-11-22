@@ -160,7 +160,7 @@ int mipi_dbi_command_buf(struct mipi_dbi *dbi, u8 cmd, u8 *data, size_t len)
 		return -ENOMEM;
 
 	mutex_lock(&dbi->cmdlock);
-	ret = dbi->command(dbi, cmdbuf, data, len);
+	ret = dbi->host_ops->command(dbi, cmdbuf, data, len);
 	mutex_unlock(&dbi->cmdlock);
 
 	kfree(cmdbuf);
@@ -506,7 +506,7 @@ int mipi_dbi_dev_init_with_formats(struct mipi_dbi_dev *dbidev,
 	struct drm_device *drm = &dbidev->drm;
 	int ret;
 
-	if (!dbidev->dbi.command)
+	if (!dbidev->dbi.host_ops || !dbidev->dbi.host_ops->command)
 		return -EINVAL;
 
 	dbidev->tx_buf = devm_kmalloc(drm->dev, tx_buf_size, GFP_KERNEL);
@@ -1060,13 +1060,21 @@ static int mipi_dbi_typec3_command(struct mipi_dbi *dbi, u8 *cmd,
 	return mipi_dbi_spi_transfer(spi, speed_hz, bpw, par, num);
 }
 
+static const struct mipi_dbi_host_ops mipi_dbi_spi_typec1_host_ops = {
+	.command = mipi_dbi_typec1_command,
+};
+
+static const struct mipi_dbi_host_ops mipi_dbi_spi_typec3_host_ops = {
+	.command = mipi_dbi_typec3_command,
+};
+
 /**
  * mipi_dbi_spi_init - Initialize MIPI DBI SPI interface
  * @spi: SPI device
  * @dbi: MIPI DBI structure to initialize
  * @dc: D/C gpio (optional)
  *
- * This function sets &mipi_dbi->command, enables &mipi_dbi->read_commands for the
+ * This function sets &mipi_dbi->host_ops, enables &mipi_dbi->read_commands for the
  * usual read commands. It should be followed by a call to mipi_dbi_dev_init() or
  * a driver-specific init.
  *
@@ -1110,12 +1118,12 @@ int mipi_dbi_spi_init(struct spi_device *spi, struct mipi_dbi *dbi,
 	dbi->read_commands = mipi_dbi_dcs_read_commands;
 
 	if (dc) {
-		dbi->command = mipi_dbi_typec3_command;
+		dbi->host_ops = &mipi_dbi_spi_typec3_host_ops;
 		dbi->dc = dc;
 		if (mipi_dbi_machine_little_endian() && !spi_is_bpw_supported(spi, 16))
 			dbi->swap_bytes = true;
 	} else {
-		dbi->command = mipi_dbi_typec1_command;
+		dbi->host_ops = &mipi_dbi_spi_typec1_host_ops;
 		dbi->tx_buf9_len = SZ_16K;
 		dbi->tx_buf9 = devm_kmalloc(dev, dbi->tx_buf9_len, GFP_KERNEL);
 		if (!dbi->tx_buf9)

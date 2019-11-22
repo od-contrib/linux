@@ -338,6 +338,10 @@ static int ili9225_dbi_command(struct mipi_dbi *dbi, u8 *cmd, u8 *par,
 	return mipi_dbi_spi_transfer(spi, speed_hz, bpw, par, num);
 }
 
+static const struct mipi_dbi_host_ops ili9225_mipi_dbi_host_ops = {
+	.command = ili9225_dbi_command,
+};
+
 static const struct drm_simple_display_pipe_funcs ili9225_pipe_funcs = {
 	.enable		= ili9225_pipe_enable,
 	.disable	= ili9225_pipe_disable,
@@ -417,8 +421,8 @@ static int ili9225_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	/* override the command function set in  mipi_dbi_spi_init() */
-	dbi->command = ili9225_dbi_command;
+	/* override the host ops set in mipi_dbi_spi_init() */
+	dbi->host_ops = &ili9225_mipi_dbi_host_ops;
 
 	ret = mipi_dbi_dev_init(dbidev, &ili9225_pipe_funcs, &ili9225_mode, rotation);
 	if (ret)
