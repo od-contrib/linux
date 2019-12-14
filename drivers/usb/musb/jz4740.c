@@ -17,7 +17,6 @@
 #include "musb_core.h"
 
 struct jz4740_glue {
-	struct device           *dev;
 	struct platform_device  *musb;
 	struct clk		*clk;
 };
@@ -149,7 +148,6 @@ static int jz4740_probe(struct platform_device *pdev)
 	musb->dev.dma_mask		= &musb->dev.coherent_dma_mask;
 	musb->dev.coherent_dma_mask	= DMA_BIT_MASK(32);
 
-	glue->dev			= &pdev->dev;
 	glue->musb			= musb;
 	glue->clk			= clk;
 
