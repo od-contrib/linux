@@ -267,8 +267,6 @@ static void ingenic_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 		ingenic_drm_crtc_update_timings(priv, &state->mode);
 		ingenic_drm_crtc_update_ctrl(priv, finfo);
 
-		regmap_write(priv->map, JZ_REG_LCD_DA0, priv->dma_hwdesc->next);
-
 		priv->update_clk_rate = true;
 	}
 
@@ -769,6 +767,9 @@ static int ingenic_drm_probe(struct platform_device *pdev)
 		dev_err(dev, "Unable to register clock notifier");
 		goto err_devclk_disable;
 	}
+
+	/* Set address of our DMA descriptor chain */
+	regmap_write(priv->map, JZ_REG_LCD_DA0, priv->dma_hwdesc_phys);
 
 	ret = drm_dev_register(drm, 0);
 	if (ret) {
