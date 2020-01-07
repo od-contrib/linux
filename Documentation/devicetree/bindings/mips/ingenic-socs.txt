@@ -1,0 +1,14 @@
+Bindings for Ingenic JZ47xx family of SoCs
+
+Required properties for root node:
+- compatible: One of:
+  * ingenic,jz4740
+  * ingenic,jz4725b
+  * ingenic,jz4770
+  * ingenic,jz4780
+
+Required properties for CPU nodes:
+- compatible: One of:
+  * ingenic,xburst-d0
+  * ingenic,xburst-d1
+  * ingenic,xburst-e1

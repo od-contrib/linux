@@ -8,6 +8,35 @@
 	#size-cells = <1>;
 	compatible = "ingenic,jz4770";
 
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "ingenic,xburst-d1";
+			reg = <0>;
+			clocks = <&cgu JZ4770_CLK_CCLK>;
+			clock-names = "cpu";
+
+			i-cache-size = <0x4000>;
+			i-cache-block-size = <32>;
+
+			d-cache-size = <0x4000>;
+			d-cache-block-size = <32>;
+
+			next-level-cache = <&L2_cache>;
+
+			L2_cache: cache-controller {
+				compatible = "cache";
+				cache-unified;
+				cache-level = <2>;
+				cache-size = <0x40000>;
+				cache-block-size = <32>;
+			};
+		};
+	};
+
 	cpuintc: interrupt-controller {
 		#address-cells = <0>;
 		#interrupt-cells = <1>;
