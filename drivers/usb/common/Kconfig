@@ -49,3 +49,14 @@ config USB_CONN_GPIO
 
 	  To compile the driver as a module, choose M here: the module will
 	  be called usb-conn-gpio.ko
+
+if USB_CONN_GPIO
+
+config USB_CONN_GPIO_CHARGER
+	bool "USB charger support"
+	select POWER_SUPPLY
+	help
+	  Register a charger with the power supply subsystem. This will allow
+	  userspace to know whether or not the device is charging from USB.
+
+endif
