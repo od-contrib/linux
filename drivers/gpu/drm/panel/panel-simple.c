@@ -1421,6 +1421,20 @@ static const struct drm_display_mode frida_frd350h54004_mode = {
 	.flags = DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC,
 };
 
+static const struct drm_display_mode frida_frd350h54004_mode_50hz = {
+	.clock = 5400,
+	.hdisplay = 320,
+	.hsync_start = 320 + 56,
+	.hsync_end = 320 + 56 + 16,
+	.htotal = 320 + 56 + 16 + 40,
+	.vdisplay = 240,
+	.vsync_start = 240 + 2,
+	.vsync_end = 240 + 2 + 6,
+	.vtotal = 240 + 2 + 6 + 2,
+	.vrefresh = 50,
+	.flags = DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC,
+};
+
 static const struct panel_desc frida_frd350h54004 = {
 	.modes = &frida_frd350h54004_mode,
 	.num_modes = 1,
