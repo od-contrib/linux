@@ -4,6 +4,8 @@
 //
 // Copyright (C) 2019, Paul Cercueil <paul@crapouillou.net>
 
+#include "ingenic-drm.h"
+
 #include <linux/clk.h>
 #include <linux/dma-mapping.h>
 #include <linux/module.h>
@@ -30,120 +32,6 @@
 #include <drm/drm_probe_helper.h>
 #include <drm/drm_vblank.h>
 
-#define JZ_REG_LCD_CFG				0x00
-#define JZ_REG_LCD_VSYNC			0x04
-#define JZ_REG_LCD_HSYNC			0x08
-#define JZ_REG_LCD_VAT				0x0C
-#define JZ_REG_LCD_DAH				0x10
-#define JZ_REG_LCD_DAV				0x14
-#define JZ_REG_LCD_PS				0x18
-#define JZ_REG_LCD_CLS				0x1C
-#define JZ_REG_LCD_SPL				0x20
-#define JZ_REG_LCD_REV				0x24
-#define JZ_REG_LCD_CTRL				0x30
-#define JZ_REG_LCD_STATE			0x34
-#define JZ_REG_LCD_IID				0x38
-#define JZ_REG_LCD_DA0				0x40
-#define JZ_REG_LCD_SA0				0x44
-#define JZ_REG_LCD_FID0				0x48
-#define JZ_REG_LCD_CMD0				0x4C
-#define JZ_REG_LCD_DA1				0x50
-#define JZ_REG_LCD_SA1				0x54
-#define JZ_REG_LCD_FID1				0x58
-#define JZ_REG_LCD_CMD1				0x5C
-
-#define JZ_LCD_CFG_SLCD				BIT(31)
-#define JZ_LCD_CFG_PS_DISABLE			BIT(23)
-#define JZ_LCD_CFG_CLS_DISABLE			BIT(22)
-#define JZ_LCD_CFG_SPL_DISABLE			BIT(21)
-#define JZ_LCD_CFG_REV_DISABLE			BIT(20)
-#define JZ_LCD_CFG_HSYNCM			BIT(19)
-#define JZ_LCD_CFG_PCLKM			BIT(18)
-#define JZ_LCD_CFG_INV				BIT(17)
-#define JZ_LCD_CFG_SYNC_DIR			BIT(16)
-#define JZ_LCD_CFG_PS_POLARITY			BIT(15)
-#define JZ_LCD_CFG_CLS_POLARITY			BIT(14)
-#define JZ_LCD_CFG_SPL_POLARITY			BIT(13)
-#define JZ_LCD_CFG_REV_POLARITY			BIT(12)
-#define JZ_LCD_CFG_HSYNC_ACTIVE_LOW		BIT(11)
-#define JZ_LCD_CFG_PCLK_FALLING_EDGE		BIT(10)
-#define JZ_LCD_CFG_DE_ACTIVE_LOW		BIT(9)
-#define JZ_LCD_CFG_VSYNC_ACTIVE_LOW		BIT(8)
-#define JZ_LCD_CFG_18_BIT			BIT(7)
-#define JZ_LCD_CFG_PDW				(BIT(5) | BIT(4))
-
-#define JZ_LCD_CFG_MODE_GENERIC_16BIT		0
-#define JZ_LCD_CFG_MODE_GENERIC_18BIT		BIT(7)
-#define JZ_LCD_CFG_MODE_GENERIC_24BIT		BIT(6)
-
-#define JZ_LCD_CFG_MODE_SPECIAL_TFT_1		1
-#define JZ_LCD_CFG_MODE_SPECIAL_TFT_2		2
-#define JZ_LCD_CFG_MODE_SPECIAL_TFT_3		3
-
-#define JZ_LCD_CFG_MODE_TV_OUT_P		4
-#define JZ_LCD_CFG_MODE_TV_OUT_I		6
-
-#define JZ_LCD_CFG_MODE_SINGLE_COLOR_STN	8
-#define JZ_LCD_CFG_MODE_SINGLE_MONOCHROME_STN	9
-#define JZ_LCD_CFG_MODE_DUAL_COLOR_STN		10
-#define JZ_LCD_CFG_MODE_DUAL_MONOCHROME_STN	11
-
-#define JZ_LCD_CFG_MODE_8BIT_SERIAL		12
-#define JZ_LCD_CFG_MODE_LCM			13
-
-#define JZ_LCD_VSYNC_VPS_OFFSET			16
-#define JZ_LCD_VSYNC_VPE_OFFSET			0
-
-#define JZ_LCD_HSYNC_HPS_OFFSET			16
-#define JZ_LCD_HSYNC_HPE_OFFSET			0
-
-#define JZ_LCD_VAT_HT_OFFSET			16
-#define JZ_LCD_VAT_VT_OFFSET			0
-
-#define JZ_LCD_DAH_HDS_OFFSET			16
-#define JZ_LCD_DAH_HDE_OFFSET			0
-
-#define JZ_LCD_DAV_VDS_OFFSET			16
-#define JZ_LCD_DAV_VDE_OFFSET			0
-
-#define JZ_LCD_CTRL_BURST_4			(0x0 << 28)
-#define JZ_LCD_CTRL_BURST_8			(0x1 << 28)
-#define JZ_LCD_CTRL_BURST_16			(0x2 << 28)
-#define JZ_LCD_CTRL_RGB555			BIT(27)
-#define JZ_LCD_CTRL_OFUP			BIT(26)
-#define JZ_LCD_CTRL_FRC_GRAYSCALE_16		(0x0 << 24)
-#define JZ_LCD_CTRL_FRC_GRAYSCALE_4		(0x1 << 24)
-#define JZ_LCD_CTRL_FRC_GRAYSCALE_2		(0x2 << 24)
-#define JZ_LCD_CTRL_PDD_MASK			(0xff << 16)
-#define JZ_LCD_CTRL_EOF_IRQ			BIT(13)
-#define JZ_LCD_CTRL_SOF_IRQ			BIT(12)
-#define JZ_LCD_CTRL_OFU_IRQ			BIT(11)
-#define JZ_LCD_CTRL_IFU0_IRQ			BIT(10)
-#define JZ_LCD_CTRL_IFU1_IRQ			BIT(9)
-#define JZ_LCD_CTRL_DD_IRQ			BIT(8)
-#define JZ_LCD_CTRL_QDD_IRQ			BIT(7)
-#define JZ_LCD_CTRL_REVERSE_ENDIAN		BIT(6)
-#define JZ_LCD_CTRL_LSB_FISRT			BIT(5)
-#define JZ_LCD_CTRL_DISABLE			BIT(4)
-#define JZ_LCD_CTRL_ENABLE			BIT(3)
-#define JZ_LCD_CTRL_BPP_1			0x0
-#define JZ_LCD_CTRL_BPP_2			0x1
-#define JZ_LCD_CTRL_BPP_4			0x2
-#define JZ_LCD_CTRL_BPP_8			0x3
-#define JZ_LCD_CTRL_BPP_15_16			0x4
-#define JZ_LCD_CTRL_BPP_18_24			0x5
-#define JZ_LCD_CTRL_BPP_MASK			(JZ_LCD_CTRL_RGB555 | (0x7 << 0))
-
-#define JZ_LCD_CMD_SOF_IRQ			BIT(31)
-#define JZ_LCD_CMD_EOF_IRQ			BIT(30)
-#define JZ_LCD_CMD_ENABLE_PAL			BIT(28)
-
-#define JZ_LCD_SYNC_MASK			0x3ff
-
-#define JZ_LCD_STATE_EOF_IRQ			BIT(5)
-#define JZ_LCD_STATE_SOF_IRQ			BIT(4)
-#define JZ_LCD_STATE_DISABLED			BIT(0)
-
 struct ingenic_dma_hwdesc {
 	u32 next;
 	u32 addr;
@@ -153,6 +41,8 @@ struct ingenic_dma_hwdesc {
 
 struct jz_soc_info {
 	bool needs_dev_clk;
+	bool has_osd;
+	unsigned int max_width, max_height;
 };
 
 struct ingenic_drm {
@@ -164,11 +54,14 @@ struct ingenic_drm {
 	struct device *dev;
 	struct regmap *map;
 	struct clk *lcd_clk, *pix_clk;
+	const struct jz_soc_info *soc_info;
 
 	struct ingenic_dma_hwdesc *dma_hwdesc;
 	dma_addr_t dma_hwdesc_phys;
 
 	bool panel_is_sharp;
+	bool update_clk_rate;
+	struct notifier_block clock_nb;
 };
 
 static const u32 ingenic_drm_primary_formats[] = {
@@ -221,6 +114,27 @@ drm_encoder_get_priv(struct drm_encoder *encoder)
 static inline struct ingenic_drm *drm_plane_get_priv(struct drm_plane *plane)
 {
 	return container_of(plane, struct ingenic_drm, primary);
+}
+
+static inline struct ingenic_drm *drm_nb_get_priv(struct notifier_block *nb)
+{
+	return container_of(nb, struct ingenic_drm, clock_nb);
+}
+
+static int ingenic_drm_update_pixclk(struct notifier_block *nb,
+				     unsigned long action,
+				     void *data)
+{
+	struct ingenic_drm *priv = drm_nb_get_priv(nb);
+
+	switch (action) {
+	case POST_RATE_CHANGE:
+		priv->update_clk_rate = true;
+		drm_crtc_wait_one_vblank(&priv->crtc);
+		return NOTIFY_OK;
+	default:
+		return NOTIFY_DONE;
+	}
 }
 
 static void ingenic_drm_crtc_atomic_enable(struct drm_crtc *crtc,
@@ -326,6 +240,10 @@ static int ingenic_drm_crtc_atomic_check(struct drm_crtc *crtc,
 	if (!drm_atomic_crtc_needs_modeset(state))
 		return 0;
 
+	if (state->mode.hdisplay > priv->soc_info->max_height ||
+	    state->mode.vdisplay > priv->soc_info->max_width)
+		return -EINVAL;
+
 	rate = clk_round_rate(priv->pix_clk,
 			      state->adjusted_mode.clock * 1000);
 	if (rate < 0)
@@ -349,9 +267,12 @@ static void ingenic_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 		ingenic_drm_crtc_update_timings(priv, &state->mode);
 		ingenic_drm_crtc_update_ctrl(priv, finfo);
 
-		clk_set_rate(priv->pix_clk, state->adjusted_mode.clock * 1000);
+		priv->update_clk_rate = true;
+	}
 
-		regmap_write(priv->map, JZ_REG_LCD_DA0, priv->dma_hwdesc->next);
+	if (priv->update_clk_rate) {
+		clk_set_rate(priv->pix_clk, state->adjusted_mode.clock * 1000);
+		priv->update_clk_rate = false;
 	}
 
 	if (event) {
@@ -366,20 +287,82 @@ static void ingenic_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	}
 }
 
+static int ingenic_drm_plane_atomic_check(struct drm_plane *plane,
+					  struct drm_plane_state *state)
+{
+	struct ingenic_drm *priv = drm_plane_get_priv(plane);
+	struct drm_crtc *crtc = state->crtc;
+	struct drm_crtc_state *crtc_state;
+	int ret;
+
+	crtc_state = drm_atomic_get_existing_crtc_state(state->state, crtc);
+	if (WARN_ON(!crtc_state))
+		return -EINVAL;
+
+	ret = drm_atomic_helper_check_plane_state(state, crtc_state,
+						  DRM_PLANE_HELPER_NO_SCALING,
+						  DRM_PLANE_HELPER_NO_SCALING,
+						  priv->soc_info->has_osd,
+						  false);
+	if (ret)
+		return ret;
+
+	if (state->src_x != 0 ||
+	    (state->src_w >> 16) != state->crtc_w ||
+	    (state->src_h >> 16) != state->crtc_h)
+		return -EINVAL;
+
+	return 0;
+}
+
+static void ingenic_drm_plane_osd_config(struct drm_plane *plane)
+{
+	struct ingenic_drm *priv = drm_plane_get_priv(plane);
+	struct drm_plane_state *state = plane->state;
+	unsigned int xy_reg, size_reg, en_bit;
+
+	if (plane->index == 0) {
+		xy_reg = JZ_REG_LCD_XYP0;
+		size_reg = JZ_REG_LCD_SIZE0;
+		en_bit = JZ_LCD_OSDC_F0EN;
+	} else {
+		xy_reg = JZ_REG_LCD_XYP1;
+		size_reg = JZ_REG_LCD_SIZE1;
+		en_bit = JZ_LCD_OSDC_F1EN;
+	}
+
+	regmap_update_bits(priv->map, JZ_REG_LCD_OSDC,
+			   JZ_LCD_OSDC_OSDEN | en_bit,
+			   JZ_LCD_OSDC_OSDEN | en_bit);
+	regmap_write(priv->map, xy_reg,
+		     state->crtc_x << JZ_LCD_XYP01_XPOS_LSB |
+		     state->crtc_y << JZ_LCD_XYP01_YPOS_LSB);
+	regmap_write(priv->map, size_reg,
+		     state->crtc_w << JZ_LCD_SIZE01_WIDTH_LSB |
+		     state->crtc_h << JZ_LCD_SIZE01_HEIGHT_LSB);
+}
+
 static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 					    struct drm_plane_state *oldstate)
 {
 	struct ingenic_drm *priv = drm_plane_get_priv(plane);
 	struct drm_plane_state *state = plane->state;
 	unsigned int width, height, cpp;
+	dma_addr_t addr;
 
-	width = state->crtc->state->adjusted_mode.hdisplay;
-	height = state->crtc->state->adjusted_mode.vdisplay;
-	cpp = state->fb->format->cpp[plane->index];
+	if (state && state->fb) {
+		addr = drm_fb_cma_get_gem_addr(state->fb, state, 0);
+		width = state->src_w >> 16;
+		height = state->src_h >> 16;
+		cpp = state->fb->format->cpp[plane->index];
 
-	priv->dma_hwdesc->addr = drm_fb_cma_get_gem_addr(state->fb, state, 0);
-	priv->dma_hwdesc->cmd = width * height * cpp / 4;
-	priv->dma_hwdesc->cmd |= JZ_LCD_CMD_EOF_IRQ;
+		priv->dma_hwdesc->addr = addr;
+		priv->dma_hwdesc->cmd = width * height * cpp / 4;
+		priv->dma_hwdesc->cmd |= JZ_LCD_CMD_EOF_IRQ;
+
+		if (priv->soc_info->has_osd)
+			ingenic_drm_plane_osd_config(plane);
+	}
 }
 
 static void ingenic_drm_encoder_atomic_mode_set(struct drm_encoder *encoder,
@@ -390,6 +373,8 @@ static void ingenic_drm_encoder_atomic_mode_set(struct drm_encoder *encoder,
 	struct drm_display_mode *mode = &crtc_state->adjusted_mode;
 	struct drm_connector *conn = conn_state->connector;
 	struct drm_display_info *info = &conn->display_info;
+	struct drm_plane_state *plane_state = crtc_state->crtc->primary->state;
+	const struct drm_format_info *finfo = NULL;
 	unsigned int cfg;
 
 	priv->panel_is_sharp = info->bus_flags & DRM_BUS_FLAG_SHARP_SIGNALS;
@@ -425,7 +410,22 @@ static void ingenic_drm_encoder_atomic_mode_set(struct drm_encoder *encoder,
 				cfg |= JZ_LCD_CFG_MODE_GENERIC_18BIT;
 				break;
 			case MEDIA_BUS_FMT_RGB888_1X24:
-				cfg |= JZ_LCD_CFG_MODE_GENERIC_24BIT;
+				if (plane_state && plane_state->fb)
+					finfo = plane_state->fb->format;
+
+				/*
+				 * If the panel interface is 24-bit but our
+				 * primary plane is 16bpp, configure as if the
+				 * panel was 18-bit. This tricks permits the
+				 * display of 16bpp data on a 24-bit panel by
+				 * wiring each color component to the MSBs of
+				 * the 24-bit interface.
+				 */
+				if (finfo &&
+				    finfo->format == DRM_FORMAT_XRGB8888)
+					cfg |= JZ_LCD_CFG_MODE_GENERIC_24BIT;
+				else
+					cfg |= JZ_LCD_CFG_MODE_GENERIC_18BIT;
 				break;
 			case MEDIA_BUS_FMT_RGB888_3X8:
 				cfg |= JZ_LCD_CFG_MODE_8BIT_SERIAL;
@@ -560,6 +560,7 @@ static const struct drm_crtc_funcs ingenic_drm_crtc_funcs = {
 
 static const struct drm_plane_helper_funcs ingenic_drm_plane_helper_funcs = {
 	.atomic_update		= ingenic_drm_plane_atomic_update,
+	.atomic_check		= ingenic_drm_plane_atomic_check,
 	.prepare_fb		= drm_gem_fb_prepare_fb,
 };
 
@@ -617,6 +618,7 @@ static int ingenic_drm_probe(struct platform_device *pdev)
 	if (!priv)
 		return -ENOMEM;
 
+	priv->soc_info = soc_info;
 	priv->dev = dev;
 	drm = &priv->drm;
 	drm->dev_private = priv;
@@ -632,8 +634,8 @@ static int ingenic_drm_probe(struct platform_device *pdev)
 	drm_mode_config_init(drm);
 	drm->mode_config.min_width = 0;
 	drm->mode_config.min_height = 0;
-	drm->mode_config.max_width = 800;
-	drm->mode_config.max_height = 600;
+	drm->mode_config.max_width = soc_info->max_width;
+	drm->mode_config.max_height = 4095;
 	drm->mode_config.funcs = &ingenic_drm_mode_config_funcs;
 
 	base = devm_platform_ioremap_resource(pdev, 0);
@@ -774,10 +776,22 @@ static int ingenic_drm_probe(struct platform_device *pdev)
 		}
 	}
 
+	priv->clock_nb.notifier_call = ingenic_drm_update_pixclk;
+
+	parent_clk = clk_get_parent(priv->pix_clk);
+	ret = clk_notifier_register(parent_clk, &priv->clock_nb);
+	if (ret) {
+		dev_err(dev, "Unable to register clock notifier");
+		goto err_devclk_disable;
+	}
+
+	/* Set address of our DMA descriptor chain */
+	regmap_write(priv->map, JZ_REG_LCD_DA0, priv->dma_hwdesc_phys);
+
 	ret = drm_dev_register(drm, 0);
 	if (ret) {
 		dev_err(dev, "Failed to register DRM driver");
-		goto err_devclk_disable;
+		goto err_clk_notifier_unregister;
 	}
 
 	ret = drm_fbdev_generic_setup(drm, 32);
@@ -786,6 +800,8 @@ static int ingenic_drm_probe(struct platform_device *pdev)
 
 	return 0;
 
+err_clk_notifier_unregister:
+	clk_notifier_unregister(parent_clk, &priv->clock_nb);
 err_devclk_disable:
 	if (priv->lcd_clk)
 		clk_disable_unprepare(priv->lcd_clk);
@@ -797,7 +813,9 @@ err_pixclk_disable:
 static int ingenic_drm_remove(struct platform_device *pdev)
 {
 	struct ingenic_drm *priv = platform_get_drvdata(pdev);
+	struct clk *parent_clk = clk_get_parent(priv->pix_clk);
 
+	clk_notifier_unregister(parent_clk, &priv->clock_nb);
 	if (priv->lcd_clk)
 		clk_disable_unprepare(priv->lcd_clk);
 	clk_disable_unprepare(priv->pix_clk);
@@ -810,15 +828,29 @@ static int ingenic_drm_remove(struct platform_device *pdev)
 
 static const struct jz_soc_info jz4740_soc_info = {
 	.needs_dev_clk = true,
+	.has_osd = false,
+	.max_width = 800,
+	.max_height = 600,
 };
 
 static const struct jz_soc_info jz4725b_soc_info = {
 	.needs_dev_clk = false,
+	.has_osd = true,
+	.max_width = 800,
+	.max_height = 600,
+};
+
+static const struct jz_soc_info jz4770_soc_info = {
+	.needs_dev_clk = false,
+	.has_osd = true,
+	.max_width = 1280,
+	.max_height = 720,
 };
 
 static const struct of_device_id ingenic_drm_of_match[] = {
 	{ .compatible = "ingenic,jz4740-lcd", .data = &jz4740_soc_info },
 	{ .compatible = "ingenic,jz4725b-lcd", .data = &jz4725b_soc_info },
+	{ .compatible = "ingenic,jz4770-lcd", .data = &jz4770_soc_info },
 	{ /* sentinel */ },
 };
 
