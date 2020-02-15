@@ -9,6 +9,8 @@
 #include <linux/component.h>
 #include <linux/clk.h>
 #include <linux/dma-mapping.h>
+#include <linux/dma-noncoherent.h>
+#include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
@@ -75,6 +77,11 @@ static const u32 ingenic_drm_primary_formats[] = {
 	DRM_FORMAT_RGB565,
 	DRM_FORMAT_XRGB8888,
 };
+
+static bool ingenic_drm_cached_gem_buf;
+module_param_named(cached_gem_buffers, ingenic_drm_cached_gem_buf, bool, 0400);
+MODULE_PARM_DESC(cached_gem_buffers,
+		 "Enable fully cached GEM buffers [default=false]");
 
 static bool ingenic_drm_writeable_reg(struct device *dev, unsigned int reg)
 {
@@ -455,6 +462,11 @@ static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 		height = state->src_h >> 16;
 		cpp = state->fb->format->cpp[0];
 
+		if (ingenic_drm_cached_gem_buf) {
+			dma_cache_sync(priv->dev, phys_to_virt(addr),
+				       width * height * cpp, DMA_TO_DEVICE);
+		}
+
 		if (priv->soc_info->has_osd && plane->type == DRM_PLANE_TYPE_OVERLAY)
 			hwdesc = priv->dma_hwdesc_f0;
 		else
@@ -607,6 +619,22 @@ static void ingenic_drm_disable_vblank(struct drm_crtc *crtc)
 
 DEFINE_DRM_GEM_CMA_FOPS(ingenic_drm_fops);
 
+static int ingenic_drm_gem_mmap(struct drm_gem_object *obj,
+				struct vm_area_struct *vma)
+{
+	struct drm_gem_cma_object *cma_obj = to_drm_gem_cma_obj(obj);
+	struct ingenic_drm *priv = drm_device_get_priv(obj->dev);
+	unsigned long attrs = DMA_ATTR_NON_CONSISTENT;
+
+	if (!ingenic_drm_cached_gem_buf)
+		return drm_gem_cma_prime_mmap(obj, vma);
+
+	vma->vm_page_prot = dma_pgprot(priv->dev, vma->vm_page_prot, attrs);
+
+	return dma_mmap_attrs(priv->dev, vma, cma_obj->vaddr, cma_obj->paddr,
+			      vma->vm_end - vma->vm_start, attrs);
+}
+
 static struct drm_driver ingenic_drm_driver_data = {
 	.driver_features	= DRIVER_MODESET | DRIVER_GEM | DRIVER_ATOMIC,
 	.name			= "ingenic-drm",
@@ -628,7 +656,7 @@ static struct drm_driver ingenic_drm_driver_data = {
 	.gem_prime_import_sg_table = drm_gem_cma_prime_import_sg_table,
 	.gem_prime_vmap		= drm_gem_cma_prime_vmap,
 	.gem_prime_vunmap	= drm_gem_cma_prime_vunmap,
-	.gem_prime_mmap		= drm_gem_cma_prime_mmap,
+	.gem_prime_mmap		= ingenic_drm_gem_mmap,
 
 	.irq_handler		= ingenic_drm_irq_handler,
 };
