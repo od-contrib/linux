@@ -302,9 +302,9 @@ static int ingenic_drm_plane_atomic_check(struct drm_plane *plane,
 	return 0;
 }
 
-static void ingenic_drm_plane_enable(struct ingenic_drm *priv,
-				      struct drm_plane *plane)
+void ingenic_drm_plane_enable(struct device *dev, struct drm_plane *plane)
 {
+	struct ingenic_drm *priv = dev_get_drvdata(dev);
 	unsigned int en_bit;
 
 	if (priv->soc_info->has_osd) {
@@ -316,11 +316,11 @@ static void ingenic_drm_plane_enable(struct ingenic_drm *priv,
 		regmap_update_bits(priv->map, JZ_REG_LCD_OSDC, en_bit, en_bit);
 	}
 }
+EXPORT_SYMBOL_GPL(ingenic_drm_plane_enable);
 
-static void ingenic_drm_plane_atomic_disable(struct drm_plane *plane,
-					     struct drm_plane_state *old_state)
+void ingenic_drm_plane_disable(struct device *dev, struct drm_plane *plane)
 {
-	struct ingenic_drm *priv = drm_plane_get_priv(plane);
+	struct ingenic_drm *priv = dev_get_drvdata(dev);
 	unsigned int en_bit;
 
 	if (priv->soc_info->has_osd) {
@@ -331,6 +331,15 @@ static void ingenic_drm_plane_atomic_disable(struct drm_plane *plane,
 
 		regmap_update_bits(priv->map, JZ_REG_LCD_OSDC, en_bit, 0);
 	}
+}
+EXPORT_SYMBOL_GPL(ingenic_drm_plane_disable);
+
+static void ingenic_drm_plane_atomic_disable(struct drm_plane *plane,
+					     struct drm_plane_state *old_state)
+{
+	struct ingenic_drm *priv = drm_plane_get_priv(plane);
+
+	ingenic_drm_plane_disable(priv->dev, plane);
 }
 
 static void ingenic_drm_bpp_config(struct ingenic_drm *priv,
@@ -373,9 +382,9 @@ static void ingenic_drm_bpp_config(struct ingenic_drm *priv,
 	}
 }
 
-static void ingenic_drm_plane_config(struct ingenic_drm *priv,
-				      struct drm_plane *plane)
+void ingenic_drm_plane_config(struct device *dev, struct drm_plane *plane)
 {
+	struct ingenic_drm *priv = dev_get_drvdata(dev);
 	struct drm_plane_state *state = plane->state;
 	unsigned int xy_reg, size_reg;
 
@@ -387,8 +396,8 @@ static void ingenic_drm_plane_config(struct ingenic_drm *priv,
 		size_reg = JZ_REG_LCD_SIZE0;
 	}
 
-	if (state->visible)
-		ingenic_drm_plane_enable(priv, plane);
+	if (state->fb && state->visible)
+		ingenic_drm_plane_enable(priv->dev, plane);
 
 	regmap_write(priv->map, xy_reg,
 		     state->crtc_x << JZ_LCD_XYP01_XPOS_LSB |
@@ -397,6 +406,7 @@ static void ingenic_drm_plane_config(struct ingenic_drm *priv,
 		     state->crtc_w << JZ_LCD_SIZE01_WIDTH_LSB |
 		     state->crtc_h << JZ_LCD_SIZE01_HEIGHT_LSB);
 }
+EXPORT_SYMBOL_GPL(ingenic_drm_plane_config);
 
 static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 					    struct drm_plane_state *oldstate)
@@ -433,7 +443,7 @@ static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 
 		if (priv->soc_info->has_osd &&
 		    drm_atomic_crtc_needs_modeset(state->crtc->state))
-			ingenic_drm_plane_config(priv, plane);
+			ingenic_drm_plane_config(priv->dev, plane);
 
 		finfo = drm_format_info(state->fb->format->format);
 		ingenic_drm_bpp_config(priv, plane, finfo);
@@ -699,7 +709,7 @@ static int ingenic_drm_bind(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	const struct jz_soc_info *soc_info;
-	struct drm_plane *plane;
+	struct drm_plane *plane = NULL;
 	struct ingenic_drm *priv;
 	struct clk *parent_clk;
 	struct drm_bridge *bridge;
@@ -708,6 +718,7 @@ static int ingenic_drm_bind(struct device *dev)
 	void __iomem *base;
 	long parent_rate;
 	int ret, irq;
+	bool use_ipu;
 
 	soc_info = of_device_get_match_data(dev);
 	if (!soc_info) {
@@ -816,17 +827,26 @@ static int ingenic_drm_bind(struct device *dev)
 	if (ret)
 		return ret;
 
-	plane = priv_get_primary(priv);
-	drm_plane_helper_add(plane, &ingenic_drm_plane_helper_funcs);
+	if (soc_info->has_osd)
+		plane = drm_plane_from_index(drm, 0);
 
-	ret = drm_universal_plane_init(drm, plane, 1,
-				       &ingenic_drm_primary_plane_funcs,
-				       ingenic_drm_primary_formats,
-				       ARRAY_SIZE(ingenic_drm_primary_formats),
-				       NULL, DRM_PLANE_TYPE_PRIMARY, NULL);
-	if (ret) {
-		dev_err(dev, "Failed to register primary plane: %i", ret);
-		return ret;
+	use_ipu = !!plane;
+	if (use_ipu) {
+		dev_info(dev, "Using IPU as primary plane.\n");
+	} else {
+		plane = priv_get_primary(priv);
+		drm_plane_helper_add(plane, &ingenic_drm_plane_helper_funcs);
+
+		ret = drm_universal_plane_init(drm, plane, 1,
+					       &ingenic_drm_primary_plane_funcs,
+					       ingenic_drm_primary_formats,
+					       ARRAY_SIZE(ingenic_drm_primary_formats),
+					       NULL, DRM_PLANE_TYPE_PRIMARY,
+					       NULL);
+		if (ret) {
+			dev_err(dev, "Failed to register plane: %i", ret);
+			return ret;
+		}
 	}
 
 	drm_crtc_helper_add(&priv->crtc, &ingenic_drm_crtc_helper_funcs);
@@ -875,7 +895,7 @@ static int ingenic_drm_bind(struct device *dev)
 
 	ret = drm_irq_install(drm, irq);
 	if (ret) {
-		dev_err(dev, "Unable to install IRQ handler");
+		dev_err(dev, "Unable to install IRQ handler\n");
 		return ret;
 	}
 
@@ -923,6 +943,13 @@ static int ingenic_drm_bind(struct device *dev)
 	if (soc_info->has_osd)
 		regmap_write(priv->map, JZ_REG_LCD_OSDC, JZ_LCD_OSDC_OSDEN);
 
+	/* Enable IPU if available */
+	if (use_ipu) {
+		regmap_update_bits(priv->map, JZ_REG_LCD_OSDCTRL,
+				   JZ_LCD_OSDCTRL_IPU | JZ_LCD_OSDCTRL_BPP_MASK,
+				   JZ_LCD_OSDCTRL_IPU | JZ_LCD_OSDCTRL_BPP_18_24);
+	}
+
 	ret = drm_dev_register(drm, 0);
 	if (ret) {
 		dev_err(dev, "Failed to register DRM driver");
@@ -941,6 +968,11 @@ err_devclk_disable:
 err_pixclk_disable:
 	clk_disable_unprepare(priv->pix_clk);
 	return ret;
+}
+
+static int compare_of(struct device *dev, void *data)
+{
+	return dev->of_node == data;
 }
 
 static void ingenic_drm_unbind(struct device *dev)

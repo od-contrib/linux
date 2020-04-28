@@ -158,4 +158,12 @@
 #define JZ_LCD_SIZE01_WIDTH_LSB			0
 #define JZ_LCD_SIZE01_HEIGHT_LSB		16
 
+struct device;
+struct drm_plane;
+struct drm_plane_state;
+
+void ingenic_drm_plane_config(struct device *dev, struct drm_plane *plane);
+void ingenic_drm_plane_enable(struct device *dev, struct drm_plane *plane);
+void ingenic_drm_plane_disable(struct device *dev, struct drm_plane *plane);
+
 #endif /* DRIVERS_GPU_DRM_INGENIC_INGENIC_DRM_H */
