@@ -48,7 +48,7 @@ struct jz_soc_info {
 
 struct ingenic_drm {
 	struct drm_device drm;
-	struct drm_plane f0, f1;
+	struct drm_plane f0, f1, *ipu_plane;
 	struct drm_crtc crtc;
 	struct drm_encoder encoder;
 
@@ -184,13 +184,16 @@ static void ingenic_drm_crtc_update_timings(struct ingenic_drm *priv,
 	regmap_update_bits(priv->map, JZ_REG_LCD_CTRL,
 			   JZ_LCD_CTRL_OFUP | JZ_LCD_CTRL_BURST_16,
 			   JZ_LCD_CTRL_OFUP | JZ_LCD_CTRL_BURST_16);
+
+	regmap_write(priv->map, JZ_REG_LCD_IPUR, JZ_LCD_IPUR_IPUREN |
+		     (ht * vpe / 3) << JZ_LCD_IPUR_IPUR_LSB);
 }
 
 static int ingenic_drm_crtc_atomic_check(struct drm_crtc *crtc,
 					 struct drm_crtc_state *state)
 {
 	struct ingenic_drm *priv = drm_crtc_get_priv(crtc);
-	struct drm_plane_state *f1_state, *f0_state;
+	struct drm_plane_state *f1_state, *f0_state, *ipu_state;
 	long rate;
 
 	if (!drm_atomic_crtc_needs_modeset(state))
@@ -211,12 +214,39 @@ static int ingenic_drm_crtc_atomic_check(struct drm_crtc *crtc,
 		f0_state = drm_atomic_get_plane_state(state->state,
 						      &priv->f0);
 
+		if (priv->ipu_plane)
+			ipu_state = drm_atomic_get_plane_state(state->state,
+							       priv->ipu_plane);
+
+		/* IPU and F1 planes cannot be enabled at the same time. */
+		if (priv->ipu_plane && f1_state->fb && ipu_state->fb) {
+			dev_dbg(priv->dev, "Cannot enable both F1 and IPU\n");
+			return -EINVAL;
+		}
+
 		/* If all the planes are disabled, we won't get a VBLANK IRQ */
-		if (!f1_state->fb && !f0_state->fb)
+		if (!f1_state->fb && !f0_state->fb &&
+		    !(priv->ipu_plane && ipu_state->fb))
 			state->no_vblank = true;
 	}
 
 	return 0;
+}
+
+static void ingenic_drm_crtc_atomic_begin(struct drm_crtc *crtc,
+					  struct drm_crtc_state *oldstate)
+{
+	struct ingenic_drm *priv = drm_crtc_get_priv(crtc);
+	u32 ctrl = 0;
+
+	if (priv->soc_info->has_osd &&
+	    drm_atomic_crtc_needs_modeset(crtc->state)) {
+		if (priv->ipu_plane && priv->ipu_plane->state->fb)
+			ctrl |= JZ_LCD_OSDCTRL_IPU;
+
+		regmap_update_bits(priv->map, JZ_REG_LCD_OSDCTRL,
+				   JZ_LCD_OSDCTRL_IPU, ctrl);
+	}
 }
 
 static void ingenic_drm_crtc_atomic_flush(struct drm_crtc *crtc,
@@ -304,10 +334,9 @@ static void ingenic_drm_plane_enable(struct ingenic_drm *priv,
 	}
 }
 
-static void ingenic_drm_plane_atomic_disable(struct drm_plane *plane,
-					     struct drm_plane_state *old_state)
+void ingenic_drm_plane_disable(struct device *dev, struct drm_plane *plane)
 {
-	struct ingenic_drm *priv = drm_device_get_priv(plane->dev);
+	struct ingenic_drm *priv = dev_get_drvdata(dev);
 	unsigned int en_bit;
 
 	if (priv->soc_info->has_osd) {
@@ -319,10 +348,20 @@ static void ingenic_drm_plane_atomic_disable(struct drm_plane *plane,
 		regmap_update_bits(priv->map, JZ_REG_LCD_OSDC, en_bit, 0);
 	}
 }
+EXPORT_SYMBOL_GPL(ingenic_drm_plane_disable);
 
-static void ingenic_drm_plane_config(struct ingenic_drm *priv,
-				     struct drm_plane *plane, u32 fourcc)
+static void ingenic_drm_plane_atomic_disable(struct drm_plane *plane,
+					     struct drm_plane_state *old_state)
 {
+	struct ingenic_drm *priv = drm_device_get_priv(plane->dev);
+
+	ingenic_drm_plane_disable(priv->dev, plane);
+}
+
+void ingenic_drm_plane_config(struct device *dev,
+			      struct drm_plane *plane, u32 fourcc)
+{
+	struct ingenic_drm *priv = dev_get_drvdata(dev);
 	struct drm_plane_state *state = plane->state;
 	unsigned int xy_reg, size_reg;
 	unsigned int ctrl = 0;
@@ -379,6 +418,7 @@ static void ingenic_drm_plane_config(struct ingenic_drm *priv,
 			     state->crtc_h << JZ_LCD_SIZE01_HEIGHT_LSB);
 	}
 }
+EXPORT_SYMBOL_GPL(ingenic_drm_plane_config);
 
 static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 					    struct drm_plane_state *oldstate)
@@ -405,7 +445,7 @@ static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 		priv->dma_hwdesc[hwdesc_idx]->cmd |= JZ_LCD_CMD_EOF_IRQ;
 
 		if (drm_atomic_crtc_needs_modeset(state->crtc->state))
-			ingenic_drm_plane_config(priv, plane,
+			ingenic_drm_plane_config(priv->dev, plane,
 						 state->fb->format->format);
 	}
 }
@@ -596,6 +636,7 @@ static const struct drm_plane_helper_funcs ingenic_drm_plane_helper_funcs = {
 static const struct drm_crtc_helper_funcs ingenic_drm_crtc_helper_funcs = {
 	.atomic_enable		= ingenic_drm_crtc_atomic_enable,
 	.atomic_disable		= ingenic_drm_crtc_atomic_disable,
+	.atomic_begin		= ingenic_drm_crtc_atomic_begin,
 	.atomic_flush		= ingenic_drm_crtc_atomic_flush,
 	.atomic_check		= ingenic_drm_crtc_atomic_check,
 };
@@ -753,15 +794,19 @@ static int ingenic_drm_bind(struct device *dev)
 	if (ret)
 		return ret;
 
+	if (soc_info->has_osd)
+		priv->ipu_plane = drm_plane_from_index(drm, 0);
+
 	drm_plane_helper_add(&priv->f1, &ingenic_drm_plane_helper_funcs);
 
 	ret = drm_universal_plane_init(drm, &priv->f1, 1,
 				       &ingenic_drm_primary_plane_funcs,
 				       ingenic_drm_primary_formats,
 				       ARRAY_SIZE(ingenic_drm_primary_formats),
-				       NULL, DRM_PLANE_TYPE_PRIMARY, NULL);
+				       NULL, DRM_PLANE_TYPE_PRIMARY,
+				       NULL);
 	if (ret) {
-		dev_err(dev, "Failed to register primary plane: %i", ret);
+		dev_err(dev, "Failed to register plane: %i", ret);
 		return ret;
 	}
 
