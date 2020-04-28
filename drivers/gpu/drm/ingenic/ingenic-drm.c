@@ -279,7 +279,7 @@ static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 
 		width = state->src_w >> 16;
 		height = state->src_h >> 16;
-		cpp = state->fb->format->cpp[plane->index];
+		cpp = state->fb->format->cpp[0];
 		len = width * height * cpp;
 
 		if (ingenic_drm_cached_gem_buf) {
