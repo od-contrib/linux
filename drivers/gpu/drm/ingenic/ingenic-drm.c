@@ -6,6 +6,7 @@
 
 #include "ingenic-drm.h"
 
+#include <linux/component.h>
 #include <linux/clk.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-noncoherent.h>
@@ -687,10 +688,17 @@ static void ingenic_drm_free_dma_hwdesc(void *d)
 			  priv->dma_hwdesc[1], priv->dma_hwdesc_phys[1]);
 }
 
-static int ingenic_drm_probe(struct platform_device *pdev)
+static void ingenic_drm_unbind_all(void *d)
 {
+	struct ingenic_drm *priv = d;
+
+	component_unbind_all(priv->dev, &priv->drm);
+}
+
+static int ingenic_drm_bind(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
 	const struct jz_soc_info *soc_info;
-	struct device *dev = &pdev->dev;
 	struct drm_plane *plane;
 	struct ingenic_drm *priv;
 	struct clk *parent_clk;
@@ -794,6 +802,17 @@ static int ingenic_drm_probe(struct platform_device *pdev)
 	priv->dma_hwdesc[1]->id = 0xdeadbabe;
 
 	ret = devm_add_action_or_reset(dev, ingenic_drm_free_dma_hwdesc, priv);
+	if (ret)
+		return ret;
+
+	ret = component_bind_all(dev, drm);
+	if (ret) {
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "Failed to bind components: %i", ret);
+		return ret;
+	}
+
+	ret = devm_add_action_or_reset(dev, ingenic_drm_unbind_all, priv);
 	if (ret)
 		return ret;
 
@@ -924,9 +943,9 @@ err_pixclk_disable:
 	return ret;
 }
 
-static int ingenic_drm_remove(struct platform_device *pdev)
+static void ingenic_drm_unbind(struct device *dev)
 {
-	struct ingenic_drm *priv = platform_get_drvdata(pdev);
+	struct ingenic_drm *priv = dev_get_drvdata(dev);
 
 	if (priv->lcd_clk)
 		clk_disable_unprepare(priv->lcd_clk);
@@ -934,6 +953,35 @@ static int ingenic_drm_remove(struct platform_device *pdev)
 
 	drm_dev_unregister(&priv->drm);
 	drm_atomic_helper_shutdown(&priv->drm);
+}
+
+static const struct component_master_ops ingenic_master_ops = {
+	.bind = ingenic_drm_bind,
+	.unbind = ingenic_drm_unbind,
+};
+
+static int ingenic_drm_probe(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct component_match *match = NULL;
+	struct device_node *np;
+	unsigned int i;
+
+	/* Probe components at port address 16 and upwards */
+	for (i = 16; ; i++) {
+		np = of_graph_get_remote_node(dev->of_node, i, 0);
+		if (!np)
+			break;
+
+		drm_of_component_match_add(dev, &match, compare_of, np);
+	}
+
+	return component_master_add_with_match(dev, &ingenic_master_ops, match);
+}
+
+static int ingenic_drm_remove(struct platform_device *pdev)
+{
+	component_master_del(&pdev->dev, &ingenic_master_ops);
 
 	return 0;
 }
