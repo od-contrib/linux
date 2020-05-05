@@ -57,7 +57,6 @@ struct ingenic_drm {
 	struct drm_device drm;
 	struct drm_plane planes[2];
 	struct drm_crtc crtc;
-	struct drm_encoder encoder;
 
 	struct device *dev;
 	struct regmap *map;
@@ -109,12 +108,6 @@ static inline struct ingenic_drm *drm_device_get_priv(struct drm_device *drm)
 static inline struct ingenic_drm *drm_crtc_get_priv(struct drm_crtc *crtc)
 {
 	return container_of(crtc, struct ingenic_drm, crtc);
-}
-
-static inline struct ingenic_drm *
-drm_encoder_get_priv(struct drm_encoder *encoder)
-{
-	return container_of(encoder, struct ingenic_drm, encoder);
 }
 
 static inline struct ingenic_drm *drm_plane_get_priv(struct drm_plane *plane)
@@ -454,7 +447,7 @@ static void ingenic_drm_encoder_atomic_mode_set(struct drm_encoder *encoder,
 						struct drm_crtc_state *crtc_state,
 						struct drm_connector_state *conn_state)
 {
-	struct ingenic_drm *priv = drm_encoder_get_priv(encoder);
+	struct ingenic_drm *priv = drm_device_get_priv(encoder->dev);
 	struct drm_display_mode *mode = &crtc_state->adjusted_mode;
 	struct drm_connector *conn = conn_state->connector;
 	struct drm_display_info *info = &conn->display_info;
@@ -714,9 +707,11 @@ static int ingenic_drm_bind(struct device *dev)
 	struct clk *parent_clk;
 	struct drm_bridge *bridge;
 	struct drm_panel *panel;
+	struct drm_encoder *encoder;
 	struct drm_device *drm;
 	void __iomem *base;
 	long parent_rate;
+	unsigned int i, clone_mask = 0;
 	int ret, irq;
 	bool use_ipu;
 
@@ -782,17 +777,6 @@ static int ingenic_drm_bind(struct device *dev)
 		dev_err(dev, "Failed to get pixel clock");
 		return PTR_ERR(priv->pix_clk);
 	}
-
-	ret = drm_of_find_panel_or_bridge(dev->of_node, 0, 0, &panel, &bridge);
-	if (ret) {
-		if (ret != -EPROBE_DEFER)
-			dev_err(dev, "Failed to get panel handle");
-		return ret;
-	}
-
-	if (panel)
-		bridge = devm_drm_panel_bridge_add_typed(dev, panel,
-							 DRM_MODE_CONNECTOR_DPI);
 
 	priv->dma_hwdesc[0] = dma_alloc_coherent(dev, sizeof(*priv->dma_hwdesc[0]),
 						 &priv->dma_hwdesc_phys[0],
@@ -875,22 +859,50 @@ static int ingenic_drm_bind(struct device *dev)
 		}
 	}
 
-	priv->encoder.possible_crtcs = 1;
+	for (i = 0; ; i++) {
+		ret = drm_of_find_panel_or_bridge(dev->of_node, 0, i,
+						  &panel, &bridge);
+		if (ret) {
+			if (ret == -ENODEV)
+				break; /* we're done */
+			if (ret != -EPROBE_DEFER)
+				dev_err(dev, "Failed to get bridge handle\n");
+			return ret;
+		}
 
-	drm_encoder_helper_add(&priv->encoder,
-			       &ingenic_drm_encoder_helper_funcs);
+		if (panel)
+			bridge = devm_drm_panel_bridge_add_typed(dev, panel,
+								 DRM_MODE_CONNECTOR_DPI);
 
-	ret = drm_encoder_init(drm, &priv->encoder, &ingenic_drm_encoder_funcs,
-			       DRM_MODE_ENCODER_DPI, NULL);
-	if (ret) {
-		dev_err(dev, "Failed to init encoder: %i", ret);
-		return ret;
+		encoder = devm_kzalloc(dev, sizeof(*encoder), GFP_KERNEL);
+		if (!encoder)
+			return -ENOMEM;
+
+		encoder->possible_crtcs = 1;
+
+		drm_encoder_helper_add(encoder,
+				       &ingenic_drm_encoder_helper_funcs);
+
+		ret = drm_encoder_init(drm, encoder, &ingenic_drm_encoder_funcs,
+				       DRM_MODE_ENCODER_DPI, NULL);
+		if (ret) {
+			dev_err(dev, "Failed to init encoder: %d\n", ret);
+			return ret;
+		}
+
+		ret = drm_bridge_attach(encoder, bridge, NULL, 0);
+		if (ret) {
+			dev_err(dev, "Unable to attach bridge");
+			return ret;
+		}
 	}
 
-	ret = drm_bridge_attach(&priv->encoder, bridge, NULL, 0);
-	if (ret) {
-		dev_err(dev, "Unable to attach bridge");
-		return ret;
+	drm_for_each_encoder(encoder, drm) {
+		clone_mask |= BIT(drm_encoder_index(encoder));
+	}
+
+	drm_for_each_encoder(encoder, drm) {
+		encoder->possible_clones = clone_mask;
 	}
 
 	ret = drm_irq_install(drm, irq);
