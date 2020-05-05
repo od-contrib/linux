@@ -100,7 +100,7 @@ static int component_devices_show(struct seq_file *s, void *data)
 
 	seq_printf(s, "%-40s %20s\n", "device name", "status");
 	seq_puts(s, "-------------------------------------------------------------\n");
-	for (i = 0; i < match->num; i++) {
+	for (i = 0; !!match && i < match->num; i++) {
 		struct component *component = match->compare[i].component;
 
 		seq_printf(s, "%-40s %20s\n",
@@ -184,6 +184,11 @@ static int find_components(struct master *master)
 	size_t i;
 	int ret = 0;
 
+	if (!match) {
+		dev_dbg(master->dev, "No components\n");
+		return 0;
+	}
+
 	/*
 	 * Scan the array of match functions and attach
 	 * any components which are found to this master.
@@ -218,10 +223,12 @@ static void remove_component(struct master *master, struct component *c)
 {
 	size_t i;
 
-	/* Detach the component from this master. */
-	for (i = 0; i < master->match->num; i++)
-		if (master->match->compare[i].component == c)
-			master->match->compare[i].component = NULL;
+	if (master->match) {
+		/* Detach the component from this master. */
+		for (i = 0; i < master->match->num; i++)
+			if (master->match->compare[i].component == c)
+				master->match->compare[i].component = NULL;
+	}
 }
 
 /*
@@ -470,10 +477,12 @@ int component_master_add_with_match(struct device *dev,
 	struct master *master;
 	int ret;
 
-	/* Reallocate the match array for its true size */
-	ret = component_match_realloc(dev, match, match->num);
-	if (ret)
-		return ret;
+	if (match) {
+		/* Reallocate the match array for its true size */
+		ret = component_match_realloc(dev, match, match->num);
+		if (ret)
+			return ret;
+	}
 
 	master = kzalloc(sizeof(*master), GFP_KERNEL);
 	if (!master)
@@ -555,6 +564,10 @@ void component_unbind_all(struct device *master_dev, void *data)
 
 	master = __master_find(master_dev, NULL);
 	if (!master)
+		return;
+
+	/* No match, nothing to unbind */
+	if (!master->match)
 		return;
 
 	/* Unbind components in reverse order */
@@ -639,6 +652,10 @@ int component_bind_all(struct device *master_dev, void *data)
 	master = __master_find(master_dev, NULL);
 	if (!master)
 		return -EINVAL;
+
+	/* No match, nothing to bind */
+	if (!master->match)
+		return 0;
 
 	/* Bind components in match order */
 	for (i = 0; i < master->match->num; i++)
