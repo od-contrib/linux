@@ -1169,61 +1169,90 @@ static bool drm_fb_pixel_format_equal(const struct fb_var_screeninfo *var_1,
 	       var_1->transp.msb_right == var_2->transp.msb_right;
 }
 
+struct drm_fb_helper_pixel_fmt {
+	u64 red_offset		:5;
+	u64 green_offset	:5;
+	u64 blue_offset		:5;
+	u64 transp_offset	:5;
+	u64 red_len		:5;
+	u64 green_len		:5;
+	u64 blue_len		:5;
+	u64 transp_len		:5;
+	unsigned int bits_per_pixel;
+
+	u32 fourcc;
+};
+
+static const struct drm_fb_helper_pixel_fmt drm_fb_helper_pixel_formats[] = {
+	{  0,  0,  0,  0,  8,  8,  8,  0,  8, DRM_FORMAT_C8 },
+	{  0,  0,  0,  0,  8,  0,  0,  0,  8, DRM_FORMAT_R8 },
+	{  5,  2,  0,  0,  3,  3,  2,  0,  8, DRM_FORMAT_RGB332 },
+	{  0,  3,  5,  0,  3,  3,  2,  0,  8, DRM_FORMAT_BGR233 },
+	{ 11,  6,  1,  0,  5,  5,  5,  1, 15, DRM_FORMAT_RGBA5551 },
+	{ 11,  6,  1,  0,  5,  5,  5,  0, 15, DRM_FORMAT_RGBX5551 },
+	{  1,  6, 11,  0,  5,  5,  5,  1, 15, DRM_FORMAT_BGRA5551 },
+	{  1,  6, 11,  0,  5,  5,  5,  0, 15, DRM_FORMAT_BGRX5551 },
+	{ 10,  5,  0, 15,  5,  5,  5,  1, 15, DRM_FORMAT_ARGB1555 },
+	{ 10,  5,  0,  0,  5,  5,  5,  0, 15, DRM_FORMAT_XRGB1555 },
+	{  0,  5, 10, 15,  5,  5,  5,  1, 15, DRM_FORMAT_ABGR1555 },
+	{  0,  5, 10,  0,  5,  5,  5,  0, 15, DRM_FORMAT_XBGR1555 },
+	{  0,  0,  0,  0, 16,  0,  0,  0, 16, DRM_FORMAT_R16 },
+	{  8,  0,  0,  0,  8,  8,  0,  0, 16, DRM_FORMAT_RG88 },
+	{  0,  8,  0,  0,  8,  8,  0,  0, 16, DRM_FORMAT_GR88 },
+	{ 11,  5,  0,  0,  5,  6,  5,  0, 16, DRM_FORMAT_RGB565 },
+	{  0,  5, 11,  0,  5,  6,  5,  0, 16, DRM_FORMAT_BGR565 },
+	{  8,  4,  0, 12,  4,  4,  4,  4, 16, DRM_FORMAT_ARGB4444 },
+	{  8,  4,  0,  0,  4,  4,  4,  0, 16, DRM_FORMAT_XRGB4444 },
+	{  0,  4,  8, 12,  4,  4,  4,  4, 16, DRM_FORMAT_ABGR4444 },
+	{  0,  4,  8,  0,  4,  4,  4,  0, 16, DRM_FORMAT_XBGR4444 },
+	{ 12,  8,  4,  0,  4,  4,  4,  4, 16, DRM_FORMAT_RGBA4444 },
+	{ 12,  8,  4,  0,  4,  4,  4,  0, 16, DRM_FORMAT_RGBX4444 },
+	{  4,  8, 12,  0,  4,  4,  4,  4, 16, DRM_FORMAT_BGRA4444 },
+	{  4,  8, 12,  0,  4,  4,  4,  0, 16, DRM_FORMAT_BGRX4444 },
+	{ 16,  8,  0,  0,  8,  8,  8,  0, 24, DRM_FORMAT_RGB888 },
+	{  0,  8, 16,  0,  8,  8,  8,  0, 24, DRM_FORMAT_BGR888 },
+	{ 16,  0,  0,  0, 16, 16,  0,  0, 32, DRM_FORMAT_RG1616 },
+	{  0, 16,  0,  0, 16, 16,  0,  0, 32, DRM_FORMAT_GR1616 },
+	{ 24, 16,  8,  0,  8,  8,  8,  8, 32, DRM_FORMAT_RGBA8888 },
+	{ 24, 16,  8,  0,  8,  8,  8,  0, 32, DRM_FORMAT_RGBX8888 },
+	{  8, 16, 24,  0,  8,  8,  8,  8, 32, DRM_FORMAT_BGRA8888 },
+	{  8, 16, 24,  0,  8,  8,  8,  0, 32, DRM_FORMAT_BGRX8888 },
+	{ 16,  8,  0, 24,  8,  8,  8,  8, 32, DRM_FORMAT_ARGB8888 },
+	{ 16,  8,  0,  0,  8,  8,  8,  0, 32, DRM_FORMAT_XRGB8888 },
+	{  0,  8, 16, 24,  8,  8,  8,  8, 32, DRM_FORMAT_ABGR8888 },
+	{  0,  8, 16,  0,  8,  8,  8,  0, 32, DRM_FORMAT_XBGR8888 },
+	{ 20, 10,  0, 30, 10, 10, 10,  2, 32, DRM_FORMAT_ARGB2101010 },
+	{ 20, 10,  0,  0, 10, 10, 10,  0, 32, DRM_FORMAT_XRGB2101010 },
+	{  0, 10, 20, 30, 10, 10, 10,  2, 32, DRM_FORMAT_ABGR2101010 },
+	{  0, 10, 20,  0, 10, 10, 10,  0, 32, DRM_FORMAT_XBGR2101010 },
+	{ 22, 12,  2,  0, 10, 10, 10,  2, 32, DRM_FORMAT_RGBA1010102 },
+	{ 22, 12,  2,  0, 10, 10, 10,  0, 32, DRM_FORMAT_RGBX1010102 },
+	{  2, 12, 22,  0, 10, 10, 10,  2, 32, DRM_FORMAT_BGRA1010102 },
+	{  2, 12, 22,  0, 10, 10, 10,  0, 32, DRM_FORMAT_BGRX1010102 },
+};
+
 static void drm_fb_helper_fill_pixel_fmt(struct fb_var_screeninfo *var,
-					 u8 depth)
+					 u32 fourcc)
 {
-	switch (depth) {
-	case 8:
-		var->red.offset = 0;
-		var->green.offset = 0;
-		var->blue.offset = 0;
-		var->red.length = 8; /* 8bit DAC */
-		var->green.length = 8;
-		var->blue.length = 8;
-		var->transp.offset = 0;
-		var->transp.length = 0;
-		break;
-	case 15:
-		var->red.offset = 10;
-		var->green.offset = 5;
-		var->blue.offset = 0;
-		var->red.length = 5;
-		var->green.length = 5;
-		var->blue.length = 5;
-		var->transp.offset = 15;
-		var->transp.length = 1;
-		break;
-	case 16:
-		var->red.offset = 11;
-		var->green.offset = 5;
-		var->blue.offset = 0;
-		var->red.length = 5;
-		var->green.length = 6;
-		var->blue.length = 5;
-		var->transp.offset = 0;
-		break;
-	case 24:
-		var->red.offset = 16;
-		var->green.offset = 8;
-		var->blue.offset = 0;
-		var->red.length = 8;
-		var->green.length = 8;
-		var->blue.length = 8;
-		var->transp.offset = 0;
-		var->transp.length = 0;
-		break;
-	case 32:
-		var->red.offset = 16;
-		var->green.offset = 8;
-		var->blue.offset = 0;
-		var->red.length = 8;
-		var->green.length = 8;
-		var->blue.length = 8;
-		var->transp.offset = 24;
-		var->transp.length = 8;
-		break;
-	default:
-		break;
+	const struct drm_fb_helper_pixel_fmt *fmt;
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(drm_fb_helper_pixel_formats); i++) {
+		fmt = &drm_fb_helper_pixel_formats[i];
+
+		if (fmt->fourcc == fourcc) {
+			var->bits_per_pixel = fmt->bits_per_pixel;
+			var->red.offset = fmt->red_offset;
+			var->green.offset = fmt->green_offset;
+			var->blue.offset = fmt->blue_offset;
+			var->transp.offset = fmt->transp_offset;
+			var->red.length = fmt->red_len;
+			var->green.length = fmt->green_len;
+			var->blue.length = fmt->blue_len;
+			var->transp.length = fmt->transp_len;
+
+			break;
+		}
 	}
 }
 
@@ -1277,7 +1306,7 @@ int drm_fb_helper_check_var(struct fb_var_screeninfo *var,
 	    !var->blue.length    && !var->transp.length   &&
 	    !var->red.msb_right  && !var->green.msb_right &&
 	    !var->blue.msb_right && !var->transp.msb_right) {
-		drm_fb_helper_fill_pixel_fmt(var, fb->format->depth);
+		drm_fb_helper_fill_pixel_fmt(var, fb->format->format);
 	}
 
 	/*
@@ -1627,7 +1656,7 @@ static void drm_fb_helper_fill_var(struct fb_info *info,
 	info->var.yoffset = 0;
 	info->var.activate = FB_ACTIVATE_NOW;
 
-	drm_fb_helper_fill_pixel_fmt(&info->var, fb->format->depth);
+	drm_fb_helper_fill_pixel_fmt(&info->var, fb->format->format);
 
 	info->var.xres = fb_width;
 	info->var.yres = fb_height;
