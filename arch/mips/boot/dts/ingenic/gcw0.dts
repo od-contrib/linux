@@ -620,9 +620,6 @@
 };
 
 &rtc {
-	clocks = <&cgu JZ4770_CLK_RTC>;
-	clock-names = "rtc";
-
 	system-power-controller;
 };
 

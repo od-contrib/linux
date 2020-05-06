@@ -119,6 +119,9 @@
 
 		interrupt-parent = <&intc>;
 		interrupts = <32>;
+
+		clocks = <&cgu JZ4770_CLK_RTC>;
+		clock-names = "rtc";
 	};
 
 	pinctrl: pin-controller@10010000 {
