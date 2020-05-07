@@ -82,6 +82,10 @@ MODULE_PARM_DESC(drm_leak_fbdev_smem,
 static LIST_HEAD(kernel_fb_helper_list);
 static DEFINE_MUTEX(kernel_fb_helper_lock);
 
+/* forward declaration */
+static void drm_fb_helper_fill_fix(struct fb_info *info, uint32_t pitch,
+				   uint32_t depth);
+
 /**
  * DOC: fbdev helpers
  *
@@ -1256,6 +1260,36 @@ static void drm_fb_helper_fill_pixel_fmt(struct fb_var_screeninfo *var,
 	}
 }
 
+static inline bool
+drm_fb_helper_is_pixel_fmt(const struct fb_var_screeninfo *var,
+			   const struct drm_fb_helper_pixel_fmt *fmt)
+{
+	return var->bits_per_pixel == fmt->bits_per_pixel &&
+		var->red.offset == fmt->red_offset &&
+		var->green.offset == fmt->green_offset &&
+		var->blue.offset == fmt->blue_offset &&
+		var->transp.offset == fmt->transp_offset &&
+		var->red.length == fmt->red_len &&
+		var->green.length == fmt->green_len &&
+		var->blue.length == fmt->blue_len &&
+		var->transp.length == fmt->transp_len;
+}
+
+static u32 drm_fb_helper_get_pixel_fmt(const struct fb_var_screeninfo *var)
+{
+	const struct drm_fb_helper_pixel_fmt *fmt;
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(drm_fb_helper_pixel_formats); i++) {
+		fmt = &drm_fb_helper_pixel_formats[i];
+
+		if (drm_fb_helper_is_pixel_fmt(var, fmt))
+			return fmt->fourcc;
+	}
+
+	return DRM_FORMAT_INVALID;
+}
+
 /**
  * drm_fb_helper_check_var - implementation for &fb_ops.fb_check_var
  * @var: screeninfo to check
@@ -1267,6 +1301,7 @@ int drm_fb_helper_check_var(struct fb_var_screeninfo *var,
 	struct drm_fb_helper *fb_helper = info->par;
 	struct drm_framebuffer *fb = fb_helper->fb;
 	struct drm_device *dev = fb_helper->dev;
+	u32 fourcc;
 
 	if (in_dbg_master())
 		return -EINVAL;
@@ -1284,14 +1319,14 @@ int drm_fb_helper_check_var(struct fb_var_screeninfo *var,
 	 * Changes struct fb_var_screeninfo are currently not pushed back
 	 * to KMS, hence fail if different settings are requested.
 	 */
-	if (var->bits_per_pixel > fb->format->cpp[0] * 8 ||
+	if (var->bits_per_pixel > fb_helper->preferred_bpp ||
 	    var->xres > fb->width || var->yres > fb->height ||
 	    var->xres_virtual > fb->width || var->yres_virtual > fb->height) {
 		drm_dbg_kms(dev, "fb requested width/height/bpp can't fit in current fb "
 			  "request %dx%d-%d (virtual %dx%d) > %dx%d-%d\n",
 			  var->xres, var->yres, var->bits_per_pixel,
 			  var->xres_virtual, var->yres_virtual,
-			  fb->width, fb->height, fb->format->cpp[0] * 8);
+			  fb->width, fb->height, fb_helper->preferred_bpp);
 		return -EINVAL;
 	}
 
@@ -1306,20 +1341,29 @@ int drm_fb_helper_check_var(struct fb_var_screeninfo *var,
 	    !var->blue.length    && !var->transp.length   &&
 	    !var->red.msb_right  && !var->green.msb_right &&
 	    !var->blue.msb_right && !var->transp.msb_right) {
-		drm_fb_helper_fill_pixel_fmt(var, fb->format->format);
+		switch (var->bits_per_pixel) {
+		case 8:
+			fourcc = DRM_FORMAT_C8;
+			break;
+		case 15:
+			fourcc = DRM_FORMAT_XRGB1555;
+			break;
+		case 16:
+			fourcc = DRM_FORMAT_RGB565;
+			break;
+		default:
+			fourcc = DRM_FORMAT_XRGB8888;
+			break;
+		}
+
+		drm_fb_helper_fill_pixel_fmt(var, fourcc);
+	} else {
+		fourcc = drm_fb_helper_get_pixel_fmt(var);
 	}
 
-	/*
-	 * Likewise, bits_per_pixel should be rounded up to a supported value.
-	 */
-	var->bits_per_pixel = fb->format->cpp[0] * 8;
 
-	/*
-	 * drm fbdev emulation doesn't support changing the pixel format at all,
-	 * so reject all pixel format changing requests.
-	 */
-	if (!drm_fb_pixel_format_equal(var, &info->var)) {
-		drm_dbg_kms(dev, "fbdev emulation doesn't support changing the pixel format\n");
+	if (fourcc == DRM_FORMAT_INVALID) {
+		drm_dbg_kms(dev, "invalid pixel format requested\n");
 		return -EINVAL;
 	}
 
@@ -1339,6 +1383,9 @@ int drm_fb_helper_set_par(struct fb_info *info)
 {
 	struct drm_fb_helper *fb_helper = info->par;
 	struct fb_var_screeninfo *var = &info->var;
+	struct drm_device *drm = fb_helper->dev;
+	const struct drm_format_info *finfo;
+	u32 fourcc;
 
 	if (oops_in_progress)
 		return -EBUSY;
@@ -1347,6 +1394,16 @@ int drm_fb_helper_set_par(struct fb_info *info)
 		drm_err(fb_helper->dev, "PIXEL CLOCK SET\n");
 		return -EINVAL;
 	}
+
+	fourcc = drm_fb_helper_get_pixel_fmt(var);
+	finfo = drm_format_info(fourcc);
+
+	fb_helper->fb->pitches[0] /= fb_helper->fb->format->cpp[0];
+	fb_helper->fb->pitches[0] *= finfo->cpp[0];
+
+	fb_helper->fb->format = finfo;
+
+	drm_fb_helper_fill_fix(info, fb_helper->fb->pitches[0], finfo->depth);
 
 	drm_fb_helper_restore_fbdev_mode_unlocked(fb_helper);
 
