@@ -38,6 +38,12 @@
 #define JZ_RTC_CTRL_AE		BIT(2)
 #define JZ_RTC_CTRL_ENABLE	BIT(0)
 
+#define JZ_RTC_REGULATOR_NC1HZ_LSB	0
+#define JZ_RTC_REGULATOR_NC1HZ_MASK	GENMASK(15, 0)
+
+#define JZ_RTC_REGULATOR_ADJC_LSB	16
+#define JZ_RTC_REGULATOR_ADJC_MASK	GENMASK(25, 16)
+
 /* Magic value to enable writes on jz4780 */
 #define JZ_RTC_WENR_MAGIC	0xA55A
 
@@ -57,12 +63,7 @@ struct jz4740_rtc {
 	struct rtc_device *rtc;
 	struct clk *clk;
 
-	int irq;
-
 	spinlock_t lock;
-
-	unsigned int min_wakeup_pin_assert_time;
-	unsigned int reset_pin_assert_time;
 };
 
 static struct device *dev_for_power_off;
@@ -222,12 +223,54 @@ static int jz4740_rtc_alarm_irq_enable(struct device *dev, unsigned int enable)
 	return jz4740_rtc_ctrl_set_bits(rtc, JZ_RTC_CTRL_AF_IRQ, enable);
 }
 
+static int jz4740_rtc_read_offset(struct device *dev, long *offset)
+{
+	struct jz4740_rtc *rtc = dev_get_drvdata(dev);
+	long rate = clk_get_rate(rtc->clk);
+	s32 nc1hz, adjc, offset1k;
+	u32 reg;
+
+	reg = jz4740_rtc_reg_read(rtc, JZ_REG_RTC_REGULATOR);
+	nc1hz = (reg & JZ_RTC_REGULATOR_NC1HZ_MASK)
+		>> JZ_RTC_REGULATOR_NC1HZ_LSB;
+	adjc = (reg & JZ_RTC_REGULATOR_ADJC_MASK)
+		>> JZ_RTC_REGULATOR_ADJC_LSB;
+
+	offset1k = (nc1hz - rate + 1) * 1024L + adjc;
+	*offset = offset1k * 1000000L / (rate * 1024L);
+
+	return 0;
+}
+
+static int jz4740_rtc_set_offset(struct device *dev, long offset)
+{
+	struct jz4740_rtc *rtc = dev_get_drvdata(dev);
+	long rate = clk_get_rate(rtc->clk);
+	s32 offset1k, adjc, nc1hz;
+
+	offset1k = div_s64_rem(offset * rate * 1024LL, 1000000LL, &adjc);
+	nc1hz = rate - 1 + offset1k / 1024L;
+
+	if (adjc < 0) {
+		nc1hz--;
+		adjc += 1024;
+	}
+
+	nc1hz = (nc1hz << JZ_RTC_REGULATOR_NC1HZ_LSB)
+		& JZ_RTC_REGULATOR_NC1HZ_MASK;
+	adjc = (adjc << JZ_RTC_REGULATOR_ADJC_LSB) & JZ_RTC_REGULATOR_ADJC_MASK;
+
+	return jz4740_rtc_reg_write(rtc, JZ_REG_RTC_REGULATOR, nc1hz | adjc);
+}
+
 static const struct rtc_class_ops jz4740_rtc_ops = {
 	.read_time	= jz4740_rtc_read_time,
 	.set_time	= jz4740_rtc_set_time,
 	.read_alarm	= jz4740_rtc_read_alarm,
 	.set_alarm	= jz4740_rtc_set_alarm,
 	.alarm_irq_enable = jz4740_rtc_alarm_irq_enable,
+	.read_offset	= jz4740_rtc_read_offset,
+	.set_offset	= jz4740_rtc_set_offset,
 };
 
 static irqreturn_t jz4740_rtc_irq(int irq, void *data)
@@ -259,42 +302,13 @@ static void jz4740_rtc_poweroff(struct device *dev)
 
 static void jz4740_rtc_power_off(void)
 {
-	struct jz4740_rtc *rtc = dev_get_drvdata(dev_for_power_off);
-	unsigned long rtc_rate;
-	unsigned long wakeup_filter_ticks;
-	unsigned long reset_counter_ticks;
-
-	clk_prepare_enable(rtc->clk);
-
-	rtc_rate = clk_get_rate(rtc->clk);
-
-	/*
-	 * Set minimum wakeup pin assertion time: 100 ms.
-	 * Range is 0 to 2 sec if RTC is clocked at 32 kHz.
-	 */
-	wakeup_filter_ticks =
-		(rtc->min_wakeup_pin_assert_time * rtc_rate) / 1000;
-	if (wakeup_filter_ticks < JZ_RTC_WAKEUP_FILTER_MASK)
-		wakeup_filter_ticks &= JZ_RTC_WAKEUP_FILTER_MASK;
-	else
-		wakeup_filter_ticks = JZ_RTC_WAKEUP_FILTER_MASK;
-	jz4740_rtc_reg_write(rtc,
-			     JZ_REG_RTC_WAKEUP_FILTER, wakeup_filter_ticks);
-
-	/*
-	 * Set reset pin low-level assertion time after wakeup: 60 ms.
-	 * Range is 0 to 125 ms if RTC is clocked at 32 kHz.
-	 */
-	reset_counter_ticks = (rtc->reset_pin_assert_time * rtc_rate) / 1000;
-	if (reset_counter_ticks < JZ_RTC_RESET_COUNTER_MASK)
-		reset_counter_ticks &= JZ_RTC_RESET_COUNTER_MASK;
-	else
-		reset_counter_ticks = JZ_RTC_RESET_COUNTER_MASK;
-	jz4740_rtc_reg_write(rtc,
-			     JZ_REG_RTC_RESET_COUNTER, reset_counter_ticks);
-
 	jz4740_rtc_poweroff(dev_for_power_off);
 	kernel_halt();
+}
+
+static void jz4740_rtc_clk_disable(void *data)
+{
+	clk_disable_unprepare(data);
 }
 
 static const struct of_device_id jz4740_rtc_of_match[] = {
@@ -305,110 +319,139 @@ static const struct of_device_id jz4740_rtc_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, jz4740_rtc_of_match);
 
+static void jz4740_rtc_set_wakeup_params(struct jz4740_rtc *rtc,
+					 struct device_node *np,
+					 unsigned long rate)
+{
+	unsigned long wakeup_ticks, reset_ticks;
+	unsigned int min_wakeup_pin_assert_time = 60; /* Default: 60ms */
+	unsigned int reset_pin_assert_time = 100; /* Default: 100ms */
+
+	of_property_read_u32(np, "ingenic,reset-pin-assert-time-ms",
+			     &reset_pin_assert_time);
+	of_property_read_u32(np, "ingenic,min-wakeup-pin-assert-time-ms",
+			     &min_wakeup_pin_assert_time);
+
+	/*
+	 * Set minimum wakeup pin assertion time: 100 ms.
+	 * Range is 0 to 2 sec if RTC is clocked at 32 kHz.
+	 */
+	wakeup_ticks = (min_wakeup_pin_assert_time * rate) / 1000;
+	if (wakeup_ticks < JZ_RTC_WAKEUP_FILTER_MASK)
+		wakeup_ticks &= JZ_RTC_WAKEUP_FILTER_MASK;
+	else
+		wakeup_ticks = JZ_RTC_WAKEUP_FILTER_MASK;
+	jz4740_rtc_reg_write(rtc, JZ_REG_RTC_WAKEUP_FILTER, wakeup_ticks);
+
+	/*
+	 * Set reset pin low-level assertion time after wakeup: 60 ms.
+	 * Range is 0 to 125 ms if RTC is clocked at 32 kHz.
+	 */
+	reset_ticks = (reset_pin_assert_time * rate) / 1000;
+	if (reset_ticks < JZ_RTC_RESET_COUNTER_MASK)
+		reset_ticks &= JZ_RTC_RESET_COUNTER_MASK;
+	else
+		reset_ticks = JZ_RTC_RESET_COUNTER_MASK;
+	jz4740_rtc_reg_write(rtc, JZ_REG_RTC_RESET_COUNTER, reset_ticks);
+}
+
 static int jz4740_rtc_probe(struct platform_device *pdev)
 {
-	int ret;
+	struct device *dev = &pdev->dev;
+	struct device_node *np = dev->of_node;
 	struct jz4740_rtc *rtc;
-	const struct platform_device_id *id = platform_get_device_id(pdev);
-	const struct of_device_id *of_id = of_match_device(
-			jz4740_rtc_of_match, &pdev->dev);
-	struct device_node *np = pdev->dev.of_node;
+	unsigned long rate;
+	int ret, irq;
 
-	rtc = devm_kzalloc(&pdev->dev, sizeof(*rtc), GFP_KERNEL);
+	rtc = devm_kzalloc(dev, sizeof(*rtc), GFP_KERNEL);
 	if (!rtc)
 		return -ENOMEM;
 
-	if (of_id)
-		rtc->type = (enum jz4740_rtc_type)of_id->data;
-	else
-		rtc->type = id->driver_data;
+	rtc->type = (enum jz4740_rtc_type)device_get_match_data(dev);
 
-	rtc->irq = platform_get_irq(pdev, 0);
-	if (rtc->irq < 0)
-		return -ENOENT;
+	irq = platform_get_irq(pdev, 0);
+	if (irq < 0)
+		return irq;
 
 	rtc->base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(rtc->base))
 		return PTR_ERR(rtc->base);
 
-	rtc->clk = devm_clk_get(&pdev->dev, "rtc");
+	rtc->clk = devm_clk_get(dev, "rtc");
 	if (IS_ERR(rtc->clk)) {
-		dev_err(&pdev->dev, "Failed to get RTC clock\n");
+		dev_err(dev, "Failed to get RTC clock\n");
 		return PTR_ERR(rtc->clk);
+	}
+
+	ret = clk_prepare_enable(rtc->clk);
+	if (ret) {
+		dev_err(dev, "Failed to enable clock\n");
+		return ret;
+	}
+
+	ret = devm_add_action_or_reset(dev, jz4740_rtc_clk_disable, rtc->clk);
+	if (ret) {
+		dev_err(dev, "Failed to register devm action\n");
+		return ret;
 	}
 
 	spin_lock_init(&rtc->lock);
 
 	platform_set_drvdata(pdev, rtc);
 
-	device_init_wakeup(&pdev->dev, 1);
+	device_init_wakeup(dev, 1);
 
-	ret = dev_pm_set_wake_irq(&pdev->dev, rtc->irq);
+	ret = dev_pm_set_wake_irq(dev, irq);
 	if (ret) {
-		dev_err(&pdev->dev, "Failed to set wake irq: %d\n", ret);
+		dev_err(dev, "Failed to set wake irq: %d\n", ret);
 		return ret;
 	}
 
-	rtc->rtc = devm_rtc_allocate_device(&pdev->dev);
+	rtc->rtc = devm_rtc_allocate_device(dev);
 	if (IS_ERR(rtc->rtc)) {
 		ret = PTR_ERR(rtc->rtc);
-		dev_err(&pdev->dev, "Failed to allocate rtc device: %d\n", ret);
+		dev_err(dev, "Failed to allocate rtc device: %d\n", ret);
 		return ret;
 	}
 
 	rtc->rtc->ops = &jz4740_rtc_ops;
 	rtc->rtc->range_max = U32_MAX;
 
+	rate = clk_get_rate(rtc->clk);
+	jz4740_rtc_set_wakeup_params(rtc, np, rate);
+
+	/* Each 1 Hz pulse should happen after (rate) ticks */
+	jz4740_rtc_reg_write(rtc, JZ_REG_RTC_REGULATOR, rate - 1);
+
 	ret = rtc_register_device(rtc->rtc);
 	if (ret)
 		return ret;
 
-	ret = devm_request_irq(&pdev->dev, rtc->irq, jz4740_rtc_irq, 0,
-				pdev->name, rtc);
+	ret = devm_request_irq(dev, irq, jz4740_rtc_irq, 0,
+			       pdev->name, rtc);
 	if (ret) {
-		dev_err(&pdev->dev, "Failed to request rtc irq: %d\n", ret);
+		dev_err(dev, "Failed to request rtc irq: %d\n", ret);
 		return ret;
 	}
 
-	if (np && of_device_is_system_power_controller(np)) {
-		if (!pm_power_off) {
-			/* Default: 60ms */
-			rtc->reset_pin_assert_time = 60;
-			of_property_read_u32(np,
-					     "ingenic,reset-pin-assert-time-ms",
-					     &rtc->reset_pin_assert_time);
+	if (of_device_is_system_power_controller(np)) {
+		dev_for_power_off = dev;
 
-			/* Default: 100ms */
-			rtc->min_wakeup_pin_assert_time = 100;
-			of_property_read_u32(np,
-					     "ingenic,min-wakeup-pin-assert-time-ms",
-					     &rtc->min_wakeup_pin_assert_time);
-
-			dev_for_power_off = &pdev->dev;
+		if (!pm_power_off)
 			pm_power_off = jz4740_rtc_power_off;
-		} else {
-			dev_warn(&pdev->dev,
-				 "Poweroff handler already present!\n");
-		}
+		else
+			dev_warn(dev, "Poweroff handler already present!\n");
 	}
 
 	return 0;
 }
 
-static const struct platform_device_id jz4740_rtc_ids[] = {
-	{ "jz4740-rtc", ID_JZ4740 },
-	{ "jz4780-rtc", ID_JZ4780 },
-	{}
-};
-MODULE_DEVICE_TABLE(platform, jz4740_rtc_ids);
-
 static struct platform_driver jz4740_rtc_driver = {
 	.probe	 = jz4740_rtc_probe,
 	.driver	 = {
 		.name  = "jz4740-rtc",
-		.of_match_table = of_match_ptr(jz4740_rtc_of_match),
+		.of_match_table = jz4740_rtc_of_match,
 	},
-	.id_table = jz4740_rtc_ids,
 };
 
 module_platform_driver(jz4740_rtc_driver);

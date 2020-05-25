@@ -24,16 +24,55 @@ struct jz4740_glue {
 	struct usb_role_switch	*role_sw;
 };
 
+static void jz4740_musb_vbus_enable(struct musb *musb)
+{
+	u8 devctl;
+
+	/*
+	 * HDRC controls CPEN, but beware current surges during device
+	 * connect.  They can trigger transient overcurrent conditions
+	 * that must be ignored.
+	 */
+
+	musb->is_active = 1;
+	musb->xceiv->otg->default_a = 1;
+	musb->xceiv->otg->state = OTG_STATE_A_WAIT_VRISE;
+	MUSB_HST_MODE(musb);
+
+	devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
+	devctl |= MUSB_DEVCTL_SESSION;
+	musb_writeb(musb->mregs, MUSB_DEVCTL, devctl);
+}
+
+static void jz4740_musb_vbus_disable(struct musb *musb)
+{
+	u8 devctl;
+
+	/*
+	 * NOTE:  we're skipping A_WAIT_VFALL -> A_IDLE and
+	 * jumping right to B_IDLE.
+	 */
+
+	musb->is_active = 0;
+	musb->xceiv->otg->default_a = 0;
+	musb->xceiv->otg->state = OTG_STATE_B_IDLE;
+	MUSB_DEV_MODE(musb);
+
+	devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
+	devctl &= ~MUSB_DEVCTL_SESSION;
+	musb_writeb(musb->mregs, MUSB_DEVCTL, devctl);
+}
+
 static irqreturn_t jz4740_musb_interrupt(int irq, void *__hci)
 {
 	unsigned long	flags;
 	irqreturn_t	retval = IRQ_NONE, retval_dma = IRQ_NONE;
 	struct musb	*musb = __hci;
 
-	spin_lock_irqsave(&musb->lock, flags);
-
 	if (IS_ENABLED(CONFIG_USB_INVENTRA_DMA) && musb->dma_controller)
 		retval_dma = dma_controller_irq(irq, musb->dma_controller);
+
+	spin_lock_irqsave(&musb->lock, flags);
 
 	musb->int_usb = musb_readb(musb->mregs, MUSB_INTRUSB);
 	musb->int_tx = musb_readw(musb->mregs, MUSB_INTRTX);
@@ -83,13 +122,16 @@ static int jz4740_musb_role_switch_set(struct usb_role_switch *sw,
 
 	switch (role) {
 	case USB_ROLE_NONE:
+		jz4740_musb_vbus_disable(glue->musb);
 		atomic_notifier_call_chain(&phy->notifier, USB_EVENT_NONE, phy);
 		break;
 	case USB_ROLE_DEVICE:
+		jz4740_musb_vbus_disable(glue->musb);
 		atomic_notifier_call_chain(&phy->notifier, USB_EVENT_VBUS, phy);
 		break;
 	case USB_ROLE_HOST:
 		atomic_notifier_call_chain(&phy->notifier, USB_EVENT_ID, phy);
+		jz4740_musb_vbus_enable(glue->musb);
 		break;
 	}
 
@@ -185,7 +227,7 @@ static struct musb_hdrc_config jz4770_musb_config = {
 };
 
 static const struct musb_hdrc_platform_data jz4770_musb_pdata = {
-	.mode		= MUSB_PERIPHERAL, /* TODO: support OTG */
+	.mode		= MUSB_OTG,
 	.config		= &jz4770_musb_config,
 	.platform_ops	= &jz4740_musb_ops,
 };
