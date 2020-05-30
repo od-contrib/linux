@@ -63,6 +63,14 @@ struct mipi_dsi_packet {
 int mipi_dsi_create_packet(struct mipi_dsi_packet *packet,
 			   const struct mipi_dsi_msg *msg);
 
+/* MIPI bus types */
+#define MIPI_DEVICE_TYPE_DSI		BIT(0)
+#define MIPI_DEVICE_TYPE_DBI_SPI_MODE1	BIT(1)
+#define MIPI_DEVICE_TYPE_DBI_SPI_MODE2	BIT(2)
+#define MIPI_DEVICE_TYPE_DBI_SPI_MODE3	BIT(3)
+#define MIPI_DEVICE_TYPE_DBI_M6800	BIT(4)
+#define MIPI_DEVICE_TYPE_DBI_I8080	BIT(5)
+
 /**
  * struct mipi_dsi_host_ops - DSI bus operations
  * @attach: attach DSI device to DSI host
@@ -94,11 +102,13 @@ struct mipi_dsi_host_ops {
  * struct mipi_dsi_host - DSI host device
  * @dev: driver model device node for this DSI host
  * @ops: DSI host operations
+ * @bus_types: Bitmask of supported MIPI bus types
  * @list: list management
  */
 struct mipi_dsi_host {
 	struct device *dev;
 	const struct mipi_dsi_host_ops *ops;
+	unsigned int bus_types;
 	struct list_head list;
 };
 
@@ -162,6 +172,7 @@ struct mipi_dsi_device_info {
  * @host: DSI host for this peripheral
  * @dev: driver model device node for this peripheral
  * @name: DSI peripheral chip type
+ * @bus_type: MIPI bus type (MIPI_DEVICE_TYPE_DSI/...)
  * @channel: virtual channel assigned to the peripheral
  * @format: pixel format for video mode
  * @lanes: number of active data lanes
@@ -178,6 +189,7 @@ struct mipi_dsi_device {
 	struct device dev;
 
 	char name[DSI_DEV_NAME_SIZE];
+	unsigned int bus_type;
 	unsigned int channel;
 	unsigned int lanes;
 	enum mipi_dsi_pixel_format format;
