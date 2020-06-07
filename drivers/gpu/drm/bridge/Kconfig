@@ -214,6 +214,14 @@ config DRM_TI_TPD12S015
 	  Texas Instruments TPD12S015 HDMI level shifter and ESD protection
 	  driver.
 
+config DRM_MIPI_DBI_SPI
+	tristate "SPI host support for MIPI DBI"
+	depends on OF && SPI
+	select DRM_MIPI_DSI
+	select DRM_MIPI_DBI
+	help
+	  Driver to support DBI over SPI.
+
 source "drivers/gpu/drm/bridge/analogix/Kconfig"
 
 source "drivers/gpu/drm/bridge/adv7511/Kconfig"
