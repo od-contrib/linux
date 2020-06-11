@@ -38,7 +38,7 @@
 		power-supply = <&vcc>;
 	};
 
-	keys@0 {
+	gpio_keys: keys@0 {
 		compatible = "gpio-keys";
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -93,7 +93,7 @@
 		};
 	};
 
-	keys@1 {
+	adc_keys: keys@1 {
 		compatible = "adc-keys";
 		io-channels = <&adc INGENIC_ADC_AUX>;
 		io-channel-names = "buttons";
