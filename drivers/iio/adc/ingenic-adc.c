@@ -27,8 +27,10 @@
 #define JZ_ADC_REG_ADTCH		0x18
 #define JZ_ADC_REG_ADBDAT		0x1c
 #define JZ_ADC_REG_ADSDAT		0x20
+#define JZ_ADC_REG_ADCMD		0x24
 #define JZ_ADC_REG_ADCLK		0x28
 
+#define JZ_ADC_REG_CFG_CMD_SEL		BIT(22)
 #define JZ_ADC_REG_ENABLE_PD		BIT(7)
 #define JZ_ADC_REG_CFG_AUX_MD		(BIT(0) | BIT(1))
 #define JZ_ADC_REG_CFG_BAT_MD		BIT(4)
@@ -39,6 +41,26 @@
 #define JZ4725B_ADC_REG_ADCLK_CLKDIV10US_LSB	16
 #define JZ4770_ADC_REG_ADCLK_CLKDIV10US_LSB	8
 #define JZ4770_ADC_REG_ADCLK_CLKDIVMS_LSB	16
+
+#define JZ_ADC_REG_ADCMD_XPSUP		BIT(25)
+#define JZ_ADC_REG_ADCMD_XNSUP		BIT(24)
+#define JZ_ADC_REG_ADCMD_YPSUP		BIT(23)
+#define JZ_ADC_REG_ADCMD_XPGRU		BIT(22)
+#define	JZ_ADC_REG_ADCMD_XNGRU		BIT(21)
+#define	JZ_ADC_REG_ADCMD_YNGRU		BIT(20)
+#define	JZ_ADC_REG_ADCMD_VREFAUX	BIT(19)
+#define	JZ_ADC_REG_ADCMD_VREFNXN	BIT(18)
+#define	JZ_ADC_REG_ADCMD_VREFNXP	BIT(17)
+#define	JZ_ADC_REG_ADCMD_VREFNYN	BIT(16)
+#define	JZ_ADC_REG_ADCMD_VREFPVDD33	BIT(15)
+#define JZ_ADC_REG_ADCMD_VREFPAUX	BIT(14)
+#define JZ_ADC_REG_ADCMD_VREFPXN	BIT(13)
+#define JZ_ADC_REG_ADCMD_VREFPXP	BIT(12)
+#define JZ_ADC_REG_ADCMD_VREFPYP	BIT(11)
+#define JZ_ADC_REG_ADCMD_XPADC		BIT(10)
+#define JZ_ADC_REG_ADCMD_XNADC		BIT(9)
+#define JZ_ADC_REG_ADCMD_YPADC		BIT(8)
+#define JZ_ADC_REG_ADCMD_YNADC		BIT(7)
 
 #define JZ_ADC_AUX_VREF				3300
 #define JZ_ADC_AUX_VREF_BITS			12
@@ -70,6 +92,7 @@ struct ingenic_adc_soc_data {
 	size_t battery_scale_avail_size;
 	unsigned int battery_vref_mode: 1;
 	unsigned int has_aux2: 1;
+	unsigned int has_adcmd: 1;
 	const struct iio_chan_spec *channels;
 	unsigned int num_channels;
 	int (*init_clk_div)(struct device *dev, struct ingenic_adc *adc);
@@ -83,6 +106,33 @@ struct ingenic_adc {
 	const struct ingenic_adc_soc_data *soc_data;
 	bool low_vref_mode;
 };
+
+static void ingenic_adc_set_adcmd(struct iio_dev *iio_dev)
+{
+	struct ingenic_adc *adc = iio_priv(iio_dev);
+
+	mutex_lock(&adc->lock);
+
+	/* Init ADCMD */
+	readl(adc->base + JZ_ADC_REG_ADCMD);
+
+	/* Second channel (INGENIC_ADC_TOUCH_YP): sample YP vs. GND */
+	writel(JZ_ADC_REG_ADCMD_XNGRU
+	       | JZ_ADC_REG_ADCMD_VREFNXN | JZ_ADC_REG_ADCMD_VREFPVDD33
+	       | JZ_ADC_REG_ADCMD_YPADC,
+	       adc->base + JZ_ADC_REG_ADCMD);
+
+	/* First channel (INGENIC_ADC_TOUCH_XP): sample XP vs. GND */
+	writel(JZ_ADC_REG_ADCMD_YNGRU
+	       | JZ_ADC_REG_ADCMD_VREFNYN | JZ_ADC_REG_ADCMD_VREFPVDD33
+	       | JZ_ADC_REG_ADCMD_XPADC,
+	       adc->base + JZ_ADC_REG_ADCMD);
+
+	/* We're done */
+	writel(0, adc->base + JZ_ADC_REG_ADCMD);
+
+	mutex_unlock(&adc->lock);
+}
 
 static void ingenic_adc_set_config(struct ingenic_adc *adc,
 				   uint32_t mask,
@@ -387,6 +437,7 @@ static const struct ingenic_adc_soc_data jz4725b_adc_soc_data = {
 	.battery_scale_avail_size = ARRAY_SIZE(jz4725b_adc_battery_scale_avail),
 	.battery_vref_mode = true,
 	.has_aux2 = false,
+	.has_adcmd = false,
 	.channels = jz4740_channels,
 	.num_channels = ARRAY_SIZE(jz4740_channels),
 	.init_clk_div = jz4725b_adc_init_clk_div,
@@ -401,6 +452,7 @@ static const struct ingenic_adc_soc_data jz4740_adc_soc_data = {
 	.battery_scale_avail_size = ARRAY_SIZE(jz4740_adc_battery_scale_avail),
 	.battery_vref_mode = true,
 	.has_aux2 = false,
+	.has_adcmd = false,
 	.channels = jz4740_channels,
 	.num_channels = ARRAY_SIZE(jz4740_channels),
 	.init_clk_div = NULL, /* no ADCLK register on JZ4740 */
@@ -415,6 +467,7 @@ static const struct ingenic_adc_soc_data jz4770_adc_soc_data = {
 	.battery_scale_avail_size = ARRAY_SIZE(jz4770_adc_battery_scale_avail),
 	.battery_vref_mode = false,
 	.has_aux2 = true,
+	.has_adcmd = true,
 	.channels = jz4770_channels,
 	.num_channels = ARRAY_SIZE(jz4770_channels),
 	.init_clk_div = jz4770_adc_init_clk_div,
@@ -566,10 +619,18 @@ static int ingenic_adc_buffer_enable(struct iio_dev *iio_dev)
 	ingenic_adc_set_config(adc, JZ_ADC_REG_CFG_TOUCH_OPS_MASK,
 			       JZ_ADC_REG_CFG_SAMPLE_NUM(4) |
 			       JZ_ADC_REG_CFG_PULL_UP(4));
+
 	writew(80, adc->base + JZ_ADC_REG_ADWAIT);
 	writew(2, adc->base + JZ_ADC_REG_ADSAME);
 	writeb((u8)~JZ_ADC_IRQ_TOUCH, adc->base + JZ_ADC_REG_CTRL);
 	writel(0, adc->base + JZ_ADC_REG_ADTCH);
+
+	if (adc->soc_data->has_adcmd) {
+		ingenic_adc_set_config(adc, JZ_ADC_REG_CFG_CMD_SEL,
+				       JZ_ADC_REG_CFG_CMD_SEL);
+		ingenic_adc_set_adcmd(iio_dev);
+	}
+
 	ingenic_adc_enable(adc, 2, true);
 
 	return 0;
@@ -580,6 +641,10 @@ static int ingenic_adc_buffer_disable(struct iio_dev *iio_dev)
 	struct ingenic_adc *adc = iio_priv(iio_dev);
 
 	ingenic_adc_enable(adc, 2, false);
+
+	if (adc->soc_data->has_adcmd)
+		ingenic_adc_set_config(adc, JZ_ADC_REG_CFG_CMD_SEL, 0);
+
 	writeb(0xff, adc->base + JZ_ADC_REG_CTRL);
 	writeb(0xff, adc->base + JZ_ADC_REG_STATUS);
 	ingenic_adc_set_config(adc, JZ_ADC_REG_CFG_TOUCH_OPS_MASK, 0);
