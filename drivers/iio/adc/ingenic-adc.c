@@ -107,7 +107,7 @@ struct ingenic_adc {
 	bool low_vref_mode;
 };
 
-static void ingenic_adc_set_adcmd(struct iio_dev *iio_dev)
+static void ingenic_adc_set_adcmd(struct iio_dev *iio_dev, unsigned long mask)
 {
 	struct ingenic_adc *adc = iio_priv(iio_dev);
 
@@ -116,17 +116,45 @@ static void ingenic_adc_set_adcmd(struct iio_dev *iio_dev)
 	/* Init ADCMD */
 	readl(adc->base + JZ_ADC_REG_ADCMD);
 
-	/* Second channel (INGENIC_ADC_TOUCH_YP): sample YP vs. GND */
-	writel(JZ_ADC_REG_ADCMD_XNGRU
-	       | JZ_ADC_REG_ADCMD_VREFNXN | JZ_ADC_REG_ADCMD_VREFPVDD33
-	       | JZ_ADC_REG_ADCMD_YPADC,
-	       adc->base + JZ_ADC_REG_ADCMD);
+	if (mask & 0x3) {
+		/* Second channel (INGENIC_ADC_TOUCH_YP): sample YP vs. GND */
+		writel(JZ_ADC_REG_ADCMD_XNGRU
+		       | JZ_ADC_REG_ADCMD_VREFNXN | JZ_ADC_REG_ADCMD_VREFPVDD33
+		       | JZ_ADC_REG_ADCMD_YPADC,
+		       adc->base + JZ_ADC_REG_ADCMD);
 
-	/* First channel (INGENIC_ADC_TOUCH_XP): sample XP vs. GND */
-	writel(JZ_ADC_REG_ADCMD_YNGRU
-	       | JZ_ADC_REG_ADCMD_VREFNYN | JZ_ADC_REG_ADCMD_VREFPVDD33
-	       | JZ_ADC_REG_ADCMD_XPADC,
-	       adc->base + JZ_ADC_REG_ADCMD);
+		/* First channel (INGENIC_ADC_TOUCH_XP): sample XP vs. GND */
+		writel(JZ_ADC_REG_ADCMD_YNGRU
+		       | JZ_ADC_REG_ADCMD_VREFNYN | JZ_ADC_REG_ADCMD_VREFPVDD33
+		       | JZ_ADC_REG_ADCMD_XPADC,
+		       adc->base + JZ_ADC_REG_ADCMD);
+	}
+
+	if (mask & 0xc) {
+		/* Fourth channel (INGENIC_ADC_TOUCH_YN): sample YN vs. GND */
+		writel(JZ_ADC_REG_ADCMD_XNGRU
+		       | JZ_ADC_REG_ADCMD_VREFNXN | JZ_ADC_REG_ADCMD_VREFPVDD33
+		       | JZ_ADC_REG_ADCMD_YNADC,
+		       adc->base + JZ_ADC_REG_ADCMD);
+
+		/* Third channel (INGENIC_ADC_TOUCH_XN): sample XN vs. GND */
+		writel(JZ_ADC_REG_ADCMD_YNGRU
+		       | JZ_ADC_REG_ADCMD_VREFNYN | JZ_ADC_REG_ADCMD_VREFPVDD33
+		       | JZ_ADC_REG_ADCMD_XNADC,
+		       adc->base + JZ_ADC_REG_ADCMD);
+	}
+
+	if (mask & 0x30) {
+		/* Sixth channel (INGENIC_ADC_TOUCH_YD): sample YP vs. YN */
+		writel(JZ_ADC_REG_ADCMD_VREFNYN | JZ_ADC_REG_ADCMD_VREFPVDD33
+		       | JZ_ADC_REG_ADCMD_YPADC,
+		       adc->base + JZ_ADC_REG_ADCMD);
+
+		/* Fifth channel (INGENIC_ADC_TOUCH_XD): sample XP vs. XN */
+		writel(JZ_ADC_REG_ADCMD_VREFNXN | JZ_ADC_REG_ADCMD_VREFPVDD33
+		       | JZ_ADC_REG_ADCMD_XPADC,
+		       adc->base + JZ_ADC_REG_ADCMD);
+	}
 
 	/* We're done */
 	writel(0, adc->base + JZ_ADC_REG_ADCMD);
@@ -398,6 +426,50 @@ static const struct iio_chan_spec jz4770_channels[] = {
 		},
 	},
 	{
+		.type = IIO_POSITIONRELATIVE,
+		.indexed = 1,
+		.channel = INGENIC_ADC_TOUCH_XN,
+		.scan_index = 2,
+		.scan_type = {
+			.sign = 'u',
+			.realbits = 12,
+			.storagebits = 16,
+		},
+	},
+	{
+		.type = IIO_POSITIONRELATIVE,
+		.indexed = 1,
+		.channel = INGENIC_ADC_TOUCH_YN,
+		.scan_index = 3,
+		.scan_type = {
+			.sign = 'u',
+			.realbits = 12,
+			.storagebits = 16,
+		},
+	},
+	{
+		.type = IIO_POSITIONRELATIVE,
+		.indexed = 1,
+		.channel = INGENIC_ADC_TOUCH_XD,
+		.scan_index = 4,
+		.scan_type = {
+			.sign = 'u',
+			.realbits = 12,
+			.storagebits = 16,
+		},
+	},
+	{
+		.type = IIO_POSITIONRELATIVE,
+		.indexed = 1,
+		.channel = INGENIC_ADC_TOUCH_YD,
+		.scan_index = 5,
+		.scan_type = {
+			.sign = 'u',
+			.realbits = 12,
+			.storagebits = 16,
+		},
+	},
+	{
 		.extend_name = "aux",
 		.type = IIO_VOLTAGE,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
@@ -628,7 +700,7 @@ static int ingenic_adc_buffer_enable(struct iio_dev *iio_dev)
 	if (adc->soc_data->has_adcmd) {
 		ingenic_adc_set_config(adc, JZ_ADC_REG_CFG_CMD_SEL,
 				       JZ_ADC_REG_CFG_CMD_SEL);
-		ingenic_adc_set_adcmd(iio_dev);
+		ingenic_adc_set_adcmd(iio_dev, iio_dev->active_scan_mask[0]);
 	}
 
 	ingenic_adc_enable(adc, 2, true);
@@ -664,10 +736,18 @@ static irqreturn_t ingenic_adc_irq(int irq, void *data)
 {
 	struct iio_dev *iio_dev = data;
 	struct ingenic_adc *adc = iio_priv(iio_dev);
-	u32 tdat;
+	unsigned long mask = iio_dev->active_scan_mask[0];
+	unsigned int i;
+	u32 tdat[3];
 
-	tdat = readl(adc->base + JZ_ADC_REG_ADTCH);
-	iio_push_to_buffers(iio_dev, &tdat);
+	for (i = 0; i < ARRAY_SIZE(tdat); mask >>= 2, i++) {
+		if (mask & 0x3)
+			tdat[i] = readl(adc->base + JZ_ADC_REG_ADTCH);
+		else
+			tdat[i] = 0;
+	}
+
+	iio_push_to_buffers(iio_dev, tdat);
 	writeb(JZ_ADC_IRQ_TOUCH, adc->base + JZ_ADC_REG_STATUS);
 
 	return IRQ_HANDLED;
