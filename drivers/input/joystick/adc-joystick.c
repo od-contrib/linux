@@ -30,27 +30,28 @@ static int adc_joystick_handle(const void *data, void *private)
 {
 	struct adc_joystick *joy = private;
 	enum iio_endian endianness;
-	int bytes, msb, val, i;
+	int bytes, msb, val, i, idx;
 	bool sign;
 
 	bytes = joy->chans[0].channel->scan_type.storagebits >> 3;
 
 	for (i = 0; i < joy->num_chans; ++i) {
+		idx = joy->chans[i].channel->scan_index;
 		endianness = joy->chans[i].channel->scan_type.endianness;
 		msb = joy->chans[i].channel->scan_type.realbits - 1;
 		sign = (tolower(joy->chans[i].channel->scan_type.sign) == 's');
 
 		switch (bytes) {
 		case 1:
-			val = ((const u8 *)data)[i];
+			val = ((const u8 *)data)[idx];
 			break;
 		case 2:
 			if (endianness == IIO_BE)
-				val = be16_to_cpu(((const u16 *)data)[i]);
+				val = be16_to_cpu(((const u16 *)data)[idx]);
 			else if (endianness == IIO_LE)
-				val = le16_to_cpu(((const u16 *)data)[i]);
+				val = le16_to_cpu(((const u16 *)data)[idx]);
 			else /* IIO_CPU */
-				val = ((const u16 *)data)[i];
+				val = ((const u16 *)data)[idx];
 			break;
 		default:
 			return -EINVAL;
