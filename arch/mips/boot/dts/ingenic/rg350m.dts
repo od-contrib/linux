@@ -1,0 +1,52 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+
+#include "rg350.dts"
+
+/ {
+	compatible = "ylm,rg350m", "ingenic,jz4770";
+	model = "Anbernic RG-350M";
+
+	spi {
+		compatible = "spi-gpio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		sck-gpios = <&gpe 15 0>;
+		mosi-gpios = <&gpe 17 0>;
+		cs-gpios = <&gpe 16 0>;
+		num-chipselects = <1>;
+
+		panel@0 {
+			compatible = "leadtek,ltk035c5444t-spi";
+			reg = <0>;
+
+			spi-max-frequency = <15000000>;
+			spi-3wire;
+
+			reset-gpios = <&gpe 2 GPIO_ACTIVE_LOW>;
+
+			backlight = <&backlight>;
+			power-supply = <&vcc>;
+
+			port {
+				nv3052c_input: endpoint {
+					remote-endpoint = <&panel_output>;
+				};
+			};
+		};
+	};
+};
+
+&panel_output {
+	remote-endpoint = <&nv3052c_input>;
+};
+
+&panel {
+	status = "disabled";
+};
+
+/* Make Frida panel port a dummy to avoid DTC complaints */
+&panel_input {
+	remote-endpoint = <&panel_input>;
+};
