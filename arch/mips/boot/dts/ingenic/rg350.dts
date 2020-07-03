@@ -310,7 +310,7 @@
 		charger = <&usb_conn>;
 	};
 
-	panel {
+	panel: panel {
 		compatible = "frida,frd350h54004";
 
 		reset-gpios = <&gpe 2 GPIO_ACTIVE_LOW>;
