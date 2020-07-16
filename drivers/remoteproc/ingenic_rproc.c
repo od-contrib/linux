@@ -6,17 +6,20 @@
 
 #include <linux/bitops.h>
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
-#include <linux/pm_runtime.h>
 #include <linux/remoteproc.h>
 
 #include "remoteproc_internal.h"
 
 #define REG_AUX_CTRL		0x0
+#define REG_AUX_SPINLK		0x4
+#define REG_AUX_SPIN1		0x8
+#define REG_AUX_SPIN2		0xc
 #define REG_AUX_MSG_ACK		0x10
 #define REG_AUX_MSG		0x14
 #define REG_CORE_MSG_ACK	0x18
@@ -27,6 +30,9 @@
 #define AUX_CTRL_NMI_RESETS	BIT(2)
 #define AUX_CTRL_NMI		BIT(1)
 #define AUX_CTRL_SW_RESET	BIT(0)
+
+#define AUX_SPIN1_LOCKED	BIT(0)
+#define AUX_SPIN2_LOCKED	BIT(1)
 
 struct vpu_mem_map {
 	const char *name;
@@ -62,12 +68,39 @@ struct vpu {
 	struct device *dev;
 };
 
+static int ingenic_rproc_prepare(struct rproc *rproc)
+{
+	struct vpu *vpu = rproc->priv;
+	int ret;
+
+	/* The clocks must be enabled for the firmware to be loaded in TCSM */
+	ret = clk_bulk_prepare_enable(ARRAY_SIZE(vpu->clks), vpu->clks);
+	if (ret)
+		dev_err(vpu->dev, "Unable to start clocks: %d", ret);
+
+	return ret;
+}
+
+static int ingenic_rproc_unprepare(struct rproc *rproc)
+{
+	struct vpu *vpu = rproc->priv;
+
+	clk_bulk_disable_unprepare(ARRAY_SIZE(vpu->clks), vpu->clks);
+
+	return 0;
+}
+
 static int ingenic_rproc_start(struct rproc *rproc)
 {
 	struct vpu *vpu = rproc->priv;
 	u32 ctrl;
 
 	enable_irq(vpu->irq);
+
+	/* Setup the spinlock registers before starting VPU firmware */
+	writel(0, vpu->aux_base + REG_AUX_SPINLK);
+	writel(AUX_SPIN1_LOCKED, vpu->aux_base + REG_AUX_SPIN1);
+	writel(AUX_SPIN2_LOCKED, vpu->aux_base + REG_AUX_SPIN2);
 
 	/* Reset the AUX and enable message IRQ */
 	ctrl = AUX_CTRL_NMI_RESETS | AUX_CTRL_NMI | AUX_CTRL_MSG_IRQ_EN;
@@ -88,11 +121,49 @@ static int ingenic_rproc_stop(struct rproc *rproc)
 	return 0;
 }
 
-static void ingenic_rproc_kick(struct rproc *rproc, int vqid)
+static int ingenic_rproc_lock_vpu(struct rproc *rproc)
+{
+	struct vpu *vpu = rproc->priv;
+	ktime_t timeout = ktime_add_us(ktime_get(), USEC_PER_SEC);
+	u32 lock;
+
+	for (;;) {
+		readl(vpu->aux_base + REG_AUX_SPIN1);
+		lock = readl(vpu->aux_base + REG_AUX_SPINLK);
+
+		if (lock == AUX_SPIN1_LOCKED)
+			break;
+
+		if (ktime_compare(ktime_get(), timeout) > 0)
+			return -ETIMEDOUT;
+
+		usleep_range(100, 1000);
+	}
+
+	return 0;
+}
+
+static void ingenic_rproc_unlock_vpu(struct rproc *rproc)
 {
 	struct vpu *vpu = rproc->priv;
 
+	writel(0, vpu->aux_base + REG_AUX_SPINLK);
+}
+
+static void ingenic_rproc_kick(struct rproc *rproc, int vqid)
+{
+	struct vpu *vpu = rproc->priv;
+	int ret;
+
+	ret = ingenic_rproc_lock_vpu(rproc);
+	if (ret < 0) {
+		rproc_report_crash(rproc, RPROC_FATAL_ERROR);
+		return;
+	}
+
 	writel(vqid, vpu->aux_base + REG_CORE_MSG);
+
+	ingenic_rproc_unlock_vpu(rproc);
 }
 
 static void *ingenic_rproc_da_to_va(struct rproc *rproc, u64 da, size_t len)
@@ -115,6 +186,8 @@ static void *ingenic_rproc_da_to_va(struct rproc *rproc, u64 da, size_t len)
 }
 
 static struct rproc_ops ingenic_rproc_ops = {
+	.prepare = ingenic_rproc_prepare,
+	.unprepare = ingenic_rproc_unprepare,
 	.start = ingenic_rproc_start,
 	.stop = ingenic_rproc_stop,
 	.kick = ingenic_rproc_kick,
@@ -133,16 +206,6 @@ static irqreturn_t vpu_interrupt(int irq, void *data)
 	writel(0, vpu->aux_base + REG_AUX_MSG_ACK);
 
 	return rproc_vq_interrupt(rproc, vring);
-}
-
-static void ingenic_rproc_disable_clks(void *data)
-{
-	struct vpu *vpu = data;
-
-	pm_runtime_resume(vpu->dev);
-	pm_runtime_disable(vpu->dev);
-
-	clk_bulk_disable_unprepare(ARRAY_SIZE(vpu->clks), vpu->clks);
 }
 
 static int ingenic_rproc_probe(struct platform_device *pdev)
@@ -206,35 +269,13 @@ static int ingenic_rproc_probe(struct platform_device *pdev)
 
 	disable_irq(vpu->irq);
 
-	/* The clocks must be enabled for the firmware to be loaded in TCSM */
-	ret = clk_bulk_prepare_enable(ARRAY_SIZE(vpu->clks), vpu->clks);
-	if (ret) {
-		dev_err(dev, "Unable to start clocks\n");
-		return ret;
-	}
-
-	pm_runtime_irq_safe(dev);
-	pm_runtime_set_active(dev);
-	pm_runtime_enable(dev);
-	pm_runtime_get_sync(dev);
-	pm_runtime_use_autosuspend(dev);
-
-	ret = devm_add_action_or_reset(dev, ingenic_rproc_disable_clks, vpu);
-	if (ret) {
-		dev_err(dev, "Unable to register action\n");
-		goto out_pm_put;
-	}
-
 	ret = devm_rproc_add(dev, rproc);
 	if (ret) {
 		dev_err(dev, "Failed to register remote processor\n");
-		goto out_pm_put;
+		return ret;
 	}
 
-out_pm_put:
-	pm_runtime_put_autosuspend(dev);
-
-	return ret;
+	return 0;
 }
 
 static const struct of_device_id ingenic_rproc_of_matches[] = {
@@ -243,33 +284,10 @@ static const struct of_device_id ingenic_rproc_of_matches[] = {
 };
 MODULE_DEVICE_TABLE(of, ingenic_rproc_of_matches);
 
-static int __maybe_unused ingenic_rproc_suspend(struct device *dev)
-{
-	struct vpu *vpu = dev_get_drvdata(dev);
-
-	clk_bulk_disable(ARRAY_SIZE(vpu->clks), vpu->clks);
-
-	return 0;
-}
-
-static int __maybe_unused ingenic_rproc_resume(struct device *dev)
-{
-	struct vpu *vpu = dev_get_drvdata(dev);
-
-	return clk_bulk_enable(ARRAY_SIZE(vpu->clks), vpu->clks);
-}
-
-static const struct dev_pm_ops __maybe_unused ingenic_rproc_pm = {
-	SET_RUNTIME_PM_OPS(ingenic_rproc_suspend, ingenic_rproc_resume, NULL)
-};
-
 static struct platform_driver ingenic_rproc_driver = {
 	.probe = ingenic_rproc_probe,
 	.driver = {
 		.name = "ingenic-vpu",
-#ifdef CONFIG_PM
-		.pm = &ingenic_rproc_pm,
-#endif
 		.of_match_table = ingenic_rproc_of_matches,
 	},
 };
