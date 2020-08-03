@@ -207,3 +207,22 @@ void __init arch_init_irq(void)
 void __init prom_free_prom_memory(void)
 {
 }
+
+const char * get_system_type(void)
+{
+	const char *str;
+	int err;
+
+	if (mach && mach->get_system_type)
+		return mach->get_system_type(of_root);
+
+	err = of_property_read_string(of_root, "model", &str);
+	if (!err)
+		return str;
+
+	err = of_property_read_string_index(of_root, "compatible", 0, &str);
+	if (!err)
+		return str;
+
+	return "Unknown";
+}
