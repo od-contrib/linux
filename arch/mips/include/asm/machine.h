@@ -16,6 +16,7 @@ struct mips_machine {
 	bool (*detect)(void);
 	const void *(*fixup_fdt)(const void *fdt, const void *match_data);
 	unsigned int (*measure_hpt_freq)(void);
+	const char *(*get_system_type)(struct device_node *dtb);
 };
 
 extern long __mips_machines_start;
