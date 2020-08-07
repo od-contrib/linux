@@ -219,6 +219,13 @@ static int ingenic_rproc_probe(struct platform_device *pdev)
 
 	disable_irq(vpu->irq);
 
+	/*
+	 * The VPU in Ingenic SoCs is pretty general-purpose, so many kinds of
+	 * firmwares can be made for it. Let user-space specify which firmware
+	 * should be loaded intead of trying to auto-boot.
+	 */
+	rproc->auto_boot = false;
+
 	ret = devm_rproc_add(dev, rproc);
 	if (ret) {
 		dev_err(dev, "Failed to register remote processor\n");
