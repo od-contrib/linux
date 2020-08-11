@@ -394,6 +394,14 @@ config DRM_PANEL_SHARP_LS043T1LE01
 	  Say Y here if you want to enable support for Sharp LS043T1LE01 qHD
 	  (540x960) DSI panel as found on the Qualcomm APQ8074 Dragonboard
 
+config DRM_PANEL_SHARP_Y030XX067A
+	tristate "Sharp Y030XX067A 320x480 LCD panel"
+	depends on OF && SPI
+	select REGMAP_SPI
+	help
+	  Say Y here to enable support for the Sharp Y030XX067A 320x480 3.0"
+	  panel as found on the YLM RG-99 handheld gaming console.
+
 config DRM_PANEL_SITRONIX_ST7701
 	tristate "Sitronix ST7701 panel driver"
 	depends on OF
