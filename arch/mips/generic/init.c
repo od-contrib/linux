@@ -23,6 +23,7 @@
 static __initconst const void *fdt;
 static __initconst const struct mips_machine *mach;
 static __initconst const void *mach_match_data;
+char *system_name;
 
 void __init prom_init(void)
 {
@@ -104,6 +105,9 @@ void __init plat_mem_setup(void)
 {
 	if (mach && mach->fixup_fdt)
 		fdt = mach->fixup_fdt(fdt, mach_match_data);
+
+	if (mach && mach->get_system_type && !system_name)
+		system_name = mach->get_system_type(fdt);
 
 	strlcpy(arcs_cmdline, boot_command_line, COMMAND_LINE_SIZE);
 	__dt_setup_arch((void *)fdt);
@@ -212,8 +216,8 @@ const char * get_system_type(void)
 	const char *str;
 	int err;
 
-	if (mach && mach->get_system_type)
-		return mach->get_system_type(of_root);
+	if (system_name)
+		return system_name;
 
 	err = of_property_read_string(of_root, "model", &str);
 	if (!err)

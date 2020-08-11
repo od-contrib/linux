@@ -33,7 +33,7 @@ static __init const void *ingenic_fixup_fdt(const void *fdt, const void *match_d
 	return fdt;
 }
 
-static const char *ingenic_get_system_type(struct device_node *dtb)
+static char *ingenic_get_system_type(const void *fdt)
 {
 	switch (mips_machtype) {
 	case MACH_INGENIC_X1830:
