@@ -18,6 +18,7 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/slot-gpio.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/of_device.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/platform_device.h>
@@ -148,6 +149,10 @@ struct jz4740_mmc_host {
 	struct mmc_host *mmc;
 	struct platform_device *pdev;
 	struct clk *clk;
+
+	atomic_t clk_mutex_count;
+	struct mutex clk_mutex;
+	struct notifier_block clock_nb;
 
 	enum jz4740_mmc_version version;
 
@@ -339,6 +344,10 @@ static void jz4740_mmc_pre_request(struct mmc_host *mmc,
 	struct jz4740_mmc_host *host = mmc_priv(mmc);
 	struct mmc_data *data = mrq->data;
 
+	/* Poor man's recursive mutex */
+	if (atomic_inc_and_test(&host->clk_mutex_count))
+		mutex_lock(&host->clk_mutex);
+
 	if (!host->use_dma)
 		return;
 
@@ -353,6 +362,9 @@ static void jz4740_mmc_post_request(struct mmc_host *mmc,
 {
 	struct jz4740_mmc_host *host = mmc_priv(mmc);
 	struct mmc_data *data = mrq->data;
+
+	if (atomic_dec_return(&host->clk_mutex_count) == -1)
+		mutex_unlock(&host->clk_mutex);
 
 	if (data && data->host_cookie != COOKIE_UNMAPPED)
 		jz4740_mmc_dma_unmap(host, data);
@@ -956,6 +968,48 @@ static const struct mmc_host_ops jz4740_mmc_ops = {
 	.enable_sdio_irq = jz4740_mmc_enable_sdio_irq,
 };
 
+static inline struct jz4740_mmc_host *
+jz4740_mmc_nb_get_priv(struct notifier_block *nb)
+{
+	return container_of(nb, struct jz4740_mmc_host, clock_nb);
+}
+
+static struct clk * jz4740_mmc_get_parent_clk(struct clk *clk)
+{
+	/*
+	 * Return the first clock above the one that will effectively modify
+	 * its rate when clk_set_rate(clk) is called.
+	 */
+	clk = clk_get_first_to_set_rate(clk);
+
+	return clk_get_parent(clk);
+}
+
+static int jz4740_mmc_update_clk(struct notifier_block *nb,
+				 unsigned long action,
+				 void *data)
+{
+	struct jz4740_mmc_host *host = jz4740_mmc_nb_get_priv(nb);
+
+	/*
+	 * PLL may have changed its frequency; our clock may be running above
+	 * spec. Wait until MMC is idle (using host->clk_mutex) before changing
+	 * the PLL clock, and after it's done, reset our clock rate.
+	 */
+
+	switch (action) {
+	case PRE_RATE_CHANGE:
+		mutex_lock(&host->clk_mutex);
+		break;
+	default:
+		clk_set_rate(host->clk, host->mmc->f_max);
+		mutex_unlock(&host->clk_mutex);
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
 static const struct of_device_id jz4740_mmc_of_match[] = {
 	{ .compatible = "ingenic,jz4740-mmc", .data = (void *) JZ_MMC_JZ4740 },
 	{ .compatible = "ingenic,jz4725b-mmc", .data = (void *)JZ_MMC_JZ4725B },
@@ -972,6 +1026,7 @@ static int jz4740_mmc_probe(struct platform_device* pdev)
 	struct mmc_host *mmc;
 	struct jz4740_mmc_host *host;
 	const struct of_device_id *match;
+	struct clk *parent_clk;
 
 	mmc = mmc_alloc_host(sizeof(struct jz4740_mmc_host), &pdev->dev);
 	if (!mmc) {
@@ -1059,12 +1114,24 @@ static int jz4740_mmc_probe(struct platform_device* pdev)
 		goto err_free_irq;
 	host->use_dma = !ret;
 
+	atomic_set(&host->clk_mutex_count, -1);
+	mutex_init(&host->clk_mutex);
+	host->clock_nb.notifier_call = jz4740_mmc_update_clk;
+
+	parent_clk = jz4740_mmc_get_parent_clk(host->clk);
+
+	ret = clk_notifier_register(parent_clk, &host->clock_nb);
+	if (ret) {
+		dev_err(&pdev->dev, "Unable to register clock notifier\n");
+		goto err_release_dma;
+	}
+
 	platform_set_drvdata(pdev, host);
 	ret = mmc_add_host(mmc);
 
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to add mmc host: %d\n", ret);
-		goto err_release_dma;
+		goto err_unregister_clk_notifier;
 	}
 	dev_info(&pdev->dev, "Ingenic SD/MMC card driver registered\n");
 
@@ -1075,6 +1142,8 @@ static int jz4740_mmc_probe(struct platform_device* pdev)
 
 	return 0;
 
+err_unregister_clk_notifier:
+	clk_notifier_unregister(parent_clk, &host->clock_nb);
 err_release_dma:
 	if (host->use_dma)
 		jz4740_mmc_release_dma_channels(host);
