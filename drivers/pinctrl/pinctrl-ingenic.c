@@ -134,28 +134,28 @@ static int jz4740_pwm_pwm5_pins[] = { 0x7c, };
 static int jz4740_pwm_pwm6_pins[] = { 0x7e, };
 static int jz4740_pwm_pwm7_pins[] = { 0x7f, };
 
-static int jz4740_mmc_1bit_funcs[] = { 0, 0, 0, };
-static int jz4740_mmc_4bit_funcs[] = { 0, 0, 0, };
-static int jz4740_uart0_data_funcs[] = { 1, 1, };
-static int jz4740_uart0_hwflow_funcs[] = { 1, 1, };
-static int jz4740_uart1_data_funcs[] = { 2, 2, };
-static int jz4740_lcd_8bit_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };
-static int jz4740_lcd_16bit_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, };
-static int jz4740_lcd_18bit_funcs[] = { 0, 0, };
-static int jz4740_lcd_18bit_tft_funcs[] = { 0, 0, 0, 0, };
-static int jz4740_nand_cs1_funcs[] = { 0, };
-static int jz4740_nand_cs2_funcs[] = { 0, };
-static int jz4740_nand_cs3_funcs[] = { 0, };
-static int jz4740_nand_cs4_funcs[] = { 0, };
-static int jz4740_nand_fre_fwe_funcs[] = { 0, 0, };
-static int jz4740_pwm_pwm0_funcs[] = { 0, };
-static int jz4740_pwm_pwm1_funcs[] = { 0, };
-static int jz4740_pwm_pwm2_funcs[] = { 0, };
-static int jz4740_pwm_pwm3_funcs[] = { 0, };
-static int jz4740_pwm_pwm4_funcs[] = { 0, };
-static int jz4740_pwm_pwm5_funcs[] = { 0, };
-static int jz4740_pwm_pwm6_funcs[] = { 0, };
-static int jz4740_pwm_pwm7_funcs[] = { 0, };
+static u8 jz4740_mmc_1bit_funcs[] = { 0, 0, 0, };
+static u8 jz4740_mmc_4bit_funcs[] = { 0, 0, 0, };
+static u8 jz4740_uart0_data_funcs[] = { 1, 1, };
+static u8 jz4740_uart0_hwflow_funcs[] = { 1, 1, };
+static u8 jz4740_uart1_data_funcs[] = { 2, 2, };
+static u8 jz4740_lcd_8bit_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };
+static u8 jz4740_lcd_16bit_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, };
+static u8 jz4740_lcd_18bit_funcs[] = { 0, 0, };
+static u8 jz4740_lcd_18bit_tft_funcs[] = { 0, 0, 0, 0, };
+static u8 jz4740_nand_cs1_funcs[] = { 0, };
+static u8 jz4740_nand_cs2_funcs[] = { 0, };
+static u8 jz4740_nand_cs3_funcs[] = { 0, };
+static u8 jz4740_nand_cs4_funcs[] = { 0, };
+static u8 jz4740_nand_fre_fwe_funcs[] = { 0, 0, };
+static u8 jz4740_pwm_pwm0_funcs[] = { 0, };
+static u8 jz4740_pwm_pwm1_funcs[] = { 0, };
+static u8 jz4740_pwm_pwm2_funcs[] = { 0, };
+static u8 jz4740_pwm_pwm3_funcs[] = { 0, };
+static u8 jz4740_pwm_pwm4_funcs[] = { 0, };
+static u8 jz4740_pwm_pwm5_funcs[] = { 0, };
+static u8 jz4740_pwm_pwm6_funcs[] = { 0, };
+static u8 jz4740_pwm_pwm7_funcs[] = { 0, };
 
 #define INGENIC_PIN_GROUP(name, id)			\
 	{						\
@@ -268,29 +268,29 @@ static int jz4725b_lcd_24bit_pins[] = { 0x76, 0x77, 0x78, 0x79, };
 static int jz4725b_lcd_special_pins[] = { 0x76, 0x77, 0x78, 0x79, };
 static int jz4725b_lcd_generic_pins[] = { 0x75, };
 
-static int jz4725b_mmc0_1bit_funcs[] = { 1, 1, 1, };
-static int jz4725b_mmc0_4bit_funcs[] = { 1, 0, 1, };
-static int jz4725b_mmc1_1bit_funcs[] = { 0, 0, 0, };
-static int jz4725b_mmc1_4bit_funcs[] = { 0, 0, 0, };
-static int jz4725b_uart_data_funcs[] = { 1, 1, };
-static int jz4725b_nand_cs1_funcs[] = { 0, };
-static int jz4725b_nand_cs2_funcs[] = { 0, };
-static int jz4725b_nand_cs3_funcs[] = { 0, };
-static int jz4725b_nand_cs4_funcs[] = { 0, };
-static int jz4725b_nand_cle_ale_funcs[] = { 0, 0, };
-static int jz4725b_nand_fre_fwe_funcs[] = { 0, 0, };
-static int jz4725b_pwm_pwm0_funcs[] = { 0, };
-static int jz4725b_pwm_pwm1_funcs[] = { 0, };
-static int jz4725b_pwm_pwm2_funcs[] = { 0, };
-static int jz4725b_pwm_pwm3_funcs[] = { 0, };
-static int jz4725b_pwm_pwm4_funcs[] = { 0, };
-static int jz4725b_pwm_pwm5_funcs[] = { 0, };
-static int jz4725b_lcd_8bit_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };
-static int jz4725b_lcd_16bit_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, };
-static int jz4725b_lcd_18bit_funcs[] = { 0, 0, };
-static int jz4725b_lcd_24bit_funcs[] = { 1, 1, 1, 1, };
-static int jz4725b_lcd_special_funcs[] = { 0, 0, 0, 0, };
-static int jz4725b_lcd_generic_funcs[] = { 0, };
+static u8 jz4725b_mmc0_1bit_funcs[] = { 1, 1, 1, };
+static u8 jz4725b_mmc0_4bit_funcs[] = { 1, 0, 1, };
+static u8 jz4725b_mmc1_1bit_funcs[] = { 0, 0, 0, };
+static u8 jz4725b_mmc1_4bit_funcs[] = { 0, 0, 0, };
+static u8 jz4725b_uart_data_funcs[] = { 1, 1, };
+static u8 jz4725b_nand_cs1_funcs[] = { 0, };
+static u8 jz4725b_nand_cs2_funcs[] = { 0, };
+static u8 jz4725b_nand_cs3_funcs[] = { 0, };
+static u8 jz4725b_nand_cs4_funcs[] = { 0, };
+static u8 jz4725b_nand_cle_ale_funcs[] = { 0, 0, };
+static u8 jz4725b_nand_fre_fwe_funcs[] = { 0, 0, };
+static u8 jz4725b_pwm_pwm0_funcs[] = { 0, };
+static u8 jz4725b_pwm_pwm1_funcs[] = { 0, };
+static u8 jz4725b_pwm_pwm2_funcs[] = { 0, };
+static u8 jz4725b_pwm_pwm3_funcs[] = { 0, };
+static u8 jz4725b_pwm_pwm4_funcs[] = { 0, };
+static u8 jz4725b_pwm_pwm5_funcs[] = { 0, };
+static u8 jz4725b_lcd_8bit_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };
+static u8 jz4725b_lcd_16bit_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, };
+static u8 jz4725b_lcd_18bit_funcs[] = { 0, 0, };
+static u8 jz4725b_lcd_24bit_funcs[] = { 1, 1, 1, 1, };
+static u8 jz4725b_lcd_special_funcs[] = { 0, 0, 0, 0, };
+static u8 jz4725b_lcd_generic_funcs[] = { 0, };
 
 static const struct group_desc jz4725b_groups[] = {
 	INGENIC_PIN_GROUP("mmc0-1bit", jz4725b_mmc0_1bit),
@@ -363,7 +363,7 @@ static const struct ingenic_chip_info jz4725b_chip_info = {
 };
 
 static const u32 jz4760_pull_ups[6] = {
-	0xffffffff, 0xfffcf3ff, 0xffffffff, 0xffffcfff, 0xfffffb7c, 0xfffff00f,
+	0xffffffff, 0xfffcf3ff, 0xffffffff, 0xffffcfff, 0xfffffb7c, 0x0000000f,
 };
 
 static const u32 jz4760_pull_downs[6] = {
@@ -431,59 +431,59 @@ static int jz4760_pwm_pwm5_pins[] = { 0x85, };
 static int jz4760_pwm_pwm6_pins[] = { 0x6a, };
 static int jz4760_pwm_pwm7_pins[] = { 0x6b, };
 
-static int jz4760_uart0_data_funcs[] = { 0, 0, };
-static int jz4760_uart0_hwflow_funcs[] = { 0, 0, };
-static int jz4760_uart1_data_funcs[] = { 0, 0, };
-static int jz4760_uart1_hwflow_funcs[] = { 0, 0, };
-static int jz4760_uart2_data_funcs[] = { 0, 0, };
-static int jz4760_uart2_hwflow_funcs[] = { 0, 0, };
-static int jz4760_uart3_data_funcs[] = { 0, 1, };
-static int jz4760_uart3_hwflow_funcs[] = { 0, 0, };
-static int jz4760_mmc0_1bit_a_funcs[] = { 1, 1, 0, };
-static int jz4760_mmc0_4bit_a_funcs[] = { 1, 1, 1, };
-static int jz4760_mmc0_1bit_e_funcs[] = { 0, 0, 0, };
-static int jz4760_mmc0_4bit_e_funcs[] = { 0, 0, 0, };
-static int jz4760_mmc0_8bit_e_funcs[] = { 0, 0, 0, 0, };
-static int jz4760_mmc1_1bit_d_funcs[] = { 0, 0, 0, };
-static int jz4760_mmc1_4bit_d_funcs[] = { 0, 0, 0, };
-static int jz4760_mmc1_1bit_e_funcs[] = { 1, 1, 1, };
-static int jz4760_mmc1_4bit_e_funcs[] = { 1, 1, 1, };
-static int jz4760_mmc1_8bit_e_funcs[] = { 1, 1, 1, 1, };
-static int jz4760_mmc2_1bit_b_funcs[] = { 0, 0, 0, };
-static int jz4760_mmc2_4bit_b_funcs[] = { 0, 0, 0, };
-static int jz4760_mmc2_1bit_e_funcs[] = { 2, 2, 2, };
-static int jz4760_mmc2_4bit_e_funcs[] = { 2, 2, 2, };
-static int jz4760_mmc2_8bit_e_funcs[] = { 2, 2, 2, 2, };
-static int jz4760_nemc_8bit_data_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, };
-static int jz4760_nemc_16bit_data_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, };
-static int jz4760_nemc_cle_ale_funcs[] = { 0, 0, };
-static int jz4760_nemc_addr_funcs[] = { 0, 0, 0, 0, };
-static int jz4760_nemc_rd_we_funcs[] = { 0, 0, };
-static int jz4760_nemc_frd_fwe_funcs[] = { 0, 0, };
-static int jz4760_nemc_wait_funcs[] = { 0, };
-static int jz4760_nemc_cs1_funcs[] = { 0, };
-static int jz4760_nemc_cs2_funcs[] = { 0, };
-static int jz4760_nemc_cs3_funcs[] = { 0, };
-static int jz4760_nemc_cs4_funcs[] = { 0, };
-static int jz4760_nemc_cs5_funcs[] = { 0, };
-static int jz4760_nemc_cs6_funcs[] = { 0, };
-static int jz4760_i2c0_funcs[] = { 0, 0, };
-static int jz4760_i2c1_funcs[] = { 0, 0, };
-static int jz4760_cim_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };
-static int jz4760_lcd_24bit_funcs[] = {
+static u8 jz4760_uart0_data_funcs[] = { 0, 0, };
+static u8 jz4760_uart0_hwflow_funcs[] = { 0, 0, };
+static u8 jz4760_uart1_data_funcs[] = { 0, 0, };
+static u8 jz4760_uart1_hwflow_funcs[] = { 0, 0, };
+static u8 jz4760_uart2_data_funcs[] = { 0, 0, };
+static u8 jz4760_uart2_hwflow_funcs[] = { 0, 0, };
+static u8 jz4760_uart3_data_funcs[] = { 0, 1, };
+static u8 jz4760_uart3_hwflow_funcs[] = { 0, 0, };
+static u8 jz4760_mmc0_1bit_a_funcs[] = { 1, 1, 0, };
+static u8 jz4760_mmc0_4bit_a_funcs[] = { 1, 1, 1, };
+static u8 jz4760_mmc0_1bit_e_funcs[] = { 0, 0, 0, };
+static u8 jz4760_mmc0_4bit_e_funcs[] = { 0, 0, 0, };
+static u8 jz4760_mmc0_8bit_e_funcs[] = { 0, 0, 0, 0, };
+static u8 jz4760_mmc1_1bit_d_funcs[] = { 0, 0, 0, };
+static u8 jz4760_mmc1_4bit_d_funcs[] = { 0, 0, 0, };
+static u8 jz4760_mmc1_1bit_e_funcs[] = { 1, 1, 1, };
+static u8 jz4760_mmc1_4bit_e_funcs[] = { 1, 1, 1, };
+static u8 jz4760_mmc1_8bit_e_funcs[] = { 1, 1, 1, 1, };
+static u8 jz4760_mmc2_1bit_b_funcs[] = { 0, 0, 0, };
+static u8 jz4760_mmc2_4bit_b_funcs[] = { 0, 0, 0, };
+static u8 jz4760_mmc2_1bit_e_funcs[] = { 2, 2, 2, };
+static u8 jz4760_mmc2_4bit_e_funcs[] = { 2, 2, 2, };
+static u8 jz4760_mmc2_8bit_e_funcs[] = { 2, 2, 2, 2, };
+static u8 jz4760_nemc_8bit_data_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, };
+static u8 jz4760_nemc_16bit_data_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, };
+static u8 jz4760_nemc_cle_ale_funcs[] = { 0, 0, };
+static u8 jz4760_nemc_addr_funcs[] = { 0, 0, 0, 0, };
+static u8 jz4760_nemc_rd_we_funcs[] = { 0, 0, };
+static u8 jz4760_nemc_frd_fwe_funcs[] = { 0, 0, };
+static u8 jz4760_nemc_wait_funcs[] = { 0, };
+static u8 jz4760_nemc_cs1_funcs[] = { 0, };
+static u8 jz4760_nemc_cs2_funcs[] = { 0, };
+static u8 jz4760_nemc_cs3_funcs[] = { 0, };
+static u8 jz4760_nemc_cs4_funcs[] = { 0, };
+static u8 jz4760_nemc_cs5_funcs[] = { 0, };
+static u8 jz4760_nemc_cs6_funcs[] = { 0, };
+static u8 jz4760_i2c0_funcs[] = { 0, 0, };
+static u8 jz4760_i2c1_funcs[] = { 0, 0, };
+static u8 jz4760_cim_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };
+static u8 jz4760_lcd_24bit_funcs[] = {
 	0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0,
 };
-static int jz4760_pwm_pwm0_funcs[] = { 0, };
-static int jz4760_pwm_pwm1_funcs[] = { 0, };
-static int jz4760_pwm_pwm2_funcs[] = { 0, };
-static int jz4760_pwm_pwm3_funcs[] = { 0, };
-static int jz4760_pwm_pwm4_funcs[] = { 0, };
-static int jz4760_pwm_pwm5_funcs[] = { 0, };
-static int jz4760_pwm_pwm6_funcs[] = { 0, };
-static int jz4760_pwm_pwm7_funcs[] = { 0, };
+static u8 jz4760_pwm_pwm0_funcs[] = { 0, };
+static u8 jz4760_pwm_pwm1_funcs[] = { 0, };
+static u8 jz4760_pwm_pwm2_funcs[] = { 0, };
+static u8 jz4760_pwm_pwm3_funcs[] = { 0, };
+static u8 jz4760_pwm_pwm4_funcs[] = { 0, };
+static u8 jz4760_pwm_pwm5_funcs[] = { 0, };
+static u8 jz4760_pwm_pwm6_funcs[] = { 0, };
+static u8 jz4760_pwm_pwm7_funcs[] = { 0, };
 
 static const struct group_desc jz4760_groups[] = {
 	INGENIC_PIN_GROUP("uart0-data", jz4760_uart0_data),
@@ -618,11 +618,11 @@ static const struct ingenic_chip_info jz4760_chip_info = {
 };
 
 static const u32 jz4770_pull_ups[6] = {
-	0x3fffffff, 0xfff0030c, 0xffffffff, 0xffff4fff, 0xfffffb7c, 0xffa7f00f,
+	0x3fffffff, 0xfff0f3fc, 0xffffffff, 0xffff4fff, 0xfffffb7c, 0x0024f00f,
 };
 
 static const u32 jz4770_pull_downs[6] = {
-	0x00000000, 0x000f0c03, 0x00000000, 0x0000b000, 0x00000483, 0x00580ff0,
+	0x00000000, 0x000f0c03, 0x00000000, 0x0000b000, 0x00000483, 0x005b0ff0,
 };
 
 static int jz4770_uart0_data_pins[] = { 0xa0, 0xa3, };
@@ -695,64 +695,64 @@ static int jz4770_mac_rmii_pins[] = {
 static int jz4770_mac_mii_pins[] = { 0xa7, 0xaf, };
 static int jz4770_otg_pins[] = { 0x8a, };
 
-static int jz4770_uart0_data_funcs[] = { 0, 0, };
-static int jz4770_uart0_hwflow_funcs[] = { 0, 0, };
-static int jz4770_uart1_data_funcs[] = { 0, 0, };
-static int jz4770_uart1_hwflow_funcs[] = { 0, 0, };
-static int jz4770_uart2_data_funcs[] = { 0, 0, };
-static int jz4770_uart2_hwflow_funcs[] = { 0, 0, };
-static int jz4770_uart3_data_funcs[] = { 0, 1, };
-static int jz4770_uart3_hwflow_funcs[] = { 0, 0, };
-static int jz4770_mmc0_1bit_a_funcs[] = { 1, 1, 0, };
-static int jz4770_mmc0_4bit_a_funcs[] = { 1, 1, 1, };
-static int jz4770_mmc0_1bit_e_funcs[] = { 0, 0, 0, };
-static int jz4770_mmc0_4bit_e_funcs[] = { 0, 0, 0, };
-static int jz4770_mmc0_8bit_e_funcs[] = { 0, 0, 0, 0, };
-static int jz4770_mmc1_1bit_d_funcs[] = { 0, 0, 0, };
-static int jz4770_mmc1_4bit_d_funcs[] = { 0, 0, 0, };
-static int jz4770_mmc1_1bit_e_funcs[] = { 1, 1, 1, };
-static int jz4770_mmc1_4bit_e_funcs[] = { 1, 1, 1, };
-static int jz4770_mmc1_8bit_e_funcs[] = { 1, 1, 1, 1, };
-static int jz4770_mmc2_1bit_b_funcs[] = { 0, 0, 0, };
-static int jz4770_mmc2_4bit_b_funcs[] = { 0, 0, 0, };
-static int jz4770_mmc2_1bit_e_funcs[] = { 2, 2, 2, };
-static int jz4770_mmc2_4bit_e_funcs[] = { 2, 2, 2, };
-static int jz4770_mmc2_8bit_e_funcs[] = { 2, 2, 2, 2, };
-static int jz4770_nemc_8bit_data_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, };
-static int jz4770_nemc_16bit_data_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, };
-static int jz4770_nemc_cle_ale_funcs[] = { 0, 0, };
-static int jz4770_nemc_addr_funcs[] = { 0, 0, 0, 0, };
-static int jz4770_nemc_rd_we_funcs[] = { 0, 0, };
-static int jz4770_nemc_frd_fwe_funcs[] = { 0, 0, };
-static int jz4770_nemc_wait_funcs[] = { 0, };
-static int jz4770_nemc_cs1_funcs[] = { 0, };
-static int jz4770_nemc_cs2_funcs[] = { 0, };
-static int jz4770_nemc_cs3_funcs[] = { 0, };
-static int jz4770_nemc_cs4_funcs[] = { 0, };
-static int jz4770_nemc_cs5_funcs[] = { 0, };
-static int jz4770_nemc_cs6_funcs[] = { 0, };
-static int jz4770_i2c0_funcs[] = { 0, 0, };
-static int jz4770_i2c1_funcs[] = { 0, 0, };
-static int jz4770_i2c2_funcs[] = { 2, 2, };
-static int jz4770_cim_8bit_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };
-static int jz4770_cim_12bit_funcs[] = { 0, 0, 0, 0, };
-static int jz4770_lcd_24bit_funcs[] = {
+static u8 jz4770_uart0_data_funcs[] = { 0, 0, };
+static u8 jz4770_uart0_hwflow_funcs[] = { 0, 0, };
+static u8 jz4770_uart1_data_funcs[] = { 0, 0, };
+static u8 jz4770_uart1_hwflow_funcs[] = { 0, 0, };
+static u8 jz4770_uart2_data_funcs[] = { 0, 0, };
+static u8 jz4770_uart2_hwflow_funcs[] = { 0, 0, };
+static u8 jz4770_uart3_data_funcs[] = { 0, 1, };
+static u8 jz4770_uart3_hwflow_funcs[] = { 0, 0, };
+static u8 jz4770_mmc0_1bit_a_funcs[] = { 1, 1, 0, };
+static u8 jz4770_mmc0_4bit_a_funcs[] = { 1, 1, 1, };
+static u8 jz4770_mmc0_1bit_e_funcs[] = { 0, 0, 0, };
+static u8 jz4770_mmc0_4bit_e_funcs[] = { 0, 0, 0, };
+static u8 jz4770_mmc0_8bit_e_funcs[] = { 0, 0, 0, 0, };
+static u8 jz4770_mmc1_1bit_d_funcs[] = { 0, 0, 0, };
+static u8 jz4770_mmc1_4bit_d_funcs[] = { 0, 0, 0, };
+static u8 jz4770_mmc1_1bit_e_funcs[] = { 1, 1, 1, };
+static u8 jz4770_mmc1_4bit_e_funcs[] = { 1, 1, 1, };
+static u8 jz4770_mmc1_8bit_e_funcs[] = { 1, 1, 1, 1, };
+static u8 jz4770_mmc2_1bit_b_funcs[] = { 0, 0, 0, };
+static u8 jz4770_mmc2_4bit_b_funcs[] = { 0, 0, 0, };
+static u8 jz4770_mmc2_1bit_e_funcs[] = { 2, 2, 2, };
+static u8 jz4770_mmc2_4bit_e_funcs[] = { 2, 2, 2, };
+static u8 jz4770_mmc2_8bit_e_funcs[] = { 2, 2, 2, 2, };
+static u8 jz4770_nemc_8bit_data_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, };
+static u8 jz4770_nemc_16bit_data_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, };
+static u8 jz4770_nemc_cle_ale_funcs[] = { 0, 0, };
+static u8 jz4770_nemc_addr_funcs[] = { 0, 0, 0, 0, };
+static u8 jz4770_nemc_rd_we_funcs[] = { 0, 0, };
+static u8 jz4770_nemc_frd_fwe_funcs[] = { 0, 0, };
+static u8 jz4770_nemc_wait_funcs[] = { 0, };
+static u8 jz4770_nemc_cs1_funcs[] = { 0, };
+static u8 jz4770_nemc_cs2_funcs[] = { 0, };
+static u8 jz4770_nemc_cs3_funcs[] = { 0, };
+static u8 jz4770_nemc_cs4_funcs[] = { 0, };
+static u8 jz4770_nemc_cs5_funcs[] = { 0, };
+static u8 jz4770_nemc_cs6_funcs[] = { 0, };
+static u8 jz4770_i2c0_funcs[] = { 0, 0, };
+static u8 jz4770_i2c1_funcs[] = { 0, 0, };
+static u8 jz4770_i2c2_funcs[] = { 2, 2, };
+static u8 jz4770_cim_8bit_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };
+static u8 jz4770_cim_12bit_funcs[] = { 0, 0, 0, 0, };
+static u8 jz4770_lcd_24bit_funcs[] = {
 	0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0,
 };
-static int jz4770_pwm_pwm0_funcs[] = { 0, };
-static int jz4770_pwm_pwm1_funcs[] = { 0, };
-static int jz4770_pwm_pwm2_funcs[] = { 0, };
-static int jz4770_pwm_pwm3_funcs[] = { 0, };
-static int jz4770_pwm_pwm4_funcs[] = { 0, };
-static int jz4770_pwm_pwm5_funcs[] = { 0, };
-static int jz4770_pwm_pwm6_funcs[] = { 0, };
-static int jz4770_pwm_pwm7_funcs[] = { 0, };
-static int jz4770_mac_rmii_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };
-static int jz4770_mac_mii_funcs[] = { 0, 0, };
-static int jz4770_otg_funcs[] = { 0, };
+static u8 jz4770_pwm_pwm0_funcs[] = { 0, };
+static u8 jz4770_pwm_pwm1_funcs[] = { 0, };
+static u8 jz4770_pwm_pwm2_funcs[] = { 0, };
+static u8 jz4770_pwm_pwm3_funcs[] = { 0, };
+static u8 jz4770_pwm_pwm4_funcs[] = { 0, };
+static u8 jz4770_pwm_pwm5_funcs[] = { 0, };
+static u8 jz4770_pwm_pwm6_funcs[] = { 0, };
+static u8 jz4770_pwm_pwm7_funcs[] = { 0, };
+static u8 jz4770_mac_rmii_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };
+static u8 jz4770_mac_mii_funcs[] = { 0, 0, };
+static u8 jz4770_otg_funcs[] = { 0, };
 
 static const struct group_desc jz4770_groups[] = {
 	INGENIC_PIN_GROUP("uart0-data", jz4770_uart0_data),
@@ -906,14 +906,14 @@ static int jz4780_i2c4_e_pins[] = { 0x8c, 0x8d, };
 static int jz4780_i2c4_f_pins[] = { 0xb9, 0xb8, };
 static int jz4780_hdmi_ddc_pins[] = { 0xb9, 0xb8, };
 
-static int jz4780_uart2_data_funcs[] = { 1, 1, };
-static int jz4780_uart2_hwflow_funcs[] = { 1, 1, };
-static int jz4780_uart4_data_funcs[] = { 2, 2, };
-static int jz4780_mmc0_8bit_a_funcs[] = { 1, 1, 1, 1, 1, };
-static int jz4780_i2c3_funcs[] = { 1, 1, };
-static int jz4780_i2c4_e_funcs[] = { 1, 1, };
-static int jz4780_i2c4_f_funcs[] = { 1, 1, };
-static int jz4780_hdmi_ddc_funcs[] = { 0, 0, };
+static u8 jz4780_uart2_data_funcs[] = { 1, 1, };
+static u8 jz4780_uart2_hwflow_funcs[] = { 1, 1, };
+static u8 jz4780_uart4_data_funcs[] = { 2, 2, };
+static u8 jz4780_mmc0_8bit_a_funcs[] = { 1, 1, 1, 1, 1, };
+static u8 jz4780_i2c3_funcs[] = { 1, 1, };
+static u8 jz4780_i2c4_e_funcs[] = { 1, 1, };
+static u8 jz4780_i2c4_f_funcs[] = { 1, 1, };
+static u8 jz4780_hdmi_ddc_funcs[] = { 0, 0, };
 
 static const struct group_desc jz4780_groups[] = {
 	INGENIC_PIN_GROUP("uart0-data", jz4770_uart0_data),
@@ -1113,59 +1113,59 @@ static int x1000_mac_pins[] = {
 	0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x26,
 };
 
-static int x1000_uart0_data_funcs[] = { 0, 0, };
-static int x1000_uart0_hwflow_funcs[] = { 0, 0, };
-static int x1000_uart1_data_a_funcs[] = { 2, 2, };
-static int x1000_uart1_data_d_funcs[] = { 1, 1, };
-static int x1000_uart1_hwflow_funcs[] = { 1, 1, };
-static int x1000_uart2_data_a_funcs[] = { 2, 2, };
-static int x1000_uart2_data_d_funcs[] = { 0, 0, };
-static int x1000_sfc_funcs[] = { 1, 1, 1, 1, 1, 1, };
-static int x1000_ssi_dt_a_22_funcs[] = { 2, };
-static int x1000_ssi_dt_a_29_funcs[] = { 2, };
-static int x1000_ssi_dt_d_funcs[] = { 0, };
-static int x1000_ssi_dr_a_23_funcs[] = { 2, };
-static int x1000_ssi_dr_a_28_funcs[] = { 2, };
-static int x1000_ssi_dr_d_funcs[] = { 0, };
-static int x1000_ssi_clk_a_24_funcs[] = { 2, };
-static int x1000_ssi_clk_a_26_funcs[] = { 2, };
-static int x1000_ssi_clk_d_funcs[] = { 0, };
-static int x1000_ssi_gpc_a_20_funcs[] = { 2, };
-static int x1000_ssi_gpc_a_31_funcs[] = { 2, };
-static int x1000_ssi_ce0_a_25_funcs[] = { 2, };
-static int x1000_ssi_ce0_a_27_funcs[] = { 2, };
-static int x1000_ssi_ce0_d_funcs[] = { 0, };
-static int x1000_ssi_ce1_a_21_funcs[] = { 2, };
-static int x1000_ssi_ce1_a_30_funcs[] = { 2, };
-static int x1000_mmc0_1bit_funcs[] = { 1, 1, 1, };
-static int x1000_mmc0_4bit_funcs[] = { 1, 1, 1, };
-static int x1000_mmc0_8bit_funcs[] = { 1, 1, 1, 1, 1, };
-static int x1000_mmc1_1bit_funcs[] = { 0, 0, 0, };
-static int x1000_mmc1_4bit_funcs[] = { 0, 0, 0, };
-static int x1000_emc_8bit_data_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, };
-static int x1000_emc_16bit_data_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, };
-static int x1000_emc_addr_funcs[] = {
+static u8 x1000_uart0_data_funcs[] = { 0, 0, };
+static u8 x1000_uart0_hwflow_funcs[] = { 0, 0, };
+static u8 x1000_uart1_data_a_funcs[] = { 2, 2, };
+static u8 x1000_uart1_data_d_funcs[] = { 1, 1, };
+static u8 x1000_uart1_hwflow_funcs[] = { 1, 1, };
+static u8 x1000_uart2_data_a_funcs[] = { 2, 2, };
+static u8 x1000_uart2_data_d_funcs[] = { 0, 0, };
+static u8 x1000_sfc_funcs[] = { 1, 1, 1, 1, 1, 1, };
+static u8 x1000_ssi_dt_a_22_funcs[] = { 2, };
+static u8 x1000_ssi_dt_a_29_funcs[] = { 2, };
+static u8 x1000_ssi_dt_d_funcs[] = { 0, };
+static u8 x1000_ssi_dr_a_23_funcs[] = { 2, };
+static u8 x1000_ssi_dr_a_28_funcs[] = { 2, };
+static u8 x1000_ssi_dr_d_funcs[] = { 0, };
+static u8 x1000_ssi_clk_a_24_funcs[] = { 2, };
+static u8 x1000_ssi_clk_a_26_funcs[] = { 2, };
+static u8 x1000_ssi_clk_d_funcs[] = { 0, };
+static u8 x1000_ssi_gpc_a_20_funcs[] = { 2, };
+static u8 x1000_ssi_gpc_a_31_funcs[] = { 2, };
+static u8 x1000_ssi_ce0_a_25_funcs[] = { 2, };
+static u8 x1000_ssi_ce0_a_27_funcs[] = { 2, };
+static u8 x1000_ssi_ce0_d_funcs[] = { 0, };
+static u8 x1000_ssi_ce1_a_21_funcs[] = { 2, };
+static u8 x1000_ssi_ce1_a_30_funcs[] = { 2, };
+static u8 x1000_mmc0_1bit_funcs[] = { 1, 1, 1, };
+static u8 x1000_mmc0_4bit_funcs[] = { 1, 1, 1, };
+static u8 x1000_mmc0_8bit_funcs[] = { 1, 1, 1, 1, 1, };
+static u8 x1000_mmc1_1bit_funcs[] = { 0, 0, 0, };
+static u8 x1000_mmc1_4bit_funcs[] = { 0, 0, 0, };
+static u8 x1000_emc_8bit_data_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, };
+static u8 x1000_emc_16bit_data_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, };
+static u8 x1000_emc_addr_funcs[] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
-static int x1000_emc_rd_we_funcs[] = { 0, 0, };
-static int x1000_emc_wait_funcs[] = { 0, };
-static int x1000_emc_cs1_funcs[] = { 0, };
-static int x1000_emc_cs2_funcs[] = { 0, };
-static int x1000_i2c0_funcs[] = { 0, 0, };
-static int x1000_i2c1_a_funcs[] = { 2, 2, };
-static int x1000_i2c1_c_funcs[] = { 0, 0, };
-static int x1000_i2c2_funcs[] = { 1, 1, };
-static int x1000_cim_funcs[] = { 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, };
-static int x1000_lcd_8bit_funcs[] = {
+static u8 x1000_emc_rd_we_funcs[] = { 0, 0, };
+static u8 x1000_emc_wait_funcs[] = { 0, };
+static u8 x1000_emc_cs1_funcs[] = { 0, };
+static u8 x1000_emc_cs2_funcs[] = { 0, };
+static u8 x1000_i2c0_funcs[] = { 0, 0, };
+static u8 x1000_i2c1_a_funcs[] = { 2, 2, };
+static u8 x1000_i2c1_c_funcs[] = { 0, 0, };
+static u8 x1000_i2c2_funcs[] = { 1, 1, };
+static u8 x1000_cim_funcs[] = { 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, };
+static u8 x1000_lcd_8bit_funcs[] = {
 	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 };
-static int x1000_lcd_16bit_funcs[] = { 1, 1, 1, 1, 1, 1, 1, 1, };
-static int x1000_pwm_pwm0_funcs[] = { 0, };
-static int x1000_pwm_pwm1_funcs[] = { 1, };
-static int x1000_pwm_pwm2_funcs[] = { 1, };
-static int x1000_pwm_pwm3_funcs[] = { 2, };
-static int x1000_pwm_pwm4_funcs[] = { 0, };
-static int x1000_mac_funcs[] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, };
+static u8 x1000_lcd_16bit_funcs[] = { 1, 1, 1, 1, 1, 1, 1, 1, };
+static u8 x1000_pwm_pwm0_funcs[] = { 0, };
+static u8 x1000_pwm_pwm1_funcs[] = { 1, };
+static u8 x1000_pwm_pwm2_funcs[] = { 1, };
+static u8 x1000_pwm_pwm3_funcs[] = { 2, };
+static u8 x1000_pwm_pwm4_funcs[] = { 0, };
+static u8 x1000_mac_funcs[] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, };
 
 static const struct group_desc x1000_groups[] = {
 	INGENIC_PIN_GROUP("uart0-data", x1000_uart0_data),
@@ -1319,25 +1319,25 @@ static int x1500_pwm_pwm2_pins[] = { 0x5b, };
 static int x1500_pwm_pwm3_pins[] = { 0x26, };
 static int x1500_pwm_pwm4_pins[] = { 0x58, };
 
-static int x1500_uart0_data_funcs[] = { 0, 0, };
-static int x1500_uart0_hwflow_funcs[] = { 0, 0, };
-static int x1500_uart1_data_a_funcs[] = { 2, 2, };
-static int x1500_uart1_data_d_funcs[] = { 1, 1, };
-static int x1500_uart1_hwflow_funcs[] = { 1, 1, };
-static int x1500_uart2_data_a_funcs[] = { 2, 2, };
-static int x1500_uart2_data_d_funcs[] = { 0, 0, };
-static int x1500_mmc_1bit_funcs[] = { 1, 1, 1, };
-static int x1500_mmc_4bit_funcs[] = { 1, 1, 1, };
-static int x1500_i2c0_funcs[] = { 0, 0, };
-static int x1500_i2c1_a_funcs[] = { 2, 2, };
-static int x1500_i2c1_c_funcs[] = { 0, 0, };
-static int x1500_i2c2_funcs[] = { 1, 1, };
-static int x1500_cim_funcs[] = { 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, };
-static int x1500_pwm_pwm0_funcs[] = { 0, };
-static int x1500_pwm_pwm1_funcs[] = { 1, };
-static int x1500_pwm_pwm2_funcs[] = { 1, };
-static int x1500_pwm_pwm3_funcs[] = { 2, };
-static int x1500_pwm_pwm4_funcs[] = { 0, };
+static u8 x1500_uart0_data_funcs[] = { 0, 0, };
+static u8 x1500_uart0_hwflow_funcs[] = { 0, 0, };
+static u8 x1500_uart1_data_a_funcs[] = { 2, 2, };
+static u8 x1500_uart1_data_d_funcs[] = { 1, 1, };
+static u8 x1500_uart1_hwflow_funcs[] = { 1, 1, };
+static u8 x1500_uart2_data_a_funcs[] = { 2, 2, };
+static u8 x1500_uart2_data_d_funcs[] = { 0, 0, };
+static u8 x1500_mmc_1bit_funcs[] = { 1, 1, 1, };
+static u8 x1500_mmc_4bit_funcs[] = { 1, 1, 1, };
+static u8 x1500_i2c0_funcs[] = { 0, 0, };
+static u8 x1500_i2c1_a_funcs[] = { 2, 2, };
+static u8 x1500_i2c1_c_funcs[] = { 0, 0, };
+static u8 x1500_i2c2_funcs[] = { 1, 1, };
+static u8 x1500_cim_funcs[] = { 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, };
+static u8 x1500_pwm_pwm0_funcs[] = { 0, };
+static u8 x1500_pwm_pwm1_funcs[] = { 1, };
+static u8 x1500_pwm_pwm2_funcs[] = { 1, };
+static u8 x1500_pwm_pwm3_funcs[] = { 2, };
+static u8 x1500_pwm_pwm4_funcs[] = { 0, };
 
 static const struct group_desc x1500_groups[] = {
 	INGENIC_PIN_GROUP("uart0-data", x1500_uart0_data),
@@ -1480,62 +1480,62 @@ static int x1830_mac_pins[] = {
 	0x29, 0x30, 0x2f, 0x28, 0x2e, 0x2d, 0x2a, 0x2b, 0x26, 0x27,
 };
 
-static int x1830_uart0_data_funcs[] = { 0, 0, };
-static int x1830_uart0_hwflow_funcs[] = { 0, 0, };
-static int x1830_uart1_data_funcs[] = { 0, 0, };
-static int x1830_sfc_funcs[] = { 1, 1, 1, 1, 1, 1, };
-static int x1830_ssi0_dt_funcs[] = { 0, };
-static int x1830_ssi0_dr_funcs[] = { 0, };
-static int x1830_ssi0_clk_funcs[] = { 0, };
-static int x1830_ssi0_gpc_funcs[] = { 0, };
-static int x1830_ssi0_ce0_funcs[] = { 0, };
-static int x1830_ssi0_ce1_funcs[] = { 0, };
-static int x1830_ssi1_dt_c_funcs[] = { 1, };
-static int x1830_ssi1_dr_c_funcs[] = { 1, };
-static int x1830_ssi1_clk_c_funcs[] = { 1, };
-static int x1830_ssi1_gpc_c_funcs[] = { 1, };
-static int x1830_ssi1_ce0_c_funcs[] = { 1, };
-static int x1830_ssi1_ce1_c_funcs[] = { 1, };
-static int x1830_ssi1_dt_d_funcs[] = { 2, };
-static int x1830_ssi1_dr_d_funcs[] = { 2, };
-static int x1830_ssi1_clk_d_funcs[] = { 2, };
-static int x1830_ssi1_gpc_d_funcs[] = { 2, };
-static int x1830_ssi1_ce0_d_funcs[] = { 2, };
-static int x1830_ssi1_ce1_d_funcs[] = { 2, };
-static int x1830_mmc0_1bit_funcs[] = { 0, 0, 0, };
-static int x1830_mmc0_4bit_funcs[] = { 0, 0, 0, };
-static int x1830_mmc1_1bit_funcs[] = { 0, 0, 0, };
-static int x1830_mmc1_4bit_funcs[] = { 0, 0, 0, };
-static int x1830_i2c0_funcs[] = { 1, 1, };
-static int x1830_i2c1_funcs[] = { 0, 0, };
-static int x1830_i2c2_funcs[] = { 1, 1, };
-static int x1830_lcd_rgb_18bit_funcs[] = {
+static u8 x1830_uart0_data_funcs[] = { 0, 0, };
+static u8 x1830_uart0_hwflow_funcs[] = { 0, 0, };
+static u8 x1830_uart1_data_funcs[] = { 0, 0, };
+static u8 x1830_sfc_funcs[] = { 1, 1, 1, 1, 1, 1, };
+static u8 x1830_ssi0_dt_funcs[] = { 0, };
+static u8 x1830_ssi0_dr_funcs[] = { 0, };
+static u8 x1830_ssi0_clk_funcs[] = { 0, };
+static u8 x1830_ssi0_gpc_funcs[] = { 0, };
+static u8 x1830_ssi0_ce0_funcs[] = { 0, };
+static u8 x1830_ssi0_ce1_funcs[] = { 0, };
+static u8 x1830_ssi1_dt_c_funcs[] = { 1, };
+static u8 x1830_ssi1_dr_c_funcs[] = { 1, };
+static u8 x1830_ssi1_clk_c_funcs[] = { 1, };
+static u8 x1830_ssi1_gpc_c_funcs[] = { 1, };
+static u8 x1830_ssi1_ce0_c_funcs[] = { 1, };
+static u8 x1830_ssi1_ce1_c_funcs[] = { 1, };
+static u8 x1830_ssi1_dt_d_funcs[] = { 2, };
+static u8 x1830_ssi1_dr_d_funcs[] = { 2, };
+static u8 x1830_ssi1_clk_d_funcs[] = { 2, };
+static u8 x1830_ssi1_gpc_d_funcs[] = { 2, };
+static u8 x1830_ssi1_ce0_d_funcs[] = { 2, };
+static u8 x1830_ssi1_ce1_d_funcs[] = { 2, };
+static u8 x1830_mmc0_1bit_funcs[] = { 0, 0, 0, };
+static u8 x1830_mmc0_4bit_funcs[] = { 0, 0, 0, };
+static u8 x1830_mmc1_1bit_funcs[] = { 0, 0, 0, };
+static u8 x1830_mmc1_4bit_funcs[] = { 0, 0, 0, };
+static u8 x1830_i2c0_funcs[] = { 1, 1, };
+static u8 x1830_i2c1_funcs[] = { 0, 0, };
+static u8 x1830_i2c2_funcs[] = { 1, 1, };
+static u8 x1830_lcd_rgb_18bit_funcs[] = {
 	0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0,
 };
-static int x1830_lcd_slcd_8bit_funcs[] = {
+static u8 x1830_lcd_slcd_8bit_funcs[] = {
 	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 };
-static int x1830_lcd_slcd_16bit_funcs[] = { 1, 1, 1, 1, 1, 1, 1, 1, };
-static int x1830_pwm_pwm0_b_funcs[] = { 0, };
-static int x1830_pwm_pwm0_c_funcs[] = { 1, };
-static int x1830_pwm_pwm1_b_funcs[] = { 0, };
-static int x1830_pwm_pwm1_c_funcs[] = { 1, };
-static int x1830_pwm_pwm2_c_8_funcs[] = { 0, };
-static int x1830_pwm_pwm2_c_13_funcs[] = { 1, };
-static int x1830_pwm_pwm3_c_9_funcs[] = { 0, };
-static int x1830_pwm_pwm3_c_14_funcs[] = { 1, };
-static int x1830_pwm_pwm4_c_15_funcs[] = { 1, };
-static int x1830_pwm_pwm4_c_25_funcs[] = { 0, };
-static int x1830_pwm_pwm5_c_16_funcs[] = { 1, };
-static int x1830_pwm_pwm5_c_26_funcs[] = { 0, };
-static int x1830_pwm_pwm6_c_17_funcs[] = { 1, };
-static int x1830_pwm_pwm6_c_27_funcs[] = { 0, };
-static int x1830_pwm_pwm7_c_18_funcs[] = { 1, };
-static int x1830_pwm_pwm7_c_28_funcs[] = { 0, };
-static int x1830_mac_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };
+static u8 x1830_lcd_slcd_16bit_funcs[] = { 1, 1, 1, 1, 1, 1, 1, 1, };
+static u8 x1830_pwm_pwm0_b_funcs[] = { 0, };
+static u8 x1830_pwm_pwm0_c_funcs[] = { 1, };
+static u8 x1830_pwm_pwm1_b_funcs[] = { 0, };
+static u8 x1830_pwm_pwm1_c_funcs[] = { 1, };
+static u8 x1830_pwm_pwm2_c_8_funcs[] = { 0, };
+static u8 x1830_pwm_pwm2_c_13_funcs[] = { 1, };
+static u8 x1830_pwm_pwm3_c_9_funcs[] = { 0, };
+static u8 x1830_pwm_pwm3_c_14_funcs[] = { 1, };
+static u8 x1830_pwm_pwm4_c_15_funcs[] = { 1, };
+static u8 x1830_pwm_pwm4_c_25_funcs[] = { 0, };
+static u8 x1830_pwm_pwm5_c_16_funcs[] = { 1, };
+static u8 x1830_pwm_pwm5_c_26_funcs[] = { 0, };
+static u8 x1830_pwm_pwm6_c_17_funcs[] = { 1, };
+static u8 x1830_pwm_pwm6_c_27_funcs[] = { 0, };
+static u8 x1830_pwm_pwm7_c_18_funcs[] = { 1, };
+static u8 x1830_pwm_pwm7_c_28_funcs[] = { 0, };
+static u8 x1830_mac_funcs[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };
 
 static const struct group_desc x1830_groups[] = {
 	INGENIC_PIN_GROUP("uart0-data", x1830_uart0_data),
@@ -2049,7 +2049,7 @@ static int ingenic_pinmux_set_mux(struct pinctrl_dev *pctldev,
 		func->name, grp->name);
 
 	for (i = 0; i < grp->num_pins; i++) {
-		int *pin_modes = grp->data;
+		u8 *pin_modes = grp->data;
 
 		ingenic_pinmux_set_pin_fn(jzpc, grp->pins[i], pin_modes[i]);
 	}

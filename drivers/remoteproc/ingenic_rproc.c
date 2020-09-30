@@ -6,6 +6,7 @@
 
 #include <linux/bitops.h>
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
@@ -16,6 +17,9 @@
 #include "remoteproc_internal.h"
 
 #define REG_AUX_CTRL		0x0
+#define REG_AUX_SPINLK		0x4
+#define REG_AUX_SPIN1		0x8
+#define REG_AUX_SPIN2		0xc
 #define REG_AUX_MSG_ACK		0x10
 #define REG_AUX_MSG		0x14
 #define REG_CORE_MSG_ACK	0x18
@@ -26,6 +30,9 @@
 #define AUX_CTRL_NMI_RESETS	BIT(2)
 #define AUX_CTRL_NMI		BIT(1)
 #define AUX_CTRL_SW_RESET	BIT(0)
+
+#define AUX_SPIN1_LOCKED	BIT(0)
+#define AUX_SPIN2_LOCKED	BIT(1)
 
 struct vpu_mem_map {
 	const char *name;
@@ -90,6 +97,11 @@ static int ingenic_rproc_start(struct rproc *rproc)
 
 	enable_irq(vpu->irq);
 
+	/* Setup the spinlock registers before starting VPU firmware */
+	writel(0, vpu->aux_base + REG_AUX_SPINLK);
+	writel(AUX_SPIN1_LOCKED, vpu->aux_base + REG_AUX_SPIN1);
+	writel(AUX_SPIN2_LOCKED, vpu->aux_base + REG_AUX_SPIN2);
+
 	/* Reset the AUX and enable message IRQ */
 	ctrl = AUX_CTRL_NMI_RESETS | AUX_CTRL_NMI | AUX_CTRL_MSG_IRQ_EN;
 	writel(ctrl, vpu->aux_base + REG_AUX_CTRL);
@@ -109,11 +121,49 @@ static int ingenic_rproc_stop(struct rproc *rproc)
 	return 0;
 }
 
-static void ingenic_rproc_kick(struct rproc *rproc, int vqid)
+static int ingenic_rproc_lock_vpu(struct rproc *rproc)
+{
+	struct vpu *vpu = rproc->priv;
+	ktime_t timeout = ktime_add_us(ktime_get(), USEC_PER_SEC);
+	u32 lock;
+
+	for (;;) {
+		readl(vpu->aux_base + REG_AUX_SPIN1);
+		lock = readl(vpu->aux_base + REG_AUX_SPINLK);
+
+		if (lock == AUX_SPIN1_LOCKED)
+			break;
+
+		if (ktime_compare(ktime_get(), timeout) > 0)
+			return -ETIMEDOUT;
+
+		usleep_range(100, 1000);
+	}
+
+	return 0;
+}
+
+static void ingenic_rproc_unlock_vpu(struct rproc *rproc)
 {
 	struct vpu *vpu = rproc->priv;
 
+	writel(0, vpu->aux_base + REG_AUX_SPINLK);
+}
+
+static void ingenic_rproc_kick(struct rproc *rproc, int vqid)
+{
+	struct vpu *vpu = rproc->priv;
+	int ret;
+
+	ret = ingenic_rproc_lock_vpu(rproc);
+	if (ret < 0) {
+		rproc_report_crash(rproc, RPROC_FATAL_ERROR);
+		return;
+	}
+
 	writel(vqid, vpu->aux_base + REG_CORE_MSG);
+
+	ingenic_rproc_unlock_vpu(rproc);
 }
 
 static void *ingenic_rproc_da_to_va(struct rproc *rproc, u64 da, size_t len)
@@ -218,6 +268,13 @@ static int ingenic_rproc_probe(struct platform_device *pdev)
 	}
 
 	disable_irq(vpu->irq);
+
+	/*
+	 * The VPU in Ingenic SoCs is pretty general-purpose, so many kinds of
+	 * firmwares can be made for it. Let user-space specify which firmware
+	 * should be loaded intead of trying to auto-boot.
+	 */
+	rproc->auto_boot = false;
 
 	ret = devm_rproc_add(dev, rproc);
 	if (ret) {

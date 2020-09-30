@@ -205,26 +205,26 @@ static int jz4740_probe(struct platform_device *pdev)
 
 	pdata = of_device_get_match_data(dev);
 	if (!pdata) {
-		dev_err(dev, "missing platform data");
+		dev_err(dev, "missing platform data\n");
 		return -EINVAL;
 	}
 
 	musb = platform_device_alloc("musb-hdrc", PLATFORM_DEVID_AUTO);
 	if (!musb) {
-		dev_err(dev, "failed to allocate musb device");
+		dev_err(dev, "failed to allocate musb device\n");
 		return -ENOMEM;
 	}
 
 	clk = devm_clk_get(dev, "udc");
 	if (IS_ERR(clk)) {
-		dev_err(dev, "failed to get clock");
+		dev_err(dev, "failed to get clock\n");
 		ret = PTR_ERR(clk);
 		goto err_platform_device_put;
 	}
 
 	ret = clk_prepare_enable(clk);
 	if (ret) {
-		dev_err(dev, "failed to enable clock");
+		dev_err(dev, "failed to enable clock\n");
 		goto err_platform_device_put;
 	}
 
@@ -240,19 +240,19 @@ static int jz4740_probe(struct platform_device *pdev)
 	ret = platform_device_add_resources(musb, pdev->resource,
 					    pdev->num_resources);
 	if (ret) {
-		dev_err(dev, "failed to add resources");
+		dev_err(dev, "failed to add resources\n");
 		goto err_clk_disable;
 	}
 
 	ret = platform_device_add_data(musb, pdata, sizeof(*pdata));
 	if (ret) {
-		dev_err(dev, "failed to add platform_data");
+		dev_err(dev, "failed to add platform_data\n");
 		goto err_clk_disable;
 	}
 
 	ret = platform_device_add(musb);
 	if (ret) {
-		dev_err(dev, "failed to register musb device");
+		dev_err(dev, "failed to register musb device\n");
 		goto err_clk_disable;
 	}
 
