@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: GPL-2.0
-
 #include <dt-bindings/clock/jz4770-cgu.h>
 #include <dt-bindings/clock/ingenic,tcu.h>
 
@@ -7,6 +6,20 @@
 	#address-cells = <1>;
 	#size-cells = <1>;
 	compatible = "ingenic,jz4770";
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "ingenic,xburst-fpu1.0-mxu1.1";
+			reg = <0>;
+
+			clocks = <&cgu JZ4770_CLK_CCLK>;
+			clock-names = "cpu";
+		};
+	};
 
 	cpuintc: interrupt-controller {
 		#address-cells = <0>;
@@ -358,6 +371,45 @@
 		status = "disabled";
 	};
 
+	i2c0: i2c-controller@10050000 {
+		compatible = "ingenic,jz4770-i2c";
+		reg = <0x10050000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <1>;
+		clocks = <&cgu JZ4770_CLK_I2C0>;
+
+		status = "disabled";
+	};
+
+	i2c1: i2c-controller@10051000 {
+		compatible = "ingenic,jz4770-i2c";
+		reg = <0x10051000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <0>;
+		clocks = <&cgu JZ4770_CLK_I2C1>;
+
+		status = "disabled";
+	};
+
+	i2c2: i2c-controller@10055000 {
+		compatible = "ingenic,jz4770-i2c";
+		reg = <0x10055000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <22>;
+		clocks = <&cgu JZ4770_CLK_I2C2>;
+
+		status = "disabled";
+	};
+
 	adc: adc@10070000 {
 		compatible = "ingenic,jz4770-adc";
 		reg = <0x10070000 0x30>;
@@ -393,6 +445,33 @@
 
 		clocks = <&cgu JZ4770_CLK_LPCLK_MUX>;
 		clock-names = "lcd_pclk";
+	};
+
+	ipu: ipu@13080000 {
+		compatible = "ingenic,jz4770-ipu", "ingenic,jz4760-ipu";
+		reg = <0x13080000 0x800>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <29>;
+
+		clocks = <&cgu JZ4770_CLK_IPU>;
+		clock-names = "ipu";
+	};
+
+	vpu: video-decoder@132a0000 {
+		compatible = "ingenic,jz4770-vpu-rproc";
+
+		reg = <0x132a0000 0x20>, /* AUX */
+		      <0x132b0000 0x4000>, /* TCSM0 */
+		      <0x132c0000 0xc000>, /* TCSM1 */
+		      <0x132f0000 0x7000>; /* SRAM */
+		reg-names = "aux", "tcsm0", "tcsm1", "sram";
+
+		clocks = <&cgu JZ4770_CLK_AUX>, <&cgu JZ4770_CLK_VPU>;
+		clock-names = "aux", "vpu";
+
+		interrupt-parent = <&cpuintc>;
+		interrupts = <3>;
 	};
 
 	dmac0: dma-controller@13420000 {
