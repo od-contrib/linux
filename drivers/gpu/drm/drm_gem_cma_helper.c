@@ -77,6 +77,65 @@ error:
 	return ERR_PTR(ret);
 }
 
+static struct drm_gem_cma_object *
+drm_gem_cma_create_with_cache_param(struct drm_device *drm,
+				    size_t size,
+				    bool noncoherent)
+{
+	struct drm_gem_cma_object *cma_obj;
+	int ret;
+
+	size = round_up(size, PAGE_SIZE);
+
+	cma_obj = __drm_gem_cma_create(drm, size);
+	if (IS_ERR(cma_obj))
+		return cma_obj;
+
+	if (noncoherent) {
+		cma_obj->vaddr = dma_alloc_noncoherent(drm->dev, size,
+						       &cma_obj->paddr,
+						       DMA_TO_DEVICE,
+						       GFP_KERNEL | __GFP_NOWARN);
+
+	} else {
+		cma_obj->vaddr = dma_alloc_wc(drm->dev, size, &cma_obj->paddr,
+					      GFP_KERNEL | __GFP_NOWARN);
+	}
+	if (!cma_obj->vaddr) {
+		drm_dbg(drm, "failed to allocate buffer with size %zu\n",
+			 size);
+		ret = -ENOMEM;
+		goto error;
+	}
+
+	return cma_obj;
+
+error:
+	drm_gem_object_put(&cma_obj->base);
+	return ERR_PTR(ret);
+}
+
+/**
+ * drm_gem_cma_create_noncoherent - allocate an object with the given size
+ *     and non-coherent cache attribute
+ * @drm: DRM device
+ * @size: size of the object to allocate
+ *
+ * This function creates a CMA GEM object and allocates a contiguous chunk of
+ * memory as backing store. The backing memory has the noncoherent attribute
+ * set.
+ *
+ * Returns:
+ * A struct drm_gem_cma_object * on success or an ERR_PTR()-encoded negative
+ * error code on failure.
+ */
+struct drm_gem_cma_object *
+drm_gem_cma_create_noncoherent(struct drm_device *drm, size_t size)
+{
+	return drm_gem_cma_create_with_cache_param(drm, size, true);
+}
+EXPORT_SYMBOL_GPL(drm_gem_cma_create_noncoherent);
+
 /**
  * drm_gem_cma_create - allocate an object with the given size
  * @drm: DRM device
@@ -93,29 +152,7 @@ error:
 struct drm_gem_cma_object *drm_gem_cma_create(struct drm_device *drm,
 					      size_t size)
 {
-	struct drm_gem_cma_object *cma_obj;
-	int ret;
-
-	size = round_up(size, PAGE_SIZE);
-
-	cma_obj = __drm_gem_cma_create(drm, size);
-	if (IS_ERR(cma_obj))
-		return cma_obj;
-
-	cma_obj->vaddr = dma_alloc_wc(drm->dev, size, &cma_obj->paddr,
-				      GFP_KERNEL | __GFP_NOWARN);
-	if (!cma_obj->vaddr) {
-		drm_dbg(drm, "failed to allocate buffer with size %zu\n",
-			 size);
-		ret = -ENOMEM;
-		goto error;
-	}
-
-	return cma_obj;
-
-error:
-	drm_gem_object_put(&cma_obj->base);
-	return ERR_PTR(ret);
+	return drm_gem_cma_create_with_cache_param(drm, size, false);
 }
 EXPORT_SYMBOL_GPL(drm_gem_cma_create);
 
