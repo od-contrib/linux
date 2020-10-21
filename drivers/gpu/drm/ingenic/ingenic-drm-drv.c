@@ -9,6 +9,7 @@
 #include <linux/component.h>
 #include <linux/clk.h>
 #include <linux/dma-mapping.h>
+#include <linux/io.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/of_device.h>
@@ -23,6 +24,7 @@
 #include <drm/drm_color_mgmt.h>
 #include <drm/drm_crtc.h>
 #include <drm/drm_crtc_helper.h>
+#include <drm/drm_damage_helper.h>
 #include <drm/drm_drv.h>
 #include <drm/drm_gem_cma_helper.h>
 #include <drm/drm_fb_cma_helper.h>
@@ -55,6 +57,7 @@ struct ingenic_dma_hwdescs {
 struct jz_soc_info {
 	bool needs_dev_clk;
 	bool has_osd;
+	bool map_noncoherent;
 	unsigned int max_width, max_height;
 	const u32 *formats_f0, *formats_f1;
 	unsigned int num_formats_f0, num_formats_f1;
@@ -519,6 +522,8 @@ static int ingenic_drm_plane_atomic_check(struct drm_plane *plane,
 	     plane->state->fb->format->format != state->fb->format->format))
 		crtc_state->mode_changed = true;
 
+	drm_atomic_helper_check_plane_damage(state->state, state);
+
 	return 0;
 }
 
@@ -665,6 +670,8 @@ static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 	u32 fourcc;
 
 	if (state && state->fb) {
+		drm_gem_cma_sync_data(&priv->drm, oldstate, state);
+
 		crtc_state = state->crtc->state;
 		use_f1 = priv->soc_info->has_osd && plane != &priv->f0;
 
@@ -888,9 +895,26 @@ static void ingenic_drm_gem_fb_destroy(struct drm_framebuffer *fb)
 	drm_gem_fb_destroy(fb);
 }
 
+static int ingenic_drm_atomic_helper_dirtyfb(struct drm_framebuffer *fb,
+					     struct drm_file *file_priv,
+					     unsigned int flags,
+					     unsigned int color,
+					     struct drm_clip_rect *clips,
+					     unsigned int num_clips)
+{
+	struct ingenic_drm *priv = drm_device_get_priv(fb->dev);
+
+	if (!priv->soc_info->map_noncoherent)
+		return 0;
+
+	return drm_atomic_helper_dirtyfb(fb, file_priv, flags,
+					 color, clips, num_clips);
+}
+
 static const struct drm_framebuffer_funcs ingenic_drm_gem_fb_funcs = {
 	.destroy	= ingenic_drm_gem_fb_destroy,
 	.create_handle	= drm_gem_fb_create_handle,
+	.dirty          = ingenic_drm_atomic_helper_dirtyfb,
 };
 
 static struct drm_framebuffer *
@@ -935,6 +959,8 @@ ingenic_drm_gem_create_object(struct drm_device *drm, size_t size)
 	obj = kzalloc(sizeof(*obj), GFP_KERNEL);
 	if (!obj)
 		return ERR_PTR(-ENOMEM);
+
+	obj->base.map_noncoherent = priv->soc_info->map_noncoherent;
 
 	return &obj->base.base;
 }
@@ -1213,6 +1239,8 @@ static int ingenic_drm_bind(struct device *dev, bool has_components)
 		return ret;
 	}
 
+	drm_plane_enable_fb_damage_clips(&priv->f1);
+
 	drm_crtc_helper_add(&priv->crtc, &ingenic_drm_crtc_helper_funcs);
 
 	ret = drm_crtc_init_with_planes(drm, &priv->crtc, primary,
@@ -1240,6 +1268,8 @@ static int ingenic_drm_bind(struct device *dev, bool has_components)
 				ret);
 			return ret;
 		}
+
+		drm_plane_enable_fb_damage_clips(&priv->f0);
 
 		if (IS_ENABLED(CONFIG_DRM_INGENIC_IPU) && has_components) {
 			ret = component_bind_all(dev, drm);
@@ -1543,6 +1573,7 @@ static const u32 jz4770_formats_f0[] = {
 static const struct jz_soc_info jz4740_soc_info = {
 	.needs_dev_clk = true,
 	.has_osd = false,
+	.map_noncoherent = false,
 	.max_width = 800,
 	.max_height = 600,
 	.formats_f1 = jz4740_formats,
@@ -1553,6 +1584,7 @@ static const struct jz_soc_info jz4740_soc_info = {
 static const struct jz_soc_info jz4725b_soc_info = {
 	.needs_dev_clk = false,
 	.has_osd = true,
+	.map_noncoherent = false,
 	.max_width = 800,
 	.max_height = 600,
 	.formats_f1 = jz4725b_formats_f1,
@@ -1564,6 +1596,7 @@ static const struct jz_soc_info jz4725b_soc_info = {
 static const struct jz_soc_info jz4770_soc_info = {
 	.needs_dev_clk = false,
 	.has_osd = true,
+	.map_noncoherent = true,
 	.max_width = 1280,
 	.max_height = 720,
 	.formats_f1 = jz4770_formats_f1,

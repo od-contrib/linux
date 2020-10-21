@@ -20,9 +20,11 @@
 
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
+#include <drm/drm_damage_helper.h>
 #include <drm/drm_drv.h>
 #include <drm/drm_fb_cma_helper.h>
 #include <drm/drm_fourcc.h>
+#include <drm/drm_gem_cma_helper.h>
 #include <drm/drm_gem_framebuffer_helper.h>
 #include <drm/drm_plane.h>
 #include <drm/drm_plane_helper.h>
@@ -357,6 +359,8 @@ static void ingenic_ipu_plane_atomic_update(struct drm_plane *plane,
 				JZ_IPU_CTRL_CHIP_EN | JZ_IPU_CTRL_LCDC_SEL);
 	}
 
+	drm_gem_cma_sync_data(ipu->drm, oldstate, state);
+
 	/* New addresses will be committed in vblank handler... */
 	ipu->addr_y = drm_fb_cma_get_gem_addr(state->fb, state, 0);
 	if (finfo->num_planes > 1)
@@ -581,7 +585,7 @@ static int ingenic_ipu_plane_atomic_check(struct drm_plane *plane,
 
 	if (!state->crtc ||
 	    !crtc_state->mode.hdisplay || !crtc_state->mode.vdisplay)
-		return 0;
+		goto out_check_damage;
 
 	/* Plane must be fully visible */
 	if (state->crtc_x < 0 || state->crtc_y < 0 ||
@@ -598,7 +602,7 @@ static int ingenic_ipu_plane_atomic_check(struct drm_plane *plane,
 		return -EINVAL;
 
 	if (!osd_changed(state, plane->state))
-		return 0;
+		goto out_check_damage;
 
 	crtc_state->mode_changed = true;
 
@@ -631,6 +635,9 @@ static int ingenic_ipu_plane_atomic_check(struct drm_plane *plane,
 	ipu_state->num_h = num_h;
 	ipu_state->denom_w = denom_w;
 	ipu_state->denom_h = denom_h;
+
+out_check_damage:
+	drm_atomic_helper_check_plane_damage(state->state, state);
 
 	return 0;
 }
@@ -842,6 +849,8 @@ static int ingenic_ipu_bind(struct device *dev, struct device *master, void *d)
 		dev_err(dev, "Failed to init plane: %i\n", err);
 		return err;
 	}
+
+	drm_plane_enable_fb_damage_clips(plane);
 
 	/*
 	 * Sharpness settings range is [0,32]
