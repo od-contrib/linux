@@ -1,0 +1,79 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+
+#include "rg350.dts"
+
+/ {
+	compatible = "ylm,rg280m", "ingenic,jz4770";
+	model = "Anbernic RG-280M";
+
+	spi {
+		compatible = "spi-gpio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		sck-gpios = <&gpe 15 0>;
+		mosi-gpios = <&gpe 17 0>;
+		cs-gpios = <&gpe 16 0>;
+		num-chipselects = <1>;
+
+		panel@0 {
+			compatible = "abt,y030xx067a";
+			reg = <0>;
+
+			spi-max-frequency = <15000000>;
+
+			reset-gpios = <&gpe 2 GPIO_ACTIVE_LOW>;
+
+			backlight = <&backlight>;
+			power-supply = <&vcc>;
+
+			port {
+				y030xx067a_input: endpoint {
+					remote-endpoint = <&panel_output>;
+				};
+			};
+		};
+	};
+
+	rg280m-joystick {
+		compatible = "adc-joystick";
+		io-channels = <&adc INGENIC_ADC_TOUCH_YP>,
+			      <&adc INGENIC_ADC_TOUCH_XP>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		axis@0 {
+			reg = <0>;
+			linux,code = <ABS_X>;
+			abs-range = <3000 200>;
+			abs-fuzz = <4>;
+			abs-flat = <200>;
+		};
+
+		axis@1 {
+			reg = <1>;
+			linux,code = <ABS_Y>;
+			abs-range = <3000 200>;
+			abs-fuzz = <4>;
+			abs-flat = <200>;
+		};
+	};
+};
+
+&panel_output {
+	remote-endpoint = <&y030xx067a_input>;
+};
+
+&panel {
+	status = "disabled";
+};
+
+/* Make Frida panel port a dummy to avoid DTC complaints */
+&panel_input {
+	remote-endpoint = <&panel_input>;
+};
+
+&joystick {
+	status = "disabled";
+};

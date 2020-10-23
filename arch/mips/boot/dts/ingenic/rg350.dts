@@ -351,7 +351,7 @@
 		};
 	};
 
-	joystick {
+	joystick: joystick {
 		compatible = "adc-joystick";
 		io-channels = <&adc INGENIC_ADC_TOUCH_YP>,
 			      <&adc INGENIC_ADC_TOUCH_XP>,
