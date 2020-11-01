@@ -7,6 +7,7 @@
 #include <drm/drm_gem.h>
 
 struct drm_mode_create_dumb;
+struct drm_plane_state;
 
 /**
  * struct drm_gem_cma_object - GEM object backed by CMA memory allocations
@@ -186,5 +187,9 @@ drm_gem_cma_prime_import_sg_table_vmap(struct drm_device *drm,
 				       struct sg_table *sgt);
 int drm_gem_cma_prime_mmap(struct drm_gem_object *obj,
 			   struct vm_area_struct *vma);
+
+void drm_gem_cma_sync_data(struct drm_device *drm,
+			   struct drm_plane_state *old_state,
+			   struct drm_plane_state *state);
 
 #endif /* __DRM_GEM_CMA_HELPER_H__ */
