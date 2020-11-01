@@ -83,6 +83,8 @@ int drm_gem_cma_dumb_create_noncoherent(struct drm_file *file_priv,
 /* set vm_flags and we can change the VM attribute to other one at here */
 int drm_gem_cma_mmap(struct file *filp, struct vm_area_struct *vma);
 
+int drm_gem_cma_mmap_noncoherent(struct file *filep, struct vm_area_struct *vma);
+
 /* allocate physical memory */
 struct drm_gem_cma_object *drm_gem_cma_create(struct drm_device *drm,
 					      size_t size);
