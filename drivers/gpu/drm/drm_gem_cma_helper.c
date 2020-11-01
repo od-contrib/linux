@@ -9,7 +9,10 @@
  * Copyright (c) 2011 Samsung Electronics Co., Ltd.
  */
 
+#include <linux/dma-direct.h>
+
 #include <linux/dma-buf.h>
+#include <linux/dma-direct.h>
 #include <linux/dma-mapping.h>
 #include <linux/export.h>
 #include <linux/mm.h>
@@ -403,6 +406,47 @@ int drm_gem_cma_mmap(struct file *filp, struct vm_area_struct *vma)
 	return drm_gem_cma_mmap_obj(cma_obj, vma);
 }
 EXPORT_SYMBOL_GPL(drm_gem_cma_mmap);
+
+/**
+ * drm_gem_cma_mmap_noncoherent - memory-map a CMA GEM object with
+ *     non-coherent cache attribute
+ * @filp: file object
+ * @vma: VMA for the area to be mapped
+ *
+ * Just like drm_gem_cma_mmap, but for a GEM object backed by non-coherent
+ * memory.
+ *
+ * Returns:
+ * 0 on success or a negative error code on failure.
+ */
+int drm_gem_cma_mmap_noncoherent(struct file *filp, struct vm_area_struct *vma)
+{
+	struct drm_gem_cma_object *cma_obj;
+	unsigned long pfn;
+	int ret;
+
+	ret = drm_gem_mmap(filp, vma);
+	if (ret)
+		return ret;
+
+	cma_obj = to_drm_gem_cma_obj(vma->vm_private_data);
+
+	/*
+	 * Clear the VM_PFNMAP flag that was set by drm_gem_mmap(), and set the
+	 * vm_pgoff (used as a fake buffer offset by DRM) to 0 as we want to map
+	 * the whole buffer.
+	 */
+	vma->vm_flags &= ~VM_PFNMAP;
+	vma->vm_pgoff = 0;
+	vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
+
+	pfn = PHYS_PFN(dma_to_phys(cma_obj->base.dev->dev, cma_obj->paddr));
+
+	return remap_pfn_range(vma, vma->vm_start, pfn,
+			       vma->vm_end - vma->vm_start,
+			       vma->vm_page_prot);
+}
+EXPORT_SYMBOL_GPL(drm_gem_cma_mmap_noncoherent);
 
 #ifndef CONFIG_MMU
 /**
