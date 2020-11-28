@@ -32,10 +32,14 @@ properties:
     maxItems: 1
 
   clocks:
-    maxItems: 1
+    minItems: 1
+    maxItems: 2
 
   clock-names:
-    const: mmc
+    items:
+      - const: mmc
+      - const: pll
+    minItems: 1
 
   dmas:
     items:
