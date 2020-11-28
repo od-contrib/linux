@@ -17,9 +17,14 @@
 #include <linux/slab.h>
 
 #include <drm/drm.h>
+#include <drm/drm_damage_helper.h>
 #include <drm/drm_device.h>
 #include <drm/drm_drv.h>
+#include <drm/drm_fourcc.h>
+#include <drm/drm_fb_cma_helper.h>
+#include <drm/drm_framebuffer.h>
 #include <drm/drm_gem_cma_helper.h>
+#include <drm/drm_plane.h>
 #include <drm/drm_vma_manager.h>
 
 /**
@@ -77,6 +82,65 @@ error:
 	return ERR_PTR(ret);
 }
 
+static struct drm_gem_cma_object *
+drm_gem_cma_create_with_cache_param(struct drm_device *drm,
+				    size_t size,
+				    bool noncoherent)
+{
+	struct drm_gem_cma_object *cma_obj;
+	int ret;
+
+	size = round_up(size, PAGE_SIZE);
+
+	cma_obj = __drm_gem_cma_create(drm, size);
+	if (IS_ERR(cma_obj))
+		return cma_obj;
+
+	if (noncoherent) {
+		cma_obj->vaddr = dma_alloc_noncoherent(drm->dev, size,
+						       &cma_obj->paddr,
+						       DMA_TO_DEVICE,
+						       GFP_KERNEL | __GFP_NOWARN);
+
+	} else {
+		cma_obj->vaddr = dma_alloc_wc(drm->dev, size, &cma_obj->paddr,
+					      GFP_KERNEL | __GFP_NOWARN);
+	}
+	if (!cma_obj->vaddr) {
+		drm_dbg(drm, "failed to allocate buffer with size %zu\n",
+			 size);
+		ret = -ENOMEM;
+		goto error;
+	}
+
+	return cma_obj;
+
+error:
+	drm_gem_object_put(&cma_obj->base);
+	return ERR_PTR(ret);
+}
+
+/**
+ * drm_gem_cma_create_noncoherent - allocate an object with the given size
+ *     and non-coherent cache attribute
+ * @drm: DRM device
+ * @size: size of the object to allocate
+ *
+ * This function creates a CMA GEM object and allocates a contiguous chunk of
+ * memory as backing store. The backing memory has the noncoherent attribute
+ * set.
+ *
+ * Returns:
+ * A struct drm_gem_cma_object * on success or an ERR_PTR()-encoded negative
+ * error code on failure.
+ */
+struct drm_gem_cma_object *
+drm_gem_cma_create_noncoherent(struct drm_device *drm, size_t size)
+{
+	return drm_gem_cma_create_with_cache_param(drm, size, true);
+}
+EXPORT_SYMBOL_GPL(drm_gem_cma_create_noncoherent);
+
 /**
  * drm_gem_cma_create - allocate an object with the given size
  * @drm: DRM device
@@ -93,29 +157,7 @@ error:
 struct drm_gem_cma_object *drm_gem_cma_create(struct drm_device *drm,
 					      size_t size)
 {
-	struct drm_gem_cma_object *cma_obj;
-	int ret;
-
-	size = round_up(size, PAGE_SIZE);
-
-	cma_obj = __drm_gem_cma_create(drm, size);
-	if (IS_ERR(cma_obj))
-		return cma_obj;
-
-	cma_obj->vaddr = dma_alloc_wc(drm->dev, size, &cma_obj->paddr,
-				      GFP_KERNEL | __GFP_NOWARN);
-	if (!cma_obj->vaddr) {
-		drm_dbg(drm, "failed to allocate buffer with size %zu\n",
-			 size);
-		ret = -ENOMEM;
-		goto error;
-	}
-
-	return cma_obj;
-
-error:
-	drm_gem_object_put(&cma_obj->base);
-	return ERR_PTR(ret);
+	return drm_gem_cma_create_with_cache_param(drm, size, false);
 }
 EXPORT_SYMBOL_GPL(drm_gem_cma_create);
 
@@ -126,6 +168,7 @@ EXPORT_SYMBOL_GPL(drm_gem_cma_create);
  * @drm: DRM device
  * @size: size of the object to allocate
  * @handle: return location for the GEM handle
+ * @noncoherent: allocate object with non-coherent cache attribute
  *
  * This function creates a CMA GEM object, allocating a physically contiguous
  * chunk of memory as backing store. The GEM object is then added to the list
@@ -138,13 +181,13 @@ EXPORT_SYMBOL_GPL(drm_gem_cma_create);
 static struct drm_gem_cma_object *
 drm_gem_cma_create_with_handle(struct drm_file *file_priv,
 			       struct drm_device *drm, size_t size,
-			       uint32_t *handle)
+			       uint32_t *handle, bool noncoherent)
 {
 	struct drm_gem_cma_object *cma_obj;
 	struct drm_gem_object *gem_obj;
 	int ret;
 
-	cma_obj = drm_gem_cma_create(drm, size);
+	cma_obj = drm_gem_cma_create_with_cache_param(drm, size, noncoherent);
 	if (IS_ERR(cma_obj))
 		return cma_obj;
 
@@ -222,7 +265,7 @@ int drm_gem_cma_dumb_create_internal(struct drm_file *file_priv,
 		args->size = args->pitch * args->height;
 
 	cma_obj = drm_gem_cma_create_with_handle(file_priv, drm, args->size,
-						 &args->handle);
+						 &args->handle, false);
 	return PTR_ERR_OR_ZERO(cma_obj);
 }
 EXPORT_SYMBOL_GPL(drm_gem_cma_dumb_create_internal);
@@ -255,10 +298,38 @@ int drm_gem_cma_dumb_create(struct drm_file *file_priv,
 	args->size = args->pitch * args->height;
 
 	cma_obj = drm_gem_cma_create_with_handle(file_priv, drm, args->size,
-						 &args->handle);
+						 &args->handle, false);
 	return PTR_ERR_OR_ZERO(cma_obj);
 }
 EXPORT_SYMBOL_GPL(drm_gem_cma_dumb_create);
+
+/**
+ * drm_gem_cma_dumb_create_noncoherent - create a dumb buffer object with
+ *     non-coherent cache attribute
+ * @file_priv: DRM file-private structure to create the dumb buffer for
+ * @drm: DRM device
+ * @args: IOCTL data
+ *
+ * Same as drm_gem_cma_dumb_create, but the dumb buffer object created has
+ * the non-coherent cache attribute set.
+ *
+ * Returns:
+ * 0 on success or a negative error code on failure.
+ */
+int drm_gem_cma_dumb_create_noncoherent(struct drm_file *file_priv,
+					struct drm_device *drm,
+					struct drm_mode_create_dumb *args)
+{
+	struct drm_gem_cma_object *cma_obj;
+
+	args->pitch = DIV_ROUND_UP(args->width * args->bpp, 8);
+	args->size = args->pitch * args->height;
+
+	cma_obj = drm_gem_cma_create_with_handle(file_priv, drm, args->size,
+						 &args->handle, true);
+	return PTR_ERR_OR_ZERO(cma_obj);
+}
+EXPORT_SYMBOL_GPL(drm_gem_cma_dumb_create_noncoherent);
 
 const struct vm_operations_struct drm_gem_cma_vm_ops = {
 	.open = drm_gem_vm_open,
@@ -321,6 +392,45 @@ int drm_gem_cma_mmap(struct file *filp, struct vm_area_struct *vma)
 	return drm_gem_cma_mmap_obj(cma_obj, vma);
 }
 EXPORT_SYMBOL_GPL(drm_gem_cma_mmap);
+
+/**
+ * drm_gem_cma_mmap_noncoherent - memory-map a CMA GEM object with
+ *     non-coherent cache attribute
+ * @filp: file object
+ * @vma: VMA for the area to be mapped
+ *
+ * Just like drm_gem_cma_mmap, but for a GEM object backed by non-coherent
+ * memory.
+ *
+ * Returns:
+ * 0 on success or a negative error code on failure.
+ */
+int drm_gem_cma_mmap_noncoherent(struct file *filp, struct vm_area_struct *vma)
+{
+	struct drm_gem_cma_object *cma_obj;
+	int ret;
+
+	ret = drm_gem_mmap(filp, vma);
+	if (ret)
+		return ret;
+
+	cma_obj = to_drm_gem_cma_obj(vma->vm_private_data);
+
+	/*
+	 * Clear the VM_PFNMAP flag that was set by drm_gem_mmap(), and set the
+	 * vm_pgoff (used as a fake buffer offset by DRM) to 0 as we want to map
+	 * the whole buffer.
+	 */
+	vma->vm_flags &= ~VM_PFNMAP;
+	vma->vm_pgoff = 0;
+	vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
+
+	return remap_pfn_range(vma, vma->vm_start,
+			       cma_obj->paddr >> PAGE_SHIFT,
+			       vma->vm_end - vma->vm_start,
+			       vma->vm_page_prot);
+}
+EXPORT_SYMBOL_GPL(drm_gem_cma_mmap_noncoherent);
 
 #ifndef CONFIG_MMU
 /**
@@ -637,3 +747,41 @@ drm_gem_cma_prime_import_sg_table_vmap(struct drm_device *dev,
 	return obj;
 }
 EXPORT_SYMBOL(drm_gem_cma_prime_import_sg_table_vmap);
+
+/**
+ * drm_gem_cma_sync_data - Sync GEM object to non-coherent backing memory
+ * @dev: DRM device
+ * @old_state: Old plane state
+ * @state: New plane state
+ *
+ * This function can be used by drivers that use damage clips and have
+ * CMA GEM objects backed by non-coherent memory. Calling this function
+ * in a plane's .atomic_update ensures that all the data in the backing
+ * memory have been written to RAM.
+ */
+void drm_gem_cma_sync_data(struct device *dev,
+			   struct drm_plane_state *old_state,
+			   struct drm_plane_state *state)
+{
+	const struct drm_format_info *finfo = state->fb->format;
+	struct drm_atomic_helper_damage_iter iter;
+	unsigned int offset, i;
+	struct drm_rect clip;
+	dma_addr_t daddr;
+
+	drm_atomic_helper_damage_iter_init(&iter, old_state, state);
+
+	drm_atomic_for_each_plane_damage(&iter, &clip) {
+		for (i = 0; i < finfo->num_planes; i++) {
+			daddr = drm_fb_cma_get_gem_addr(state->fb, state, i);
+
+			/* Ignore x1/x2 values, invalidate complete lines */
+			offset = clip.y1 * state->fb->pitches[i];
+
+			dma_sync_single_for_device(dev, daddr + offset,
+				       (clip.y2 - clip.y1) * state->fb->pitches[i],
+				       DMA_TO_DEVICE);
+		}
+	}
+}
+EXPORT_SYMBOL_GPL(drm_gem_cma_sync_data);
