@@ -51,6 +51,10 @@ config MACH_JZ4740
 	bool
 	select SYS_HAS_CPU_MIPS32_R1
 
+config MACH_JZ4760
+	bool
+	select SYS_HAS_CPU_MIPS32_R1
+
 config MACH_JZ4770
 	bool
 	select MIPS_CPU_SCACHE
