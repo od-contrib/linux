@@ -35,6 +35,7 @@ properties:
           - ingenic,jz4740-pinctrl
           - ingenic,jz4725b-pinctrl
           - ingenic,jz4760-pinctrl
+          - ingenic,jz4760b-pinctrl
           - ingenic,jz4770-pinctrl
           - ingenic,jz4780-pinctrl
           - ingenic,x1000-pinctrl
