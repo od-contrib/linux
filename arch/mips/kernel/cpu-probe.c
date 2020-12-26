@@ -1829,6 +1829,10 @@ static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 		if ((c->processor_id & PRID_COMP_MASK) == PRID_COMP_INGENIC_D0)
 			c->isa_level &= ~MIPS_CPU_ISA_M32R2;
 
+		/* FPU is not properly detected on JZ4760(B). */
+		if (c->processor_id == 0x2ed0024f)
+			c->options |= MIPS_CPU_FPU;
+
 		/*
 		 * The config0 register in the XBurst CPUs with a processor ID of
 		 * PRID_COMP_INGENIC_D0 or PRID_COMP_INGENIC_D1 has an abandoned
