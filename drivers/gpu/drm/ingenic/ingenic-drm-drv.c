@@ -755,6 +755,16 @@ static int ingenic_drm_gem_cma_mmap(struct file *filp,
 	return drm_gem_cma_mmap(filp, vma);
 }
 
+static int ingenic_drm_gem_cma_dumb_create(struct drm_file *file_priv,
+					   struct drm_device *drm,
+					   struct drm_mode_create_dumb *args)
+{
+	if (ingenic_drm_cached_gem_buf)
+		return drm_gem_cma_dumb_create_noncoherent(file_priv, drm, args);
+
+	return drm_gem_cma_dumb_create(file_priv, drm, args);
+}
+
 static const struct file_operations ingenic_drm_fops = {
 	.owner		= THIS_MODULE,
 	.open		= drm_open,
@@ -777,7 +787,7 @@ static const struct drm_driver ingenic_drm_driver_data = {
 	.patchlevel		= 0,
 
 	.fops			= &ingenic_drm_fops,
-	DRM_GEM_CMA_DRIVER_OPS_WITH_DUMB_CREATE(drm_gem_cma_dumb_create_noncoherent),
+	DRM_GEM_CMA_DRIVER_OPS_WITH_DUMB_CREATE(ingenic_drm_gem_cma_dumb_create),
 
 	.irq_handler		= ingenic_drm_irq_handler,
 };
