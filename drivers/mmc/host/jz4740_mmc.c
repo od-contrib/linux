@@ -16,6 +16,7 @@
 #include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/mmc/host.h>
+#include <linux/mmc/sd.h>
 #include <linux/mmc/slot-gpio.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
@@ -348,7 +349,8 @@ static void jz4740_mmc_pre_request(struct mmc_host *mmc,
 	if (atomic_inc_and_test(&host->clk_mutex_count))
 		mutex_lock(&host->clk_mutex);
 
-	if (!host->use_dma)
+	if (!host->use_dma ||
+	    mrq->cmd->opcode == SD_APP_SEND_SCR)
 		return;
 
 	data->host_cookie = COOKIE_UNMAPPED;
@@ -685,7 +687,8 @@ static void jz4740_mmc_send_command(struct jz4740_mmc_host *host,
 		cmdat |= JZ_MMC_CMDAT_DATA_EN;
 		if (cmd->data->flags & MMC_DATA_WRITE)
 			cmdat |= JZ_MMC_CMDAT_WRITE;
-		if (host->use_dma) {
+		if (host->use_dma &&
+		    cmd->opcode != SD_APP_SEND_SCR) {
 			/*
 			 * The 4780's MMC controller has integrated DMA ability
 			 * in addition to being able to use the external DMA
@@ -754,7 +757,8 @@ static irqreturn_t jz_mmc_irq_worker(int irq, void *devid)
 		fallthrough;
 
 	case JZ4740_MMC_STATE_TRANSFER_DATA:
-		if (host->use_dma) {
+		if (host->use_dma &&
+		    cmd->opcode != SD_APP_SEND_SCR) {
 			/* Use DMA if enabled.
 			 * Data transfer direction is defined later by
 			 * relying on data flags in
