@@ -815,6 +815,11 @@ static struct clk * ingenic_drm_get_parent_clk(struct clk *clk)
 	return clk_get_parent(clk);
 }
 
+static void ingenic_drm_encoder_cleanup(void *encoder)
+{
+	drm_encoder_cleanup(encoder);
+}
+
 static int ingenic_drm_bind(struct device *dev, bool has_components)
 {
 	struct platform_device *pdev = to_platform_device(dev);
@@ -1022,6 +1027,11 @@ static int ingenic_drm_bind(struct device *dev, bool has_components)
 			dev_err(dev, "Failed to init encoder: %d\n", ret);
 			return ret;
 		}
+
+		ret = devm_add_action_or_reset(dev, ingenic_drm_encoder_cleanup,
+					       encoder);
+		if (ret)
+			return ret;
 
 		ret = drm_bridge_attach(encoder, bridge, NULL, 0);
 		if (ret) {
