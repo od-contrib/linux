@@ -11,6 +11,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
+#include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <linux/usb/role.h>
 #include <linux/usb/usb_phy_generic.h>
@@ -81,6 +82,9 @@ static int jz4740_musb_role_switch_set(struct usb_role_switch *sw,
 	struct jz4740_glue *glue = usb_role_switch_get_drvdata(sw);
 	struct usb_phy *phy = glue->musb->xceiv;
 
+	if (!phy)
+		return 0;
+
 	switch (role) {
 	case USB_ROLE_NONE:
 		atomic_notifier_call_chain(&phy->notifier, USB_EVENT_NONE, phy);
@@ -109,21 +113,39 @@ static int jz4740_musb_init(struct musb *musb)
 
 	glue->musb = musb;
 
-	if (dev->of_node)
-		musb->xceiv = devm_usb_get_phy_by_phandle(dev, "phys", 0);
-	else
-		musb->xceiv = devm_usb_get_phy(dev, USB_PHY_TYPE_USB2);
-	if (IS_ERR(musb->xceiv)) {
-		err = PTR_ERR(musb->xceiv);
-		if (err != -EPROBE_DEFER)
-			dev_err(dev, "No transceiver configured: %d", err);
-		return err;
+	musb->phy = devm_of_phy_get_by_index(dev, dev->of_node, 0);
+	if (IS_ERR(musb->phy)) {
+		err = PTR_ERR(musb->phy);
+		if (err == -EPROBE_DEFER)
+			return err;
+
+		musb->phy = NULL;
+	}
+
+	if (musb->phy) {
+		err = phy_init(musb->phy);
+		if (err) {
+			dev_err(dev, "Failed to init PHY\n");
+			return err;
+		}
+	} else {
+		if (dev->of_node)
+			musb->xceiv = devm_usb_get_phy_by_phandle(dev, "phys", 0);
+		else
+			musb->xceiv = devm_usb_get_phy(dev, USB_PHY_TYPE_USB2);
+		if (IS_ERR(musb->xceiv)) {
+			err = PTR_ERR(musb->xceiv);
+			if (err != -EPROBE_DEFER)
+				dev_err(dev, "No transceiver configured: %d\n", err);
+			return err;
+		}
 	}
 
 	glue->role_sw = usb_role_switch_register(dev, &role_sw_desc);
 	if (IS_ERR(glue->role_sw)) {
-		dev_err(dev, "Failed to register USB role switch");
-		return PTR_ERR(glue->role_sw);
+		dev_err(dev, "Failed to register USB role switch\n");
+		err = PTR_ERR(glue->role_sw);
+		goto err_phy_shutdown;
 	}
 
 	/*
@@ -135,6 +157,10 @@ static int jz4740_musb_init(struct musb *musb)
 	musb->isr = jz4740_musb_interrupt;
 
 	return 0;
+
+err_phy_shutdown:
+	phy_exit(musb->phy);
+	return err;
 }
 
 static int jz4740_musb_exit(struct musb *musb)
@@ -142,6 +168,7 @@ static int jz4740_musb_exit(struct musb *musb)
 	struct jz4740_glue *glue = dev_get_drvdata(musb->controller->parent);
 
 	usb_role_switch_unregister(glue->role_sw);
+	phy_exit(musb->phy);
 
 	return 0;
 }
@@ -205,26 +232,26 @@ static int jz4740_probe(struct platform_device *pdev)
 
 	pdata = of_device_get_match_data(dev);
 	if (!pdata) {
-		dev_err(dev, "missing platform data");
+		dev_err(dev, "missing platform data\n");
 		return -EINVAL;
 	}
 
 	musb = platform_device_alloc("musb-hdrc", PLATFORM_DEVID_AUTO);
 	if (!musb) {
-		dev_err(dev, "failed to allocate musb device");
+		dev_err(dev, "failed to allocate musb device\n");
 		return -ENOMEM;
 	}
 
 	clk = devm_clk_get(dev, "udc");
 	if (IS_ERR(clk)) {
-		dev_err(dev, "failed to get clock");
+		dev_err(dev, "failed to get clock\n");
 		ret = PTR_ERR(clk);
 		goto err_platform_device_put;
 	}
 
 	ret = clk_prepare_enable(clk);
 	if (ret) {
-		dev_err(dev, "failed to enable clock");
+		dev_err(dev, "failed to enable clock\n");
 		goto err_platform_device_put;
 	}
 
@@ -240,19 +267,19 @@ static int jz4740_probe(struct platform_device *pdev)
 	ret = platform_device_add_resources(musb, pdev->resource,
 					    pdev->num_resources);
 	if (ret) {
-		dev_err(dev, "failed to add resources");
+		dev_err(dev, "failed to add resources\n");
 		goto err_clk_disable;
 	}
 
 	ret = platform_device_add_data(musb, pdata, sizeof(*pdata));
 	if (ret) {
-		dev_err(dev, "failed to add platform_data");
+		dev_err(dev, "failed to add platform_data\n");
 		goto err_clk_disable;
 	}
 
 	ret = platform_device_add(musb);
 	if (ret) {
-		dev_err(dev, "failed to register musb device");
+		dev_err(dev, "failed to register musb device\n");
 		goto err_clk_disable;
 	}
 

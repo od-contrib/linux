@@ -27,6 +27,11 @@
 #define AUX_CTRL_NMI		BIT(1)
 #define AUX_CTRL_SW_RESET	BIT(0)
 
+static bool auto_boot;
+module_param(auto_boot, bool, 0400);
+MODULE_PARM_DESC(auto_boot,
+		 "Auto-boot the remote processor [default=false]");
+
 struct vpu_mem_map {
 	const char *name;
 	unsigned int da;
@@ -172,12 +177,26 @@ static int ingenic_rproc_probe(struct platform_device *pdev)
 	if (!rproc)
 		return -ENOMEM;
 
+	rproc->auto_boot = auto_boot;
+
 	vpu = rproc->priv;
 	vpu->dev = &pdev->dev;
 	platform_set_drvdata(pdev, vpu);
 
 	mem = platform_get_resource_byname(pdev, IORESOURCE_MEM, "aux");
-	vpu->aux_base = devm_ioremap_resource(dev, mem);
+
+	/*
+	 * Request only the registers we use.
+	 * Regs 0x4->0xc will be used in a hwspinlock driver.
+	 */
+	if (!devm_request_mem_region(dev, mem->start, 0x4, dev_name(dev)) ||
+	    !devm_request_mem_region(dev, mem->start + REG_AUX_MSG_ACK,
+				     0x10, dev_name(dev))) {
+		dev_err(dev, "unable to request I/O memory region\n");
+		return -EBUSY;
+	}
+
+	vpu->aux_base = devm_ioremap(dev, mem->start, resource_size(mem));
 	if (IS_ERR(vpu->aux_base)) {
 		dev_err(dev, "Failed to ioremap\n");
 		return PTR_ERR(vpu->aux_base);
