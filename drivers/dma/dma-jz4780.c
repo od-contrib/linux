@@ -8,7 +8,9 @@
 
 #include <linux/clk.h>
 #include <linux/dmapool.h>
+#include <linux/dma-mapping.h>
 #include <linux/init.h>
+#include <linux/iopoll.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -58,6 +60,7 @@
 #define JZ_DMA_DCS_TT		BIT(3)
 #define JZ_DMA_DCS_AR		BIT(4)
 #define JZ_DMA_DCS_DES8		BIT(30)
+#define JZ_DMA_DCS_NDES		BIT(31)
 
 #define JZ_DMA_DCM_LINK		BIT(0)
 #define JZ_DMA_DCM_TIE		BIT(1)
@@ -832,6 +835,108 @@ static struct dma_chan *jz4780_of_dma_xlate(struct of_phandle_args *dma_spec,
 	}
 }
 
+static int jz4780_dma_test_chan(struct jz4780_dma_dev *jzdma,
+				struct jz4780_dma_chan *jzchan,
+				dma_addr_t src_dummy_phys)
+{
+	struct device *dev = jzdma->dma_device.dev;
+	u32 dmac, dcs, pending, *dummy;
+	dma_addr_t dummy_phys;
+	int ret;
+
+	dummy = dma_alloc_coherent(dev, sizeof(*dummy),
+				   &dummy_phys, GFP_KERNEL);
+	if (!dummy)
+		return -ENOMEM;
+
+	jz4780_dma_chan_enable(jzdma, jzchan->id);
+
+	jz4780_dma_chn_writel(jzdma, jzchan->id, JZ_DMA_REG_DCS, JZ_DMA_DCS_NDES);
+
+	jz4780_dma_chn_writel(jzdma, jzchan->id,
+			      JZ_DMA_REG_DSA, src_dummy_phys);
+	jz4780_dma_chn_writel(jzdma, jzchan->id, JZ_DMA_REG_DTA, dummy_phys);
+	jz4780_dma_chn_writel(jzdma, jzchan->id, JZ_DMA_REG_DTC, 8);
+	jz4780_dma_chn_writel(jzdma, jzchan->id,
+			      JZ_DMA_REG_DRT, JZ_DMA_DRT_AUTO);
+
+	jz4780_dma_chn_writel(jzdma, jzchan->id, JZ_DMA_REG_DCM,
+			      JZ_DMA_DCM_TIE |
+			      JZ_DMA_SIZE_4_BYTE << JZ_DMA_DCM_TSZ_SHIFT |
+			      JZ_DMA_WIDTH_32_BIT << JZ_DMA_DCM_SP_SHIFT |
+			      JZ_DMA_WIDTH_32_BIT << JZ_DMA_DCM_DP_SHIFT);
+
+	jz4780_dma_chn_writel(jzdma, jzchan->id, JZ_DMA_REG_DCS,
+			      JZ_DMA_DCS_NDES | JZ_DMA_DCS_CTE);
+
+	ret = readl_poll_timeout(jzdma->ctrl_base + JZ_DMA_REG_DIRQP,
+				 pending, pending & BIT(jzchan->id),
+				 4000, 100000);
+	if (ret) {
+		dev_warn(dev, "DMA channel %u timeout\n", jzchan->id);
+		goto out_disable;
+	}
+
+	jz4780_dma_ctrl_writel(jzdma, JZ_DMA_REG_DIRQP, BIT(jzchan->id));
+
+	dcs = jz4780_dma_chn_readl(jzdma, jzchan->id, JZ_DMA_REG_DCS);
+	dmac = jz4780_dma_ctrl_readl(jzdma, JZ_DMA_REG_DMAC);
+
+	jz4780_dma_chn_writel(jzdma, jzchan->id, JZ_DMA_REG_DCS,
+			      dcs & ~(JZ_DMA_DCS_TT | JZ_DMA_DCS_AR | JZ_DMA_DCS_HLT));
+
+	if ((dcs & (JZ_DMA_DCS_AR | JZ_DMA_DCS_HLT)) ||
+	    (dmac & (JZ_DMA_DMAC_AR | JZ_DMA_DMAC_HLT))) {
+		dev_warn(dev, "AR/HLT error on channel %u\n", jzchan->id);
+		ret = -EIO;
+		goto out_disable;
+	}
+
+out_disable:
+	jz4780_dma_chan_disable(jzdma, jzchan->id);
+	dma_free_coherent(dev, sizeof(*dummy), dummy, dummy_phys);
+
+	return ret;
+}
+
+static int jz4780_dma_test_chans(struct jz4780_dma_dev *jzdma)
+{
+	struct device *dev = jzdma->dma_device.dev;
+	dma_addr_t dummy_phys;
+	unsigned int i, attempt, working;
+	u32 *dummy;
+	int ret = 0;
+
+	dummy = dma_alloc_coherent(dev, sizeof(*dummy),
+				   &dummy_phys, GFP_KERNEL);
+	if (!dummy)
+		return -ENOMEM;
+
+	for (attempt = 0; attempt < 3; attempt++) {
+		for (working = 0, i = 0; i < jzdma->soc_data->nb_channels; i++) {
+			ret = jz4780_dma_test_chan(jzdma, &jzdma->chan[i],
+						   dummy_phys);
+			if (ret) {
+				dev_warn(dev, "Try #%u: Channel %u has trouble starting.\n",
+					 attempt, i);
+			} else {
+				working++;
+			}
+		}
+
+		if (working == jzdma->soc_data->nb_channels) {
+			if (attempt > 0) {
+				dev_info(dev, "Try #%u: All channels worked properly.\n",
+					 attempt);
+			}
+			break;
+		}
+	}
+
+	dma_free_coherent(dev, sizeof(*dummy), dummy, dummy_phys);
+	return ret;
+}
+
 static int jz4780_dma_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -936,6 +1041,10 @@ static int jz4780_dma_probe(struct platform_device *pdev)
 		vchan_init(&jzchan->vchan, dd);
 		jzchan->vchan.desc_free = jz4780_dma_desc_free;
 	}
+
+	ret = jz4780_dma_test_chans(jzdma);
+	if (ret)
+		goto err_disable_clk;
 
 	ret = platform_get_irq(pdev, 0);
 	if (ret < 0)
