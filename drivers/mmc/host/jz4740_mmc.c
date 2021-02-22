@@ -179,6 +179,7 @@ struct jz4740_mmc_host {
 	/* DMA support */
 	struct dma_chan *dma_rx;
 	struct dma_chan *dma_tx;
+	dma_cookie_t dma_cookie;
 	bool use_dma;
 
 /* The DMA trigger level is 8 words, that is to say, the DMA read
@@ -327,7 +328,7 @@ static int jz4740_mmc_start_dma_transfer(struct jz4740_mmc_host *host,
 		goto dma_unmap;
 	}
 
-	dmaengine_submit(desc);
+	host->dma_cookie = dmaengine_submit(desc);
 	dma_async_issue_pending(chan);
 
 	return 0;
@@ -737,6 +738,7 @@ static irqreturn_t jz_mmc_irq_worker(int irq, void *devid)
 	struct mmc_command *cmd = host->req->cmd;
 	struct mmc_request *req = host->req;
 	struct mmc_data *data = cmd->data;
+	struct dma_chan *chan;
 	bool timeout = false;
 
 	if (cmd->error)
@@ -789,6 +791,10 @@ static irqreturn_t jz_mmc_irq_worker(int irq, void *devid)
 		fallthrough;
 
 	case JZ4740_MMC_STATE_SEND_STOP:
+		if (host->use_dma) {
+			chan = jz4740_mmc_get_dma_chan(host, data);
+			dma_sync_wait(chan, host->dma_cookie);
+		}
 		if (!req->stop)
 			break;
 
