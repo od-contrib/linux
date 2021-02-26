@@ -22,7 +22,6 @@
 #include <linux/platform_device.h>
 #include <linux/input.h>
 #include <linux/gpio_keys.h>
-#include <linux/workqueue.h>
 #include <linux/gpio.h>
 #include <linux/gpio/consumer.h>
 #include <linux/of.h>
@@ -40,7 +39,7 @@ struct gpio_button_data {
 	struct hrtimer release_timer;
 	unsigned int release_delay;	/* in msecs, for IRQ-only buttons */
 
-	struct delayed_work work;
+	struct hrtimer debounce_timer;
 	unsigned int software_debounce;	/* in msecs, for GPIO-driven buttons */
 
 	unsigned int irq;
@@ -145,7 +144,7 @@ static void gpio_keys_disable_button(struct gpio_button_data *bdata)
 		disable_irq(bdata->irq);
 
 		if (bdata->gpiod)
-			cancel_delayed_work_sync(&bdata->work);
+			hrtimer_cancel(&bdata->debounce_timer);
 		else
 			hrtimer_cancel(&bdata->release_timer);
 
@@ -377,15 +376,18 @@ static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 	input_sync(input);
 }
 
-static void gpio_keys_gpio_work_func(struct work_struct *work)
+static enum hrtimer_restart gpio_keys_debounce_timer(struct hrtimer *t)
 {
-	struct gpio_button_data *bdata =
-		container_of(work, struct gpio_button_data, work.work);
+	struct gpio_button_data *bdata = container_of(t,
+						      struct gpio_button_data,
+						      debounce_timer);
 
 	gpio_keys_gpio_report_event(bdata);
 
 	if (bdata->button->wakeup)
 		pm_relax(bdata->input->dev.parent);
+
+	return HRTIMER_NORESTART;
 }
 
 static irqreturn_t gpio_keys_gpio_isr(int irq, void *dev_id)
@@ -409,9 +411,9 @@ static irqreturn_t gpio_keys_gpio_isr(int irq, void *dev_id)
 		}
 	}
 
-	mod_delayed_work(system_wq,
-			 &bdata->work,
-			 msecs_to_jiffies(bdata->software_debounce));
+	hrtimer_start(&bdata->debounce_timer,
+		      ms_to_ktime(bdata->software_debounce),
+		      HRTIMER_MODE_REL_SOFT);
 
 	return IRQ_HANDLED;
 }
@@ -472,7 +474,7 @@ static void gpio_keys_quiesce_key(void *data)
 	struct gpio_button_data *bdata = data;
 
 	if (bdata->gpiod)
-		cancel_delayed_work_sync(&bdata->work);
+		hrtimer_cancel(&bdata->debounce_timer);
 	else
 		hrtimer_cancel(&bdata->release_timer);
 }
@@ -562,10 +564,12 @@ static int gpio_keys_setup_key(struct platform_device *pdev,
 			bdata->irq = irq;
 		}
 
-		INIT_DELAYED_WORK(&bdata->work, gpio_keys_gpio_work_func);
-
 		isr = gpio_keys_gpio_isr;
 		irqflags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING;
+
+		hrtimer_init(&bdata->debounce_timer,
+			     CLOCK_REALTIME, HRTIMER_MODE_REL_SOFT);
+		bdata->debounce_timer.function = gpio_keys_debounce_timer;
 
 		switch (button->wakeup_event_action) {
 		case EV_ACT_ASSERTED:
@@ -615,10 +619,7 @@ static int gpio_keys_setup_key(struct platform_device *pdev,
 	*bdata->code = button->code;
 	input_set_capability(input, button->type ?: EV_KEY, *bdata->code);
 
-	/*
-	 * Install custom action to cancel release timer and
-	 * workqueue item.
-	 */
+	/* Install custom action to cancel timers. */
 	error = devm_add_action(dev, gpio_keys_quiesce_key, bdata);
 	if (error) {
 		dev_err(dev, "failed to register quiesce action, error: %d\n",
