@@ -641,7 +641,6 @@ static int gpio_keys_setup_key(struct platform_device *pdev,
 
 static void gpio_keys_report_state(struct gpio_keys_drvdata *ddata)
 {
-	struct input_dev *input = ddata->input;
 	int i;
 
 	for (i = 0; i < ddata->pdata->nbuttons; i++) {
@@ -649,7 +648,6 @@ static void gpio_keys_report_state(struct gpio_keys_drvdata *ddata)
 		if (bdata->gpiod)
 			gpio_keys_gpio_report_event(bdata);
 	}
-	input_sync(input);
 }
 
 static int gpio_keys_open(struct input_dev *input)
