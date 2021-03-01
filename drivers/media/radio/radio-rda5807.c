@@ -3,7 +3,7 @@
  * radio-rda5807.c - Driver for using the RDA5807 FM tuner chip via I2C
  *
  * Copyright (c) 2011 Maarten ter Huurne <maarten@treewalker.org>
- * Copyright (c) 2019 Paul Cercueil <paul@crapouillou.net>
+ * Copyright (c) 2021 Paul Cercueil <paul@crapouillou.net>
  *
  * Many thanks to Jérôme Veres for his command line radio application that
  * demonstrates how the chip can be controlled via I2C.
@@ -19,18 +19,16 @@
  */
 
 
-#include <asm/byteorder.h>
 #include <linux/bitops.h>
+#include <linux/bitfield.h>
 #include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/i2c.h>
-#include <linux/kernel.h>
-#include <linux/pm.h>
+#include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
-#include <linux/slab.h>
-#include <linux/types.h>
 #include <linux/videodev2.h>
+
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-dev.h>
 #include <media/v4l2-device.h>
@@ -42,61 +40,47 @@ enum rda5807_reg {
 	RDA5807_REG_CTRL		= 0x02,
 	RDA5807_REG_CHAN		= 0x03,
 	RDA5807_REG_IOCFG		= 0x04,
-	RDA5807_REG_INTM_THRESH_VOL	= 0x05,
-	RDA5807_REG_SEEK_RESULT		= 0x0A,
+	RDA5807_REG_INPUT		= 0x05,
+	RDA5807_REG_BAND		= 0x07,
+	RDA5807_REG_SEEKRES		= 0x0A,
 	RDA5807_REG_SIGNAL		= 0x0B,
 };
 
-#define RDA5807_MASK_CTRL_DHIZ		BIT(15)
-#define RDA5807_MASK_CTRL_DMUTE		BIT(14)
-#define RDA5807_MASK_CTRL_MONO		BIT(13)
-#define RDA5807_MASK_CTRL_BASS		BIT(12)
-#define RDA5807_MASK_CTRL_SEEKUP	BIT(9)
-#define RDA5807_MASK_CTRL_SEEK		BIT(8)
-#define RDA5807_MASK_CTRL_SKMODE	BIT(7)
-#define RDA5807_MASK_CTRL_CLKMODE	(7 << 4)
-#define RDA5807_MASK_CTRL_SOFTRESET	BIT(1)
-#define RDA5807_MASK_CTRL_ENABLE	BIT(0)
+#define RDA5807_CTRL_DHIZ		BIT(15)
+#define RDA5807_CTRL_DMUTE		BIT(14)
+#define RDA5807_CTRL_MONO		BIT(13)
+#define RDA5807_CTRL_BASS		BIT(12)
+#define RDA5807_CTRL_SEEKUP		BIT(9)
+#define RDA5807_CTRL_SEEK		BIT(8)
+#define RDA5807_CTRL_SKMODE		BIT(7)
+#define RDA5807_CTRL_CLKMODE		GENMASK(6, 4)
+#define RDA5807_CTRL_SOFTRESET		BIT(1)
+#define RDA5807_CTRL_ENABLE		BIT(0)
 
-#define RDA5807_SHIFT_CHAN_WRCHAN	6
-#define RDA5807_MASK_CHAN_WRCHAN	(0x3FF << RDA5807_SHIFT_CHAN_WRCHAN)
-#define RDA5807_MASK_CHAN_TUNE		BIT(4)
-#define RDA5807_SHIFT_CHAN_BAND		2
-#define RDA5807_MASK_CHAN_BAND		(0x3 << RDA5807_SHIFT_CHAN_BAND)
-#define RDA5807_SHIFT_CHAN_SPACE	0
-#define RDA5807_MASK_CHAN_SPACE		(0x3 << RDA5807_SHIFT_CHAN_SPACE)
+#define RDA5807_CHAN_WRCHAN		GENMASK(15, 6)
+#define RDA5807_CHAN_TUNE		BIT(4)
+#define RDA5807_CHAN_BAND		GENMASK(3, 2)
+#define RDA5807_CHAN_SPACE		GENMASK(1, 0)
 
-#define RDA5807_MASK_SEEKRES_COMPLETE	BIT(14)
-#define RDA5807_MASK_SEEKRES_FAIL	BIT(13)
-#define RDA5807_MASK_SEEKRES_STEREO	BIT(10)
-#define RDA5807_MASK_SEEKRES_READCHAN	0x3FF
+#define RDA5807_IOCFG_DEEMPHASIS	BIT(11)
+#define RDA5807_IOCFG_I2S_EN		BIT(6)
 
-#define RDA5807_MASK_DEEMPHASIS		BIT(11)
+#define RDA5807_INPUT_LNA_PORT		GENMASK(7, 6)
+#define RDA5807_INPUT_LNA_ICSEL		GENMASK(5, 4)
+#define RDA5807_INPUT_VOLUME		GENMASK(3, 0)
 
-#define RDA5807_SHIFT_VOLUME_DAC	0
-#define RDA5807_MASK_VOLUME_DAC		(0xF << RDA5807_SHIFT_VOLUME_DAC)
+#define RDA5807_BAND_65M_BAND		BIT(9)
 
-#define RDA5807_SHIFT_RSSI		9
-#define RDA5807_MASK_RSSI		(0x7F << RDA5807_SHIFT_RSSI)
+#define RDA5807_SEEKRES_COMPLETE	BIT(14)
+#define RDA5807_SEEKRES_FAIL		BIT(13)
+#define RDA5807_SEEKRES_STEREO		BIT(10)
+#define RDA5807_SEEKRES_READCHAN	GENMASK(9, 0)
 
-/* Working current: 1.8, 2.1, 2.5 or 3.0 mA. */
-#define RDA5807_INPUT_LNA_WC_18		(0 << 0)
-#define RDA5807_INPUT_LNA_WC_21		(1 << 0)
-#define RDA5807_INPUT_LNA_WC_25		(2 << 0)
-#define RDA5807_INPUT_LNA_WC_30		(3 << 0)
-/* Use antenna signal connected to LNAN and/or LNAP pin? */
-#define RDA5807_LNA_PORT_N		BIT(2)
-#define RDA5807_LNA_PORT_P		BIT(3)
+#define RDA5807_SIGNAL_RSSI		GENMASK(15, 9)
 
-/* Ouput analog audio on LOUT+ROUT pins */
-#define RDA5807_OUTPUT_AUDIO_ANALOG	BIT(0)
-/* Output digital audio using I2S on GPIO1-3 pins */
-#define RDA5807_OUTPUT_AUDIO_I2S	BIT(1)
-/* Output stereo indicator signal on GPIO3 pin */
-#define RDA5807_OUTPUT_STEREO_INDICATOR	BIT(2)
 
-#define RDA5807_FREQ_MIN_KHZ  76000
-#define RDA5807_FREQ_MAX_KHZ 108000
+#define RDA5807_AUTOSUSPEND_DELAY_MS	5000
+
 
 struct rda5807_driver {
 	struct v4l2_ctrl_handler ctrl_handler;
@@ -107,191 +91,153 @@ struct rda5807_driver {
 	struct regmap *map;
 	struct regulator *supply;
 
-	u8 input_flags;
-	u8 output_flags;
+	const struct v4l2_frequency_band *band;
+
+	bool unmuted;
 };
 
-static const struct v4l2_file_operations rda5807_fops = {
-	.owner		= THIS_MODULE,
-	.unlocked_ioctl	= video_ioctl2,
+enum rda5807_bands {
+	RDA5807_BAND_WORLDWIDE,
+	RDA5807_BAND_EAST_EUROPE,
+	RDA5807_BAND_UNKNOWN,
 };
+
+static const struct v4l2_frequency_band rda5807_bands[] = {
+	[RDA5807_BAND_WORLDWIDE] = {
+		.index = RDA5807_BAND_WORLDWIDE,
+		.type = V4L2_TUNER_RADIO,
+		.capability = V4L2_TUNER_CAP_STEREO | V4L2_TUNER_CAP_LOW |
+			V4L2_TUNER_CAP_FREQ_BANDS,
+		.rangelow = 1216000,   /* 76.0 MHz */
+		.rangehigh = 1728000,  /* 108.0 MHz */
+		.modulation = V4L2_BAND_MODULATION_FM,
+	},
+	[RDA5807_BAND_EAST_EUROPE] = {
+		.index = RDA5807_BAND_EAST_EUROPE,
+		.type = V4L2_TUNER_RADIO,
+		.capability = V4L2_TUNER_CAP_STEREO | V4L2_TUNER_CAP_LOW |
+			V4L2_TUNER_CAP_FREQ_BANDS,
+		.rangelow = 1040000,   /* 65.0 MHz */
+		.rangehigh = 1216000,  /* 76.0 MHz */
+		.modulation = V4L2_BAND_MODULATION_FM,
+	},
+	[RDA5807_BAND_UNKNOWN] = {
+		.index = RDA5807_BAND_UNKNOWN,
+		.type = V4L2_TUNER_RADIO,
+		.capability = V4L2_TUNER_CAP_STEREO | V4L2_TUNER_CAP_LOW |
+			V4L2_TUNER_CAP_FREQ_BANDS,
+		.rangelow = 800000,   /* 50.0 MHz */
+		.rangehigh = 1040000,  /* 65.0 MHz */
+		.modulation = V4L2_BAND_MODULATION_FM,
+	},
+};
+
+static const struct v4l2_frequency_band *rda5807_get_band(unsigned long min,
+							  unsigned long max)
+{
+	const struct v4l2_frequency_band *band;
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(rda5807_bands); i++) {
+		band = &rda5807_bands[i];
+
+		if (band->rangelow <= min && band->rangehigh >= max)
+			return band;
+	}
+
+	return NULL;
+}
+
+static int rda5807_set_band(struct rda5807_driver *radio,
+			    const struct v4l2_frequency_band *band)
+{
+	u16 val;
+	int err;
+
+	if (band->index == RDA5807_BAND_EAST_EUROPE)
+		err = regmap_set_bits(radio->map, RDA5807_REG_BAND,
+				      RDA5807_BAND_65M_BAND);
+	else
+		err = regmap_clear_bits(radio->map, RDA5807_REG_BAND,
+					RDA5807_BAND_65M_BAND);
+	if (err)
+		return err;
+
+	if (band->index == RDA5807_BAND_WORLDWIDE)
+		val = FIELD_PREP(RDA5807_CHAN_BAND, 2);
+	else
+		val = FIELD_PREP(RDA5807_CHAN_BAND, 3);
+
+	err = regmap_update_bits(radio->map, RDA5807_REG_CHAN,
+				 RDA5807_CHAN_BAND, val);
+	if (err)
+		return err;
+
+	radio->band = band;
+	return 0;
+}
 
 static int rda5807_enable(struct rda5807_driver *radio)
 {
 	int err;
 
-	err = regmap_update_bits(radio->map, RDA5807_REG_CTRL,
-				 RDA5807_MASK_CTRL_ENABLE,
-				 RDA5807_MASK_CTRL_ENABLE);
+	err = regmap_set_bits(radio->map, RDA5807_REG_CTRL,
+			      RDA5807_CTRL_ENABLE);
 	if (err < 0)
 		return err;
 
-	err = regmap_update_bits(radio->map, RDA5807_REG_CHAN,
-				 RDA5807_MASK_CHAN_TUNE,
-				 RDA5807_MASK_CHAN_TUNE);
+	err = regmap_write_bits(radio->map, RDA5807_REG_CHAN,
+				RDA5807_CHAN_TUNE, RDA5807_CHAN_TUNE);
 	if (err)
 		goto err_update_bits;
-
-	/*
-	 * following the rda5807 programming guide, we
-	 * need to wait for 0.5 seconds before tune
-	 */
-	msleep(500);
 
 	return 0;
 
 err_update_bits:
-	regmap_update_bits(radio->map, RDA5807_REG_CTRL,
-			   RDA5807_MASK_CTRL_ENABLE, 0);
+	regmap_clear_bits(radio->map, RDA5807_REG_CTRL,
+			  RDA5807_CTRL_ENABLE);
 	return err;
 }
 
 static int rda5807_disable(struct rda5807_driver *radio)
 {
-	return regmap_update_bits(radio->map, RDA5807_REG_CTRL,
-				  RDA5807_MASK_CTRL_ENABLE, 0);
-}
-
-static inline int rda5807_set_enable(struct rda5807_driver *radio, bool enabled)
-{
-	if (enabled)
-		return rda5807_enable(radio);
-	else
-		return rda5807_disable(radio);
+	return regmap_clear_bits(radio->map, RDA5807_REG_CTRL,
+				 RDA5807_CTRL_ENABLE);
 }
 
 static int rda5807_set_mute(struct rda5807_driver *radio, int muted)
 {
-	u16 val = muted ? 0 : RDA5807_MASK_CTRL_DMUTE /* disable mute */;
+	u16 val = muted ? 0 : RDA5807_CTRL_DMUTE /* disable mute */;
 
-	dev_dbg(radio->dev, "set mute to %d", muted);
+	dev_dbg(radio->dev, "set mute to %d\n", muted);
 
 	return regmap_update_bits(radio->map, RDA5807_REG_CTRL,
-				  RDA5807_MASK_CTRL_DMUTE, val);
+				  RDA5807_CTRL_DMUTE, val);
 }
 
 static int rda5807_set_volume(struct rda5807_driver *radio, int volume)
 {
 	dev_dbg(radio->dev, "set volume to %d", volume);
 
-	return regmap_update_bits(radio->map, RDA5807_REG_INTM_THRESH_VOL,
-				  RDA5807_MASK_VOLUME_DAC,
-				  volume << RDA5807_SHIFT_VOLUME_DAC);
+	return regmap_update_bits(radio->map, RDA5807_REG_INPUT,
+				  RDA5807_INPUT_VOLUME,
+				  FIELD_PREP(RDA5807_INPUT_VOLUME, volume));
 }
 
-static int rda5807_set_preemphasis(struct rda5807_driver *radio,
-				   enum v4l2_preemphasis preemp)
+static int rda5807_set_deemphasis(struct rda5807_driver *radio,
+				  enum v4l2_deemphasis deemp)
 {
-	dev_dbg(radio->dev, "set preemphasis to %d", preemp);
-
-	return regmap_update_bits(radio->map, RDA5807_REG_IOCFG,
-				  RDA5807_MASK_DEEMPHASIS,
-				  preemp == V4L2_PREEMPHASIS_50_uS
-				          ? RDA5807_MASK_DEEMPHASIS : 0);
-}
-
-static int rda5807_get_frequency(struct rda5807_driver *radio)
-{
-	unsigned int val;
-	u32 freq_khz;
 	int err;
 
-	err = regmap_read(radio->map, RDA5807_REG_SEEK_RESULT, &val);
-	if (err < 0)
-		return err;
+	if (deemp == V4L2_DEEMPHASIS_50_uS)
+		err = regmap_set_bits(radio->map, RDA5807_REG_IOCFG,
+				      RDA5807_IOCFG_DEEMPHASIS);
+	else
+		err = regmap_clear_bits(radio->map, RDA5807_REG_IOCFG,
+					RDA5807_IOCFG_DEEMPHASIS);
 
-	freq_khz = 50 * (val & RDA5807_MASK_SEEKRES_READCHAN)
-		   + RDA5807_FREQ_MIN_KHZ;
-
-	dev_dbg(radio->dev, "get freq of %u kHz", freq_khz);
-
-	return freq_khz;
-}
-
-static int rda5807_set_frequency(struct rda5807_driver *radio, u32 freq_khz)
-{
-	u16 mask = 0;
-	u16 val = 0;
-
-	dev_dbg(radio->dev, "set freq to %u kHz", freq_khz);
-
-	if (freq_khz < RDA5807_FREQ_MIN_KHZ)
-		return -ERANGE;
-	if (freq_khz > RDA5807_FREQ_MAX_KHZ)
-		return -ERANGE;
-
-	/* select widest band */
-	mask |= RDA5807_MASK_CHAN_BAND;
-	val  |= 2 << RDA5807_SHIFT_CHAN_BAND;
-
-	/* select 50 kHz channel spacing */
-	mask |= RDA5807_MASK_CHAN_SPACE;
-	val  |= 2 << RDA5807_SHIFT_CHAN_SPACE;
-
-	/* select frequency */
-	mask |= RDA5807_MASK_CHAN_WRCHAN;
-	val  |= ((freq_khz - RDA5807_FREQ_MIN_KHZ + 25) / 50)
-			<< RDA5807_SHIFT_CHAN_WRCHAN;
-
-	/* start tune operation */
-	mask |= RDA5807_MASK_CHAN_TUNE;
-	val  |= RDA5807_MASK_CHAN_TUNE;
-
-	return regmap_update_bits(radio->map, RDA5807_REG_CHAN, mask, val);
-}
-
-static int rda5807_seek_frequency(struct rda5807_driver *radio,
-				  int upward, int wrap)
-{
-	unsigned int mask = 0, val = 0, count = 0;
-	int ret;
-
-	/*
-	 * TODO: Seek threshold is configurable. How should the driver handle
-	 *       this configuration?
-	 */
-
-	/* seek up or down? */
-	mask |= RDA5807_MASK_CTRL_SEEKUP;
-	if (upward)
-		val |= RDA5807_MASK_CTRL_SEEKUP;
-
-	/* wrap around at band limit? */
-	mask |= RDA5807_MASK_CTRL_SKMODE;
-	if (!wrap)
-		val |= RDA5807_MASK_CTRL_SKMODE;
-
-	/* seek command */
-	mask |= RDA5807_MASK_CTRL_SEEK;
-	val  |= RDA5807_MASK_CTRL_SEEK;
-
-	ret = regmap_update_bits(radio->map, RDA5807_REG_CTRL, mask, val);
-	if (ret < 0)
-		return ret;
-
-	for (;;) {
-		/*
-		 * The programming guide says we should wait for 35 ms for each
-		 * frequency tested.
-		 */
-		msleep(35);
-
-		ret = regmap_read(radio->map, RDA5807_REG_SEEK_RESULT, &val);
-		if (ret < 0)
-			return ret;
-
-		/* Seek done? */
-		if (val & RDA5807_MASK_SEEKRES_COMPLETE)
-			return 0;
-
-		/*
-		 * Channel spacing is 100 kHz.
-		 * TODO: Should we support configurable spacing?
-		 */
-		count++;
-		if (count > (RDA5807_FREQ_MAX_KHZ - RDA5807_FREQ_MIN_KHZ) / 100)
-			return -ETIMEDOUT;
-	}
+	dev_dbg(radio->dev, "set deemphasis to %d", deemp);
+	return err;
 }
 
 static inline struct rda5807_driver *ctrl_to_radio(struct v4l2_ctrl *ctrl)
@@ -302,25 +248,41 @@ static inline struct rda5807_driver *ctrl_to_radio(struct v4l2_ctrl *ctrl)
 static int rda5807_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct rda5807_driver *radio = ctrl_to_radio(ctrl);
+	int err;
 
 	switch (ctrl->id) {
-	case V4L2_CID_AUDIO_MUTE: {
-		/*
-		 * Disable the radio while muted, to save power.
-		 * TODO: We can't seek while the radio is disabled;
-		 *       is that a problem?
-		 */
-		int err1 = rda5807_set_enable(radio, !ctrl->val);
-		int err2 = rda5807_set_mute(radio, ctrl->val);
-		return err1 ? err1 : err2;
-	}
+	case V4L2_CID_AUDIO_MUTE:
+		if (radio->unmuted == !ctrl->val)
+			break;
+
+		if (ctrl->val) {
+			pm_runtime_mark_last_busy(radio->dev);
+			err = pm_runtime_put_autosuspend(radio->dev);
+			if (err < 0)
+				return err;
+		} else {
+			err = pm_runtime_get_sync(radio->dev);
+			if (err < 0) {
+				pm_runtime_put_noidle(radio->dev);
+				return err;
+			}
+		}
+
+		err = rda5807_set_mute(radio, ctrl->val);
+		if (err)
+			return err;
+
+		radio->unmuted = !ctrl->val;
+		break;
 	case V4L2_CID_AUDIO_VOLUME:
 		return rda5807_set_volume(radio, ctrl->val);
-	case V4L2_CID_TUNE_PREEMPHASIS:
-		return rda5807_set_preemphasis(radio, ctrl->val);
+	case V4L2_CID_TUNE_DEEMPHASIS:
+		return rda5807_set_deemphasis(radio, ctrl->val);
 	default:
 		return -EINVAL;
 	}
+
+	return 0;
 }
 
 static const struct v4l2_ctrl_ops rda5807_ctrl_ops = {
@@ -363,63 +325,77 @@ static int rda5807_vidioc_g_tuner(struct file *file, void *fh,
 	struct rda5807_driver *radio = video_drvdata(file);
 	unsigned int seekres, signal;
 	u32 rxsubchans;
-	int err;
+	int err, active;
 
 	if (a->index != 0)
 		return -EINVAL;
 
-	err = regmap_read(radio->map, RDA5807_REG_SEEK_RESULT, &seekres);
-	if (err < 0)
-		return err;
+	active = pm_runtime_get_if_in_use(radio->dev);
+	if (active < 0)
+		return active;
 
-	if (seekres & RDA5807_MASK_SEEKRES_COMPLETE &&
-	    !(seekres & RDA5807_MASK_SEEKRES_FAIL))
-		/* mono/stereo known */
-		rxsubchans = seekres & RDA5807_MASK_SEEKRES_STEREO
-				? V4L2_TUNER_SUB_STEREO : V4L2_TUNER_SUB_MONO;
-	else
-		/* mono/stereo unknown */
+	if (active == 0) {
+		signal = 0;
 		rxsubchans = V4L2_TUNER_SUB_MONO | V4L2_TUNER_SUB_STEREO;
+	} else {
+		err = regmap_read(radio->map, RDA5807_REG_SEEKRES, &seekres);
+		if (err < 0)
+			goto out_runtime_pm_put;
 
-	err = regmap_read(radio->map, RDA5807_REG_SIGNAL, &signal);
-	if (err < 0)
-		return err;
+		if (seekres & RDA5807_SEEKRES_COMPLETE &&
+		    !(seekres & RDA5807_SEEKRES_FAIL))
+			/* mono/stereo known */
+			rxsubchans = seekres & RDA5807_SEEKRES_STEREO
+				? V4L2_TUNER_SUB_STEREO : V4L2_TUNER_SUB_MONO;
+		else
+			/* mono/stereo unknown */
+			rxsubchans = V4L2_TUNER_SUB_MONO | V4L2_TUNER_SUB_STEREO;
 
-	signal = (signal & RDA5807_MASK_RSSI) >> RDA5807_SHIFT_RSSI;
+		err = regmap_read(radio->map, RDA5807_REG_SIGNAL, &signal);
+		if (err < 0)
+			goto out_runtime_pm_put;
+	}
 
 	*a = (struct v4l2_tuner) {
 		.name = "FM",
 		.type = V4L2_TUNER_RADIO,
 		.capability = V4L2_TUNER_CAP_LOW | V4L2_TUNER_CAP_STEREO,
 		/* unit is 1/16 kHz */
-		.rangelow   = RDA5807_FREQ_MIN_KHZ * 16,
-		.rangehigh  = RDA5807_FREQ_MAX_KHZ * 16,
+		.rangelow   = 50000 * 16,
+		.rangehigh  = 108000 * 16,
 		.rxsubchans = rxsubchans,
-		/* TODO: Implement forced mono (RDA5807_MASK_CTRL_MONO). */
+		/* TODO: Implement forced mono (RDA5807_CTRL_MONO). */
 		.audmode = V4L2_TUNER_MODE_STEREO,
-		.signal = signal << (16 - 7),
+		.signal = signal & RDA5807_SIGNAL_RSSI,
 		.afc = 0, /* automatic frequency control */
 	};
 
-	return 0;
+	err = 0;
+out_runtime_pm_put:
+	if (active > 0) {
+		pm_runtime_mark_last_busy(radio->dev);
+		pm_runtime_put_autosuspend(radio->dev);
+	}
+	return err;
 }
 
 static int rda5807_vidioc_g_frequency(struct file *file, void *fh,
 				      struct v4l2_frequency *a)
 {
 	struct rda5807_driver *radio = video_drvdata(file);
-	int freq_khz;
+	unsigned int val;
+	int err;
 
 	if (a->tuner != 0)
 		return -EINVAL;
+	if (!radio->band)
+		return -EINVAL;
 
-	/* This ioctl ignores the type field. */
+	err = regmap_read(radio->map, RDA5807_REG_SEEKRES, &val);
+	if (err < 0)
+		return err;
 
-	freq_khz = rda5807_get_frequency(radio);
-	if (freq_khz < 0)
-		return freq_khz;
-
-	a->frequency = (__u32)freq_khz * 16;
+	a->frequency = 400 * (val & RDA5807_SEEKRES_READCHAN) + radio->band->rangelow;
 	return 0;
 }
 
@@ -427,26 +403,161 @@ static int rda5807_vidioc_s_frequency(struct file *file, void *fh,
 				      const struct v4l2_frequency *a)
 {
 	struct rda5807_driver *radio = video_drvdata(file);
+	const struct v4l2_frequency_band *band;
+	u16 mask = 0;
+	u16 val = 0;
+	int err, active;
 
 	if (a->tuner != 0)
 		return -EINVAL;
 	if (a->type != V4L2_TUNER_RADIO)
 		return -EINVAL;
 
-	return rda5807_set_frequency(radio, (a->frequency * 625) / 10000);
+	band = rda5807_get_band(a->frequency, a->frequency);
+	if (!band)
+		return -ERANGE;
+
+	dev_dbg(radio->dev, "set freq to %u kHz", a->frequency / 16);
+
+	err = rda5807_set_band(radio, band);
+	if (err)
+		return err;
+
+	/* select 25 kHz channel spacing */
+	mask |= RDA5807_CHAN_SPACE;
+	val  |= FIELD_PREP(RDA5807_CHAN_SPACE, 0x3);
+
+	/* select frequency */
+	mask |= RDA5807_CHAN_WRCHAN;
+	val  |= FIELD_PREP(RDA5807_CHAN_WRCHAN, (a->frequency + 200) / 400);
+
+	err = regmap_update_bits(radio->map, RDA5807_REG_CHAN, mask, val);
+	if (err)
+		return err;
+
+	active = pm_runtime_get_if_in_use(radio->dev);
+	if (active <= 0)
+		return active;
+
+	/* start tune operation */
+	err = regmap_write_bits(radio->map, RDA5807_REG_CHAN,
+				RDA5807_CHAN_TUNE, RDA5807_CHAN_TUNE);
+
+	pm_runtime_mark_last_busy(radio->dev);
+	pm_runtime_put_autosuspend(radio->dev);
+
+	return err;
 }
 
 static int rda5807_vidioc_s_hw_freq_seek(struct file *file, void *fh,
 					 const struct v4l2_hw_freq_seek *a)
 {
 	struct rda5807_driver *radio = video_drvdata(file);
+	const struct v4l2_frequency_band *band;
+	unsigned int val = RDA5807_CTRL_SEEK;
+	unsigned int freq, spacing, increment;
+	int err;
 
 	if (a->tuner != 0)
 		return -EINVAL;
 	if (a->type != V4L2_TUNER_RADIO)
 		return -EINVAL;
 
-	return rda5807_seek_frequency(radio, a->seek_upward, a->wrap_around);
+	switch (a->spacing) {
+	case 25000:
+		spacing = 0x3;
+		break;
+	case 50000:
+		spacing = 0x2;
+		break;
+	case 100000:
+		spacing = 0x0;
+		break;
+	case 200000:
+		spacing = 0x1;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	band = rda5807_get_band(a->rangelow, a->rangehigh);
+	if (!band)
+		return -ERANGE;
+
+	err = pm_runtime_get_sync(radio->dev);
+	if (err < 0) {
+		dev_err(radio->dev, "Unable to runtime get: %d\n", err);
+		pm_runtime_put_noidle(radio->dev);
+		return err;
+	}
+
+	/* Configure channel spacing */
+	err = regmap_update_bits(radio->map, RDA5807_REG_CHAN,
+				 RDA5807_CHAN_SPACE,
+				 FIELD_PREP(RDA5807_CHAN_SPACE, spacing));
+	if (err < 0)
+		goto out_runtime_pm_put;
+
+	err = rda5807_set_band(radio, band);
+	if (err < 0)
+		goto out_runtime_pm_put;
+
+	/* seek up or down? */
+	if (a->seek_upward)
+		val |= RDA5807_CTRL_SEEKUP;
+
+	/* wrap around at band limit? */
+	if (!a->wrap_around)
+		val |= RDA5807_CTRL_SKMODE;
+
+	/* Send seek command */
+	err = regmap_update_bits(radio->map, RDA5807_REG_CTRL,
+				 RDA5807_CTRL_SEEKUP |
+				 RDA5807_CTRL_SKMODE |
+				 RDA5807_CTRL_SEEK, val);
+	if (err < 0)
+		goto out_runtime_pm_put;
+
+	increment = a->spacing * 16 / 1000;
+
+	for (freq = a->rangelow; freq <= a->rangehigh; freq += increment) {
+		/*
+		 * The programming guide says we should wait for 35 ms for each
+		 * frequency tested.
+		 */
+		msleep(35);
+
+		err = regmap_read(radio->map, RDA5807_REG_SEEKRES, &val);
+		if (err < 0)
+			goto out_runtime_pm_put;
+
+		/* Seek done? */
+		if (val & RDA5807_SEEKRES_COMPLETE)
+			break;
+	}
+
+	err = regmap_clear_bits(radio->map, RDA5807_REG_CTRL,
+				RDA5807_CTRL_SEEK);
+	if (err)
+		goto out_runtime_pm_put;
+
+	if (freq > a->rangehigh)
+		err = -ETIMEDOUT;
+
+out_runtime_pm_put:
+	pm_runtime_mark_last_busy(radio->dev);
+	pm_runtime_put_autosuspend(radio->dev);
+	return err;
+}
+
+static int rda5807_vidioc_enum_freq_bands(struct file *file, void *priv,
+					  struct v4l2_frequency_band *band)
+{
+	if (band->index >= ARRAY_SIZE(rda5807_bands))
+		return -EINVAL;
+
+	*band = rda5807_bands[band->index];
+	return 0;
 }
 
 static const struct v4l2_ioctl_ops rda5807_ioctl_ops = {
@@ -456,16 +567,123 @@ static const struct v4l2_ioctl_ops rda5807_ioctl_ops = {
 	.vidioc_g_frequency	= rda5807_vidioc_g_frequency,
 	.vidioc_s_frequency	= rda5807_vidioc_s_frequency,
 	.vidioc_s_hw_freq_seek  = rda5807_vidioc_s_hw_freq_seek,
+	.vidioc_enum_freq_bands	= rda5807_vidioc_enum_freq_bands,
 };
 
-static const char * const rda5807_name = "RDA5807 FM receiver";
-
 static const u16 rda5807_lna_current[] = { 1800, 2100, 2500, 3000 };
+
+static int rda5807_setup(struct rda5807_driver *radio)
+{
+	struct device *dev = radio->dev;
+	u16 lna = 0, iocfg = 0, ctrl = 0;
+	u32 lna_current = 2500;
+	size_t i;
+	int err;
+
+	/* Configure chip inputs. */
+
+	if (device_property_read_bool(dev, "rda,lnan"))
+		lna |= 0x1;
+	if (device_property_read_bool(dev, "rda,lnap"))
+		lna |= 0x2;
+	if (!lna)
+		dev_warn(dev, "Both LNA inputs disabled\n");
+
+	device_property_read_u32(dev, "rda,lna-uW", &lna_current);
+	for (i = 0; i < ARRAY_SIZE(rda5807_lna_current); i++)
+		if (rda5807_lna_current[i] == lna_current)
+			break;
+	if (i == ARRAY_SIZE(rda5807_lna_current)) {
+		dev_err(dev, "Invalid LNA current value\n");
+		return -EINVAL;
+	}
+
+	err = regmap_update_bits(radio->map, RDA5807_REG_INPUT,
+				 RDA5807_INPUT_LNA_ICSEL | RDA5807_INPUT_LNA_PORT,
+				 FIELD_PREP(RDA5807_INPUT_LNA_ICSEL, i) |
+				 FIELD_PREP(RDA5807_INPUT_LNA_PORT, lna));
+	if (err)
+		return err;
+
+	/* Configure chip outputs. */
+
+	if (device_property_read_bool(dev, "rda,i2s-out"))
+		iocfg |= RDA5807_IOCFG_I2S_EN;
+
+	if (device_property_read_bool(dev, "rda,analog-out"))
+		ctrl |= RDA5807_CTRL_DHIZ;
+
+	err = regmap_write(radio->map, RDA5807_REG_IOCFG, iocfg);
+	if (err)
+		return err;
+
+	err = regmap_write(radio->map, RDA5807_REG_CTRL, ctrl);
+	if (err)
+		return err;
+
+	return 0;
+}
+
+static int rda5807_enable_regulator(struct rda5807_driver *radio)
+{
+	int err;
+
+	err = regulator_enable(radio->supply);
+	if (err)
+		return err;
+
+	/* A little sleep is needed before the registers can be accessed */
+	msleep(10);
+
+	return 0;
+}
+
+static const struct v4l2_file_operations rda5807_fops = {
+	.owner		= THIS_MODULE,
+	.unlocked_ioctl	= video_ioctl2,
+};
+
+static const struct regmap_range rda5807_no_write_ranges[] = {
+	{ RDA5807_REG_CHIPID, RDA5807_REG_CHIPID },
+	{ RDA5807_REG_SEEKRES, RDA5807_REG_SIGNAL },
+};
+
+static const struct regmap_access_table rda5807_write_table = {
+	.no_ranges = rda5807_no_write_ranges,
+	.n_no_ranges = ARRAY_SIZE(rda5807_no_write_ranges),
+};
+
+static const struct regmap_range rda5807_volatile_ranges[] = {
+	{ RDA5807_REG_SEEKRES, RDA5807_REG_SIGNAL },
+};
+
+
+static const struct regmap_access_table rda5807_volatile_table = {
+	.yes_ranges = rda5807_volatile_ranges,
+	.n_yes_ranges = ARRAY_SIZE(rda5807_volatile_ranges),
+};
+
+static const struct reg_default rda5807_reg_defaults[] = {
+	{ RDA5807_REG_CHIPID, 0x5804 },
+	{ RDA5807_REG_CTRL, 0x0 },
+	{ RDA5807_REG_CHAN, 0x4fc0 },
+	{ RDA5807_REG_IOCFG, 0x0400 },
+	{ RDA5807_REG_INPUT, 0x888b },
+	{ RDA5807_REG_BAND, 0x5ec6 },
+};
 
 static const struct regmap_config rda5807_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 16,
 	.max_register = RDA5807_REG_SIGNAL,
+
+	.wr_table = &rda5807_write_table,
+	.volatile_table = &rda5807_volatile_table,
+
+	.reg_defaults = rda5807_reg_defaults,
+	.num_reg_defaults = ARRAY_SIZE(rda5807_reg_defaults),
+
+	.cache_type = REGCACHE_FLAT,
 };
 
 static int rda5807_i2c_probe(struct i2c_client *client,
@@ -473,70 +691,66 @@ static int rda5807_i2c_probe(struct i2c_client *client,
 {
 	struct device *dev = &client->dev;
 	struct rda5807_driver *radio;
-	u16 lna_current = 2500;
-	unsigned int val;
-	size_t i;
+	unsigned int chipid;
 	int err;
 
 	radio = devm_kzalloc(dev, sizeof(*radio), GFP_KERNEL);
-	if (!radio) {
-		dev_err(dev, "Failed to allocate driver data");
+	if (!radio)
 		return -ENOMEM;
-	}
 
 	radio->dev = dev;
 
 	radio->map = devm_regmap_init_i2c(client, &rda5807_regmap_config);
 	if (IS_ERR(radio->map)) {
-		dev_err(dev, "Failed to create regmap");
+		dev_err(dev, "Failed to create regmap\n");
 		return PTR_ERR(radio->map);
 	}
 
 	radio->supply = devm_regulator_get(dev, "power");
 	if (IS_ERR(radio->supply)) {
-		dev_err(dev, "Failed to get power supply");
+		dev_err(dev, "Failed to get power supply\n");
 		return PTR_ERR(radio->supply);
 	}
 
-	device_property_read_u16(dev, "rda,lna-current", &lna_current);
-	for (i = 0; i < ARRAY_SIZE(rda5807_lna_current); i++)
-		if (rda5807_lna_current[i] == lna_current)
-			radio->input_flags = i;
-
-	if (device_property_read_bool(dev, "rda,lnan"))
-		radio->input_flags |= RDA5807_LNA_PORT_N;
-	if (device_property_read_bool(dev, "rda,lnap"))
-		radio->input_flags |= RDA5807_LNA_PORT_P;
-
-	if (device_property_read_bool(dev, "rda,i2s-out"))
-		radio->output_flags |= RDA5807_OUTPUT_AUDIO_I2S;
-	if (device_property_read_bool(dev, "rda,analog-out"))
-		radio->output_flags |= RDA5807_OUTPUT_AUDIO_ANALOG;
-
-	if (!(radio->input_flags & (RDA5807_LNA_PORT_N | RDA5807_LNA_PORT_P)))
-		dev_warn(dev, "Both LNA inputs disabled");
-
-	err = regulator_enable(radio->supply);
+	err = rda5807_enable_regulator(radio);
 	if (err) {
-		dev_err(dev, "Failed to enable regulator");
+		dev_err(dev, "Failed to enable regulator\n");
 		return err;
 	}
 
-	err = regmap_read(radio->map, RDA5807_REG_CHIPID, &val);
+	/* Disable the regmap cache temporarily to force reading the chip ID */
+	regcache_cache_bypass(radio->map, true);
+	err = regmap_read(radio->map, RDA5807_REG_CHIPID, &chipid);
+	regcache_cache_bypass(radio->map, false);
+
+	regulator_disable(radio->supply);
 	if (err < 0) {
-		dev_err(dev, "Failed to read chip ID");
-		goto err_regulator_disable;
+		dev_err(dev, "Failed to read chip ID\n");
+		return err;
 	}
 
-	if ((val & 0xFF00) != 0x5800) {
-		dev_err(dev, "Chip ID mismatch: expected 58xx, got %04X", val);
-		err = -ENODEV;
-		goto err_regulator_disable;
+	if ((chipid & 0xFF00) != 0x5800) {
+		dev_err(dev, "Chip ID mismatch: expected 58xx, got %04X\n",
+			chipid);
+		return -ENODEV;
 	}
 
-	dev_info(dev, "Found FM radio receiver");
+	dev_info(dev, "Found FM radio receiver\n");
 
-	/* TODO: Resetting the chip would be good. */
+	pm_runtime_set_autosuspend_delay(dev, RDA5807_AUTOSUSPEND_DELAY_MS);
+	pm_runtime_use_autosuspend(dev);
+	pm_runtime_set_suspended(dev);
+	pm_runtime_enable(dev);
+
+	/* Only use regmap cache until the chip is brought up */
+	regcache_cache_only(radio->map, true);
+	regcache_mark_dirty(radio->map);
+
+	err = rda5807_setup(radio);
+	if (err) {
+		dev_err(dev, "Failed to setup registers\n");
+		return err;
+	}
 
 	/* Initialize controls. */
 	v4l2_ctrl_handler_init(&radio->ctrl_handler, 3);
@@ -545,29 +759,20 @@ static int rda5807_i2c_probe(struct i2c_client *client,
 	v4l2_ctrl_new_std(&radio->ctrl_handler, &rda5807_ctrl_ops,
 			  V4L2_CID_AUDIO_VOLUME, 0, 15, 1, 8);
 
-	/*
-	 * TODO: V4L2_CID_TUNE_PREEMPHASIS is based on V4L2_CID_FM_TX_CLASS_BASE
-	 *       which suggests it is a transmit control rather than a receive
-	 *       control. The register bit we change is called "de-emphasis",
-	 *       but there is no de-emphasis control in V4L2.
-	 */
 	v4l2_ctrl_new_std_menu(&radio->ctrl_handler, &rda5807_ctrl_ops,
-			       V4L2_CID_TUNE_PREEMPHASIS,
-			       V4L2_PREEMPHASIS_75_uS,
-			       BIT(V4L2_PREEMPHASIS_DISABLED),
-			       V4L2_PREEMPHASIS_50_uS);
+			       V4L2_CID_TUNE_DEEMPHASIS,
+			       V4L2_DEEMPHASIS_75_uS,
+			       BIT(V4L2_DEEMPHASIS_DISABLED),
+			       V4L2_DEEMPHASIS_50_uS);
 	err = radio->ctrl_handler.error;
 	if (err) {
-		dev_err(dev, "Failed to init controls handler");
+		dev_err(dev, "Failed to init controls handler\n");
 		goto err_ctrl_free;
 	}
 
-	strlcpy(radio->v4l2_dev.name, rda5807_name,
-		sizeof(radio->v4l2_dev.name));
-
-	err = v4l2_device_register(NULL, &radio->v4l2_dev);
+	err = v4l2_device_register(dev, &radio->v4l2_dev);
 	if (err < 0) {
-		dev_err(dev, "Failed to register v4l2 device");
+		dev_err(dev, "Failed to register v4l2 device\n");
 		goto err_ctrl_free;
 	}
 
@@ -585,53 +790,25 @@ static int rda5807_i2c_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, radio);
 	video_set_drvdata(&radio->video_dev, radio);
 
-	err = video_register_device(&radio->video_dev, VFL_TYPE_RADIO, -1);
-	if (err < 0) {
-		dev_err(dev, "Failed to register video device");
-		goto err_ctrl_free;
-	}
-
-	/* Configure chip inputs. */
-	err = regmap_update_bits(radio->map, RDA5807_REG_INTM_THRESH_VOL,
-				 0xF << 4, (radio->input_flags & 0xF) << 4);
-	if (err < 0)
-		dev_warn(dev, "Failed to configure inputs (%d)", err);
-
-	/* Configure chip outputs. */
-	val = 0;
-	if (radio->output_flags & RDA5807_OUTPUT_AUDIO_I2S)
-		val |= BIT(6);
-
-	err = regmap_update_bits(radio->map, RDA5807_REG_IOCFG, 0x003F, val);
-	if (err < 0)
-		dev_warn(dev, "Failed to configure outputs (%d)", err);
-
-	val = 0;
-	if (radio->output_flags & RDA5807_OUTPUT_AUDIO_ANALOG)
-		val |= RDA5807_MASK_CTRL_DHIZ;
-
-	err = regmap_update_bits(radio->map, RDA5807_REG_CTRL,
-				 RDA5807_MASK_CTRL_DHIZ, val);
-	if (err < 0)
-		dev_warn(dev, "Failed to configure outputs (%d)", err);
-
 	err = v4l2_ctrl_handler_setup(&radio->ctrl_handler);
 	if (err < 0) {
-		dev_err(dev, "Failed to set default control values");
+		dev_err(dev, "Failed to set default control values\n");
 		goto err_video_unreg;
+	}
+
+	err = video_register_device(&radio->video_dev, VFL_TYPE_RADIO, -1);
+	if (err < 0) {
+		dev_err(dev, "Failed to register video device\n");
+		goto err_ctrl_free;
 	}
 
 	return 0;
 
 err_video_unreg:
 	video_unregister_device(&radio->video_dev);
-
 err_ctrl_free:
 	v4l2_ctrl_handler_free(&radio->ctrl_handler);
 	video_device_release_empty(&radio->video_dev);
-
-err_regulator_disable:
-	regulator_disable(radio->supply);
 
 	return err;
 }
@@ -639,44 +816,93 @@ err_regulator_disable:
 static int rda5807_i2c_remove(struct i2c_client *client)
 {
 	struct rda5807_driver *radio = i2c_get_clientdata(client);
+	struct device *dev = &client->dev;
+
+	pm_runtime_disable(dev);
+	pm_runtime_force_suspend(dev);
+	pm_runtime_dont_use_autosuspend(dev);
 
 	video_unregister_device(&radio->video_dev);
 	v4l2_ctrl_handler_free(&radio->ctrl_handler);
 	video_device_release_empty(&radio->video_dev);
 
-	regulator_disable(radio->supply);
-
 	return 0;
 }
 
-static int __maybe_unused rda5807_suspend(struct device *dev)
+static int rda5807_suspend(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct rda5807_driver *radio = i2c_get_clientdata(client);
+	int err;
 
-	return rda5807_set_enable(radio, 0);
+	err = rda5807_disable(radio);
+	if (err)
+		return err;
+
+	regcache_cache_only(radio->map, true);
+	regcache_mark_dirty(radio->map);
+
+	return regulator_disable(radio->supply);
 }
 
-static int __maybe_unused rda5807_resume(struct device *dev)
+static int rda5807_reset_chip(struct rda5807_driver *radio)
+{
+	int err;
+
+	err = regmap_write_bits(radio->map, RDA5807_REG_CTRL,
+				RDA5807_CTRL_SOFTRESET, RDA5807_CTRL_SOFTRESET);
+	if (err)
+		return err;
+
+	msleep(1);
+
+	return regmap_write_bits(radio->map, RDA5807_REG_CTRL,
+				 RDA5807_CTRL_SOFTRESET, 0);
+}
+
+static int rda5807_resume(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct rda5807_driver *radio = i2c_get_clientdata(client);
-	struct v4l2_ctrl *mute_ctrl = v4l2_ctrl_find(&radio->ctrl_handler,
-						     V4L2_CID_AUDIO_MUTE);
-	s32 mute_val = v4l2_ctrl_g_ctrl(mute_ctrl);
-	bool enabled = !mute_val;
+	int err;
 
-	if (enabled)
-		return rda5807_set_enable(radio, enabled);
-	else
-		return 0;
+	err = rda5807_enable_regulator(radio);
+	if (err)
+		return err;
+
+	regcache_cache_only(radio->map, false);
+
+	err = rda5807_reset_chip(radio);
+	if (err)
+		return err;
+
+	/* Restore cached registers to hardware */
+	err = regcache_sync(radio->map);
+	if (err < 0) {
+		dev_err(dev, "Failed to restore regs: %d\n", err);
+		goto err_regulator_disable;
+	}
+
+	err = rda5807_enable(radio);
+	if (err) {
+		dev_err(dev, "Failed to enable radio\n");
+		goto err_regulator_disable;
+	}
+
+	return 0;
+
+err_regulator_disable:
+	regulator_disable(radio->supply);
+	return err;
 }
 
+static UNIVERSAL_DEV_PM_OPS(rda5807_pm_ops, rda5807_suspend, rda5807_resume, NULL);
 
-static const struct dev_pm_ops __maybe_unused rda5807_pm_ops = {
-	.suspend = rda5807_suspend,
-	.resume = rda5807_resume,
+static const struct of_device_id rda5807_dt_ids[] = {
+	{ .compatible = "rda,rda5807" },
+	{ /* sentinel */ },
 };
+MODULE_DEVICE_TABLE(of, rda5807_dt_ids);
 
 static const struct i2c_device_id rda5807_id[] = {
 	{ "rda5807", 0 },
@@ -686,11 +912,9 @@ MODULE_DEVICE_TABLE(i2c, rda5807_id);
 
 static struct i2c_driver rda5807_i2c_driver = {
 	.driver = {
-		.name	= "radio-rda5807",
-		.owner	= THIS_MODULE,
-#ifdef CONFIG_PM_SLEEP
-		.pm	= &rda5807_pm_ops,
-#endif
+		.name = "radio-rda5807",
+		.of_match_table = of_match_ptr(rda5807_dt_ids),
+		.pm = &rda5807_pm_ops,
 	},
 	.probe = rda5807_i2c_probe,
 	.remove = rda5807_i2c_remove,
@@ -699,5 +923,6 @@ static struct i2c_driver rda5807_i2c_driver = {
 module_i2c_driver(rda5807_i2c_driver);
 
 MODULE_AUTHOR("Maarten ter Huurne <maarten@treewalker.org>");
+MODULE_AUTHOR("Paul Cercueil <paul@crapouillou.net>");
 MODULE_DESCRIPTION("RDA5807 FM tuner driver");
 MODULE_LICENSE("GPL");
