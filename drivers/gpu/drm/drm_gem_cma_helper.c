@@ -10,6 +10,7 @@
  */
 
 #include <linux/dma-buf.h>
+#include <linux/dma-direct.h>
 #include <linux/dma-mapping.h>
 #include <linux/export.h>
 #include <linux/mm.h>
@@ -115,8 +116,15 @@ struct drm_gem_cma_object *drm_gem_cma_create(struct drm_device *drm,
 	if (IS_ERR(cma_obj))
 		return cma_obj;
 
-	cma_obj->vaddr = dma_alloc_wc(drm->dev, size, &cma_obj->paddr,
-				      GFP_KERNEL | __GFP_NOWARN);
+	if (cma_obj->map_noncoherent) {
+		cma_obj->vaddr = dma_alloc_noncoherent(drm->dev, size,
+						       &cma_obj->paddr,
+						       DMA_TO_DEVICE,
+						       GFP_KERNEL | __GFP_NOWARN);
+	} else {
+		cma_obj->vaddr = dma_alloc_wc(drm->dev, size, &cma_obj->paddr,
+					      GFP_KERNEL | __GFP_NOWARN);
+	}
 	if (!cma_obj->vaddr) {
 		drm_dbg(drm, "failed to allocate buffer with size %zu\n",
 			 size);
@@ -499,8 +507,14 @@ int drm_gem_cma_mmap(struct drm_gem_object *obj, struct vm_area_struct *vma)
 
 	cma_obj = to_drm_gem_cma_obj(obj);
 
-	ret = dma_mmap_wc(cma_obj->base.dev->dev, vma, cma_obj->vaddr,
-			  cma_obj->paddr, vma->vm_end - vma->vm_start);
+	vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
+	if (!cma_obj->map_noncoherent)
+		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+
+	ret = remap_pfn_range(vma, vma->vm_start,
+			      PHYS_PFN(virt_to_phys(cma_obj->vaddr)),
+			      vma->vm_end - vma->vm_start,
+			      vma->vm_page_prot);
 	if (ret)
 		drm_gem_vm_close(vma);
 
@@ -556,3 +570,24 @@ drm_gem_cma_prime_import_sg_table_vmap(struct drm_device *dev,
 	return obj;
 }
 EXPORT_SYMBOL(drm_gem_cma_prime_import_sg_table_vmap);
+
+/**
+ * drm_gem_cma_prime_mmap - PRIME mmap function for CMA GEM drivers
+ * @obj: GEM object
+ * @vma: Virtual address range
+ *
+ * Carbon copy of drm_gem_prime_mmap, but the 'map_noncoherent' flag is
+ * disabled to ensure that the exported buffers have the expected cache
+ * coherency.
+ */
+int drm_gem_cma_prime_mmap(struct drm_gem_object *obj,
+			   struct vm_area_struct *vma)
+{
+	struct drm_gem_cma_object *cma_obj = to_drm_gem_cma_obj(obj);
+
+	/* Use standard cache settings for PRIME-exported GEM buffers */
+	cma_obj->map_noncoherent = false;
+
+	return drm_gem_prime_mmap(obj, vma);
+}
+EXPORT_SYMBOL(drm_gem_cma_prime_mmap);
