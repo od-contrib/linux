@@ -60,6 +60,10 @@ struct jz_soc_info {
 	unsigned int num_formats_f0, num_formats_f1;
 };
 
+struct ingenic_gem_object {
+	struct drm_gem_cma_object base;
+};
+
 struct ingenic_drm_private_state {
 	struct drm_private_state base;
 
@@ -813,6 +817,43 @@ static void ingenic_drm_disable_vblank(struct drm_crtc *crtc)
 	regmap_update_bits(priv->map, JZ_REG_LCD_CTRL, JZ_LCD_CTRL_EOF_IRQ, 0);
 }
 
+static void ingenic_drm_gem_fb_destroy(struct drm_framebuffer *fb)
+{
+	drm_gem_fb_destroy(fb);
+}
+
+static const struct drm_framebuffer_funcs ingenic_drm_gem_fb_funcs = {
+	.destroy	= ingenic_drm_gem_fb_destroy,
+	.create_handle	= drm_gem_fb_create_handle,
+};
+
+static struct drm_framebuffer *
+ingenic_drm_gem_fb_create(struct drm_device *dev, struct drm_file *file,
+			  const struct drm_mode_fb_cmd2 *mode_cmd)
+{
+	struct drm_framebuffer *fb;
+
+	fb = drm_gem_fb_create_with_funcs(dev, file, mode_cmd,
+					  &ingenic_drm_gem_fb_funcs);
+	if (IS_ERR(fb))
+		return fb;
+
+	return fb;
+}
+
+static struct drm_gem_object *
+ingenic_drm_gem_create_object(struct drm_device *drm, size_t size)
+{
+	struct ingenic_drm *priv = drm_device_get_priv(drm);
+	struct ingenic_gem_object *obj;
+
+	obj = kzalloc(sizeof(*obj), GFP_KERNEL);
+	if (!obj)
+		return ERR_PTR(-ENOMEM);
+
+	return &obj->base.base;
+}
+
 static struct drm_private_state *
 ingenic_drm_duplicate_state(struct drm_private_obj *obj)
 {
@@ -848,6 +889,8 @@ static const struct drm_driver ingenic_drm_driver_data = {
 
 	.fops			= &ingenic_drm_fops,
 	DRM_GEM_CMA_DRIVER_OPS,
+
+	.gem_create_object	= ingenic_drm_gem_create_object,
 
 	.irq_handler		= ingenic_drm_irq_handler,
 };
@@ -897,7 +940,7 @@ static const struct drm_encoder_helper_funcs ingenic_drm_encoder_helper_funcs = 
 };
 
 static const struct drm_mode_config_funcs ingenic_drm_mode_config_funcs = {
-	.fb_create		= drm_gem_fb_create,
+	.fb_create		= ingenic_drm_gem_fb_create,
 	.output_poll_changed	= drm_fb_helper_output_poll_changed,
 	.atomic_check		= drm_atomic_helper_check,
 	.atomic_commit		= drm_atomic_helper_commit,
