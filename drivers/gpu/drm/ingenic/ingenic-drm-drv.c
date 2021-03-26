@@ -47,8 +47,7 @@ struct ingenic_dma_hwdesc {
 } __aligned(16);
 
 struct ingenic_dma_hwdescs {
-	struct ingenic_dma_hwdesc hwdesc_f0;
-	struct ingenic_dma_hwdesc hwdesc_f1;
+	struct ingenic_dma_hwdesc hwdesc[2];
 	struct ingenic_dma_hwdesc hwdesc_pal;
 	u16 palette[256] __aligned(16);
 };
@@ -136,6 +135,13 @@ static inline struct ingenic_drm *drm_crtc_get_priv(struct drm_crtc *crtc)
 static inline struct ingenic_drm *drm_nb_get_priv(struct notifier_block *nb)
 {
 	return container_of(nb, struct ingenic_drm, clock_nb);
+}
+
+static inline dma_addr_t dma_hwdesc_addr(const struct ingenic_drm *priv, bool use_f1)
+{
+	u32 offset = offsetof(struct ingenic_dma_hwdescs, hwdesc[use_f1]);
+
+	return priv->dma_hwdescs_phys + offset;
 }
 
 static int ingenic_drm_update_pixclk(struct notifier_block *nb,
@@ -543,20 +549,19 @@ static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 	struct ingenic_dma_hwdesc *hwdesc;
 	unsigned int width, height, cpp, offset;
 	dma_addr_t addr;
+	bool use_f1;
 	u32 fourcc;
 
 	if (state && state->fb) {
 		crtc_state = state->crtc->state;
+		use_f1 = priv->soc_info->has_osd && plane != &priv->f0;
 
 		addr = drm_fb_cma_get_gem_addr(state->fb, state, 0);
 		width = state->src_w >> 16;
 		height = state->src_h >> 16;
 		cpp = state->fb->format->cpp[0];
 
-		if (!priv->soc_info->has_osd || plane == &priv->f0)
-			hwdesc = &priv->dma_hwdescs->hwdesc_f0;
-		else
-			hwdesc = &priv->dma_hwdescs->hwdesc_f1;
+		hwdesc = &priv->dma_hwdescs->hwdesc[use_f1];
 
 		hwdesc->addr = addr;
 		hwdesc->cmd = JZ_LCD_CMD_EOF_IRQ | (width * height * cpp / 4);
@@ -569,9 +574,9 @@ static void ingenic_drm_plane_atomic_update(struct drm_plane *plane,
 			if (fourcc == DRM_FORMAT_C8)
 				offset = offsetof(struct ingenic_dma_hwdescs, hwdesc_pal);
 			else
-				offset = offsetof(struct ingenic_dma_hwdescs, hwdesc_f0);
+				offset = offsetof(struct ingenic_dma_hwdescs, hwdesc[0]);
 
-			priv->dma_hwdescs->hwdesc_f0.next = priv->dma_hwdescs_phys + offset;
+			priv->dma_hwdescs->hwdesc[0].next = priv->dma_hwdescs_phys + offset;
 
 			crtc_state->color_mgmt_changed = fourcc == DRM_FORMAT_C8;
 		}
@@ -943,20 +948,17 @@ static int ingenic_drm_bind(struct device *dev, bool has_components)
 
 
 	/* Configure DMA hwdesc for foreground0 plane */
-	dma_hwdesc_phys_f0 = priv->dma_hwdescs_phys
-		+ offsetof(struct ingenic_dma_hwdescs, hwdesc_f0);
-	priv->dma_hwdescs->hwdesc_f0.next = dma_hwdesc_phys_f0;
-	priv->dma_hwdescs->hwdesc_f0.id = 0xf0;
+	dma_hwdesc_phys_f0 = dma_hwdesc_addr(priv, 0);
+	priv->dma_hwdescs->hwdesc[0].next = dma_hwdesc_phys_f0;
+	priv->dma_hwdescs->hwdesc[0].id = 0xf0;
 
 	/* Configure DMA hwdesc for foreground1 plane */
-	dma_hwdesc_phys_f1 = priv->dma_hwdescs_phys
-		+ offsetof(struct ingenic_dma_hwdescs, hwdesc_f1);
-	priv->dma_hwdescs->hwdesc_f1.next = dma_hwdesc_phys_f1;
-	priv->dma_hwdescs->hwdesc_f1.id = 0xf1;
+	dma_hwdesc_phys_f1 = dma_hwdesc_addr(priv, 1);
+	priv->dma_hwdescs->hwdesc[1].next = dma_hwdesc_phys_f1;
+	priv->dma_hwdescs->hwdesc[1].id = 0xf1;
 
 	/* Configure DMA hwdesc for palette */
-	priv->dma_hwdescs->hwdesc_pal.next = priv->dma_hwdescs_phys
-		+ offsetof(struct ingenic_dma_hwdescs, hwdesc_f0);
+	priv->dma_hwdescs->hwdesc_pal.next = dma_hwdesc_phys_f0;
 	priv->dma_hwdescs->hwdesc_pal.id = 0xc0;
 	priv->dma_hwdescs->hwdesc_pal.addr = priv->dma_hwdescs_phys
 		+ offsetof(struct ingenic_dma_hwdescs, palette);
