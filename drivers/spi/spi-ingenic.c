@@ -114,10 +114,9 @@ static void spi_ingenic_finalize_transfer(void *controller)
 }
 
 static int spi_ingenic_prepare_dma(struct spi_controller *ctlr,
-				   struct dma_chan *chan,
-				   struct sg_table *sg,
+				   struct scatterlist *sg,
 				   enum dma_transfer_direction dir,
-				   unsigned int bits)
+				   unsigned int bits, bool irq)
 {
 	struct ingenic_spi *priv = spi_controller_get_devdata(ctlr);
 	struct dma_slave_config cfg = {
@@ -143,16 +142,16 @@ static int spi_ingenic_prepare_dma(struct spi_controller *ctlr,
 		cfg.src_maxburst = cfg.dst_maxburst = 1;
 	}
 
-	ret = dmaengine_slave_config(chan, &cfg);
+	ret = dmaengine_slave_config(ctlr->dma_tx, &cfg);
 	if (ret)
 		return ret;
 
-	desc = dmaengine_prep_slave_sg(chan, sg->sgl, sg->nents, dir,
-				       DMA_PREP_INTERRUPT);
+	desc = dmaengine_prep_slave_sg(ctlr->dma_tx, sg, 1, dir,
+				       irq ? DMA_PREP_INTERRUPT : 0);
 	if (!desc)
 		return -ENOMEM;
 
-	if (dir == DMA_DEV_TO_MEM) {
+	if (irq) {
 		desc->callback = spi_ingenic_finalize_transfer;
 		desc->callback_param = ctlr;
 	}
@@ -171,21 +170,22 @@ static int spi_ingenic_prepare_dma(struct spi_controller *ctlr,
 static int spi_ingenic_dma_tx(struct spi_controller *ctlr,
 			      struct spi_transfer *xfer, unsigned int bits)
 {
+	struct scatterlist *sgrx = xfer->rx_sg.sgl,
+			   *sgtx = xfer->tx_sg.sgl;
+	unsigned int i;
 	int ret;
 
-	ret = spi_ingenic_prepare_dma(ctlr, ctlr->dma_rx,
-				      &xfer->rx_sg, DMA_DEV_TO_MEM, bits);
-	if (ret)
-		return ret;
+	for (i = 0; i < xfer->rx_sg.nents; i++) {
+		ret = spi_ingenic_prepare_dma(ctlr, sgtx, DMA_MEM_TO_DEV, bits, false);
+		if (ret)
+			return ret;
 
-	ret = spi_ingenic_prepare_dma(ctlr, ctlr->dma_tx,
-				      &xfer->tx_sg, DMA_MEM_TO_DEV, bits);
-	if (ret) {
-		/* TODO: Unqueue and free up RX descriptor */
-		return ret;
+		ret = spi_ingenic_prepare_dma(ctlr, sgrx, DMA_DEV_TO_MEM, bits,
+					      i == xfer->rx_sg.nents - 1);
+		if (ret)
+			return ret;
 	}
 
-	dma_async_issue_pending(ctlr->dma_rx);
 	dma_async_issue_pending(ctlr->dma_tx);
 
 	return 1;
@@ -332,13 +332,8 @@ static bool spi_ingenic_can_dma(struct spi_controller *ctlr,
 static int spi_ingenic_request_dma(struct spi_controller *ctlr,
 				   struct device *dev)
 {
-	ctlr->dma_tx = dma_request_slave_channel(dev, "tx");
+	ctlr->dma_tx = dma_request_slave_channel(dev, "tx-rx");
 	if (!ctlr->dma_tx)
-		return -ENODEV;
-
-	ctlr->dma_rx = dma_request_slave_channel(dev, "rx");
-
-	if (!ctlr->dma_rx)
 		return -ENODEV;
 
 	ctlr->can_dma = spi_ingenic_can_dma;
@@ -350,8 +345,6 @@ static void spi_ingenic_release_dma(struct spi_controller *ctlr)
 {
 	if (ctlr->dma_tx)
 		dma_release_channel(ctlr->dma_tx);
-	if (ctlr->dma_rx)
-		dma_release_channel(ctlr->dma_rx);
 }
 
 static const struct regmap_config spi_ingenic_regmap_config = {
