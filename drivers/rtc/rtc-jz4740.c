@@ -27,6 +27,7 @@
 #define JZ_REG_RTC_WAKEUP_FILTER	0x24
 #define JZ_REG_RTC_RESET_COUNTER	0x28
 #define JZ_REG_RTC_SCRATCHPAD	0x34
+#define JZ_REG_RTC_CKPCR	0x40
 
 /* The following are present on the jz4780 */
 #define JZ_REG_RTC_WENR	0x3C
@@ -51,6 +52,9 @@
 
 #define JZ_RTC_WAKEUP_FILTER_MASK	0x0000FFE0
 #define JZ_RTC_RESET_COUNTER_MASK	0x00000FE0
+
+#define JZ_RTC_CKPCR_CK32PULL_DIS	BIT(4)
+#define JZ_RTC_CKPCR_CK32CTL_EN		(BIT(2) | BIT(1))
 
 enum jz4740_rtc_type {
 	ID_JZ4740,
@@ -450,6 +454,13 @@ static int jz4740_rtc_probe(struct platform_device *pdev)
 			pm_power_off = jz4740_rtc_power_off;
 		else
 			dev_warn(dev, "Poweroff handler already present!\n");
+	}
+
+	if (rtc->type == ID_JZ4780) {
+		/* Unconditionally output the 32 kHz clock to the CLK32K pin */
+		jz4740_rtc_reg_write(rtc, JZ_REG_RTC_CKPCR,
+				     JZ_RTC_CKPCR_CK32PULL_DIS |
+				     JZ_RTC_CKPCR_CK32CTL_EN);
 	}
 
 	return 0;
