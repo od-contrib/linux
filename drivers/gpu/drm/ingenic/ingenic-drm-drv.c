@@ -573,6 +573,7 @@ void ingenic_drm_plane_disable(struct device *dev, struct drm_plane *plane)
 		regmap_clear_bits(priv->map, JZ_REG_LCD_OSDC, en_bit);
 	}
 }
+EXPORT_SYMBOL_GPL(ingenic_drm_plane_disable);
 
 static void ingenic_drm_plane_atomic_disable(struct drm_plane *plane,
 					     struct drm_atomic_state *state)
@@ -656,6 +657,7 @@ void ingenic_drm_plane_config(struct device *dev,
 			     state->crtc_h << JZ_LCD_SIZE01_HEIGHT_LSB);
 	}
 }
+EXPORT_SYMBOL_GPL(ingenic_drm_plane_config);
 
 bool ingenic_drm_map_noncoherent(const struct device *dev)
 {
@@ -663,6 +665,7 @@ bool ingenic_drm_map_noncoherent(const struct device *dev)
 
 	return priv->soc_info->map_noncoherent;
 }
+EXPORT_SYMBOL_GPL(ingenic_drm_map_noncoherent);
 
 static void ingenic_drm_update_palette(struct ingenic_drm *priv,
 				       const struct drm_color_lut *lut)
@@ -1694,29 +1697,7 @@ static struct platform_driver ingenic_drm_driver = {
 	.probe = ingenic_drm_probe,
 	.remove = ingenic_drm_remove,
 };
-
-static int ingenic_drm_init(void)
-{
-	int err;
-
-	if (IS_ENABLED(CONFIG_DRM_INGENIC_IPU)) {
-		err = platform_driver_register(ingenic_ipu_driver_ptr);
-		if (err)
-			return err;
-	}
-
-	return platform_driver_register(&ingenic_drm_driver);
-}
-module_init(ingenic_drm_init);
-
-static void ingenic_drm_exit(void)
-{
-	platform_driver_unregister(&ingenic_drm_driver);
-
-	if (IS_ENABLED(CONFIG_DRM_INGENIC_IPU))
-		platform_driver_unregister(ingenic_ipu_driver_ptr);
-}
-module_exit(ingenic_drm_exit);
+module_platform_driver(ingenic_drm_driver);
 
 MODULE_AUTHOR("Paul Cercueil <paul@crapouillou.net>");
 MODULE_DESCRIPTION("DRM driver for the Ingenic SoCs\n");
