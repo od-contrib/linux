@@ -1694,29 +1694,7 @@ static struct platform_driver ingenic_drm_driver = {
 	.probe = ingenic_drm_probe,
 	.remove = ingenic_drm_remove,
 };
-
-static int ingenic_drm_init(void)
-{
-	int err;
-
-	if (IS_ENABLED(CONFIG_DRM_INGENIC_IPU)) {
-		err = platform_driver_register(ingenic_ipu_driver_ptr);
-		if (err)
-			return err;
-	}
-
-	return platform_driver_register(&ingenic_drm_driver);
-}
-module_init(ingenic_drm_init);
-
-static void ingenic_drm_exit(void)
-{
-	platform_driver_unregister(&ingenic_drm_driver);
-
-	if (IS_ENABLED(CONFIG_DRM_INGENIC_IPU))
-		platform_driver_unregister(ingenic_ipu_driver_ptr);
-}
-module_exit(ingenic_drm_exit);
+module_platform_driver(ingenic_drm_driver);
 
 MODULE_AUTHOR("Paul Cercueil <paul@crapouillou.net>");
 MODULE_DESCRIPTION("DRM driver for the Ingenic SoCs\n");
