@@ -25,3 +25,25 @@
 &joystick {
 	status = "disabled";
 };
+
+&pinctrl {
+	pins_power_led: power-led {
+		pin = "PB30";
+		input-enable;
+		bias-pull-up;
+	};
+};
+
+/*
+ * On the RG-300X, the LEDs are way too powerful. Work around this by setting
+ * the GPIO as input with the pull-up resitor enabled, which causes the voltage
+ * to be low enough that the LEDs are just slightly lit.
+ */
+&power_led {
+	status = "disabled";
+};
+
+&leds {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_power_led>;
+};

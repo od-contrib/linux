@@ -30,11 +30,11 @@
 };
 
 &js_axis0 {
-	abs-range = <3000 200>;
+	abs-range = <2400 200>;
 };
 
 &js_axis1 {
-	abs-range = <3000 200>;
+	abs-range = <2200 0>;
 };
 
 &btn8 {
