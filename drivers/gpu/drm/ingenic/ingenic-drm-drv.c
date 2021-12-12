@@ -939,7 +939,7 @@ static void ingenic_drm_gem_fb_destroy(struct drm_framebuffer *fb)
 	struct ingenic_gem_object *obj = to_ingenic_gem_obj(gem_obj);
 
 	dma_free_coherent(priv->dev,
-			  sizeof(*obj->hwdescs) * fb->height,
+			  sizeof(*obj->hwdescs) * fb->height * 2,
 			  obj->hwdescs, obj->hwdescs_phys);
 	drm_gem_fb_destroy(fb);
 }
