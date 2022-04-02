@@ -101,3 +101,8 @@
 		remote-endpoint = <&hdmi_input>;
 	};
 };
+
+&pins_lcd {
+	/* The LCD's interface is 8 bits, but we need the 24-bit interface for HDMI */
+	groups = "lcd-24bit";
+};
