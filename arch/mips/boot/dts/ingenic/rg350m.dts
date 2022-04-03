@@ -12,10 +12,6 @@
 	compatible = "leadtek,ltk035c5444t";
 };
 
-&pins_lcd {
-	groups = "lcd-24bit";
-};
-
 &gpio_keys {
 	btn18: button@18 {
 		label = "R3 joystick button";
