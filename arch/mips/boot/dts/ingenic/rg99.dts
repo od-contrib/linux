@@ -7,12 +7,6 @@
 	compatible = "ylm,rg99", "ingenic,jz4725b";
 	model = "RG-99";
 
-	charger: charger {
-	     compatible = "gpio-charger";
-	     charger-type = "usb-sdp";
-	     gpios = <&gpc 10 GPIO_ACTIVE_HIGH>;
-	};
-
 	spi {
 		compatible = "spi-gpio";
 		#address-cells = <1>;
@@ -136,6 +130,32 @@
 			debounce-interval = <10>;
 		};
 	};
+
+	usb_conn: connector {
+		compatible = "gpio-usb-b-connector", "usb-b-connector";
+		label = "mini-USB";
+		type = "mini";
+
+		vbus-gpios = <&gpc 10 GPIO_ACTIVE_HIGH>;
+		vbus-supply = <&vcc>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pins_vbus>;
+
+		port {
+			usb_conn_ep: endpoint {
+				remote-endpoint = <&usb_ep>;
+			};
+		};
+	};
+};
+
+&udc {
+	port {
+		usb_ep: endpoint {
+			remote-endpoint = <&usb_conn_ep>;
+		};
+	};
 };
 
 &sound_card {
@@ -144,7 +164,15 @@
 };
 
 &pmu {
-	power-supplies = <&charger>;
+	charger = <&usb_conn>;
+	power-supplies = <&usb_conn>;
+};
+
+&pinctrl {
+	pins_vbus: vbus {
+		pins = "PC10";
+		bias-disable;
+	};
 };
 
 &pins_lcd {
