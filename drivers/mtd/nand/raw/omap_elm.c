@@ -429,7 +429,6 @@ static int elm_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM_SLEEP
 /*
  * elm_context_save
  * saves ELM configurations to preserve them across Hardware powered-down
@@ -541,9 +540,8 @@ static int elm_resume(struct device *dev)
 	elm_context_restore(info);
 	return 0;
 }
-#endif
 
-static SIMPLE_DEV_PM_OPS(elm_pm_ops, elm_suspend, elm_resume);
+static DEFINE_SIMPLE_DEV_PM_OPS(elm_pm_ops, elm_suspend, elm_resume);
 
 #ifdef CONFIG_OF
 static const struct of_device_id elm_of_match[] = {
@@ -558,7 +556,7 @@ static struct platform_driver elm_driver = {
 	.driver	= {
 		.name	= DRIVER_NAME,
 		.of_match_table = of_match_ptr(elm_of_match),
-		.pm	= &elm_pm_ops,
+		.pm	= pm_sleep_ptr(&elm_pm_ops),
 	},
 	.probe	= elm_probe,
 	.remove	= elm_remove,

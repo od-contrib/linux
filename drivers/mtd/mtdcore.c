@@ -36,8 +36,6 @@
 
 struct backing_dev_info *mtd_bdi;
 
-#ifdef CONFIG_PM_SLEEP
-
 static int mtd_cls_suspend(struct device *dev)
 {
 	struct mtd_info *mtd = dev_get_drvdata(dev);
@@ -54,16 +52,13 @@ static int mtd_cls_resume(struct device *dev)
 	return 0;
 }
 
-static SIMPLE_DEV_PM_OPS(mtd_cls_pm_ops, mtd_cls_suspend, mtd_cls_resume);
-#define MTD_CLS_PM_OPS (&mtd_cls_pm_ops)
-#else
-#define MTD_CLS_PM_OPS NULL
-#endif
+static DEFINE_SIMPLE_DEV_PM_OPS(mtd_cls_pm_ops,
+				mtd_cls_suspend, mtd_cls_resume);
 
 static struct class mtd_class = {
 	.name = "mtd",
 	.owner = THIS_MODULE,
-	.pm = MTD_CLS_PM_OPS,
+	.pm = pm_sleep_ptr(&mtd_cls_pm_ops),
 };
 
 static DEFINE_IDR(mtd_idr);
