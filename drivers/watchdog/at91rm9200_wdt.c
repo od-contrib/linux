@@ -278,25 +278,21 @@ static void at91wdt_shutdown(struct platform_device *pdev)
 	at91_wdt_stop();
 }
 
-#ifdef CONFIG_PM
-
-static int at91wdt_suspend(struct platform_device *pdev, pm_message_t message)
+static int at91wdt_suspend(struct device *dev)
 {
 	at91_wdt_stop();
 	return 0;
 }
 
-static int at91wdt_resume(struct platform_device *pdev)
+static int at91wdt_resume(struct device *dev)
 {
 	if (at91wdt_busy)
 		at91_wdt_start();
 	return 0;
 }
 
-#else
-#define at91wdt_suspend NULL
-#define at91wdt_resume	NULL
-#endif
+static DEFINE_SIMPLE_DEV_PM_OPS(at91wdt_pm_ops,
+				at91wdt_suspend, ad91wdt_resume);
 
 static const struct of_device_id at91_wdt_dt_ids[] = {
 	{ .compatible = "atmel,at91rm9200-wdt" },
@@ -308,11 +304,10 @@ static struct platform_driver at91wdt_driver = {
 	.probe		= at91wdt_probe,
 	.remove		= at91wdt_remove,
 	.shutdown	= at91wdt_shutdown,
-	.suspend	= at91wdt_suspend,
-	.resume		= at91wdt_resume,
 	.driver		= {
 		.name	= "atmel_st_watchdog",
 		.of_match_table = at91_wdt_dt_ids,
+		.pm	= pm_sleep_ptr(&at91wdt_pm_ops),
 	},
 };
 

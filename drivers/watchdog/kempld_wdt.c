@@ -75,9 +75,7 @@ struct kempld_wdt_data {
 	struct watchdog_device		wdd;
 	unsigned int			pretimeout;
 	struct kempld_wdt_stage		stage[KEMPLD_WDT_MAX_STAGES];
-#ifdef CONFIG_PM
 	u8				pm_status_store;
-#endif
 };
 
 #define DEFAULT_TIMEOUT		30 /* seconds */
@@ -495,12 +493,10 @@ static int kempld_wdt_probe(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
 /* Disable watchdog if it is active during suspend */
-static int kempld_wdt_suspend(struct platform_device *pdev,
-				pm_message_t message)
+static int kempld_wdt_suspend(struct device *dev)
 {
-	struct kempld_wdt_data *wdt_data = platform_get_drvdata(pdev);
+	struct kempld_wdt_data *wdt_data = dev_get_drvdata(dev);
 	struct kempld_device_data *pld = wdt_data->pld;
 	struct watchdog_device *wdd = &wdt_data->wdd;
 
@@ -517,9 +513,9 @@ static int kempld_wdt_suspend(struct platform_device *pdev,
 }
 
 /* Enable watchdog and configure it if necessary */
-static int kempld_wdt_resume(struct platform_device *pdev)
+static int kempld_wdt_resume(struct device *dev)
 {
-	struct kempld_wdt_data *wdt_data = platform_get_drvdata(pdev);
+	struct kempld_wdt_data *wdt_data = dev_get_drvdata(dev);
 	struct watchdog_device *wdd = &wdt_data->wdd;
 
 	/*
@@ -531,18 +527,16 @@ static int kempld_wdt_resume(struct platform_device *pdev)
 	else
 		return kempld_wdt_stop(wdd);
 }
-#else
-#define kempld_wdt_suspend	NULL
-#define kempld_wdt_resume	NULL
-#endif
+
+static DEFINE_SIMPLE_DEV_PM_OPS(kempld_wdt_pm_ops,
+				kempld_wdt_suspend, kempld_wdt_resume);
 
 static struct platform_driver kempld_wdt_driver = {
 	.driver		= {
 		.name	= "kempld-wdt",
+		.pm	= pm_sleep_ptr(&kempld_wdt_pm_ops),
 	},
 	.probe		= kempld_wdt_probe,
-	.suspend	= kempld_wdt_suspend,
-	.resume		= kempld_wdt_resume,
 };
 
 module_platform_driver(kempld_wdt_driver);

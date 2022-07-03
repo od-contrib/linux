@@ -105,9 +105,7 @@ static int db8500_wdt_probe(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
-static int db8500_wdt_suspend(struct platform_device *pdev,
-			     pm_message_t state)
+static int db8500_wdt_suspend(struct device *dev)
 {
 	if (watchdog_active(&db8500_wdt)) {
 		db8500_wdt_stop(&db8500_wdt);
@@ -119,7 +117,7 @@ static int db8500_wdt_suspend(struct platform_device *pdev,
 	return 0;
 }
 
-static int db8500_wdt_resume(struct platform_device *pdev)
+static int db8500_wdt_resume(struct device *dev)
 {
 	if (watchdog_active(&db8500_wdt)) {
 		db8500_wdt_stop(&db8500_wdt);
@@ -130,17 +128,15 @@ static int db8500_wdt_resume(struct platform_device *pdev)
 	}
 	return 0;
 }
-#else
-#define db8500_wdt_suspend NULL
-#define db8500_wdt_resume NULL
-#endif
+
+static DEFINE_SIMPLE_DEV_PM_OPS(db8500_wdt_pm_ops,
+				db8500_wdt_suspend, db8500_wdt_resume);
 
 static struct platform_driver db8500_wdt_driver = {
 	.probe		= db8500_wdt_probe,
-	.suspend	= db8500_wdt_suspend,
-	.resume		= db8500_wdt_resume,
 	.driver		= {
 		.name	= "db8500_wdt",
+		.pm	= pm_sleep_ptr(&db8500_wdt_pm_ops),
 	},
 };
 
