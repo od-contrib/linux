@@ -30,32 +30,15 @@ int intel_lpss_probe(struct device *dev,
 		     const struct intel_lpss_platform_info *info);
 void intel_lpss_remove(struct device *dev);
 
-#ifdef CONFIG_PM
 int intel_lpss_prepare(struct device *dev);
 int intel_lpss_suspend(struct device *dev);
 int intel_lpss_resume(struct device *dev);
 
-#ifdef CONFIG_PM_SLEEP
-#define INTEL_LPSS_SLEEP_PM_OPS			\
-	.prepare = intel_lpss_prepare,		\
-	SET_LATE_SYSTEM_SLEEP_PM_OPS(intel_lpss_suspend, intel_lpss_resume)
-#else
-#define INTEL_LPSS_SLEEP_PM_OPS
-#endif
-
-#define INTEL_LPSS_RUNTIME_PM_OPS		\
-	.runtime_suspend = intel_lpss_suspend,	\
-	.runtime_resume = intel_lpss_resume,
-
-#else /* !CONFIG_PM */
-#define INTEL_LPSS_SLEEP_PM_OPS
-#define INTEL_LPSS_RUNTIME_PM_OPS
-#endif /* CONFIG_PM */
-
 #define INTEL_LPSS_PM_OPS(name)			\
 const struct dev_pm_ops name = {		\
-	INTEL_LPSS_SLEEP_PM_OPS			\
-	INTEL_LPSS_RUNTIME_PM_OPS		\
+	.prepare = pm_sleep_ptr(intel_lpss_prepare),			\
+	LATE_SYSTEM_SLEEP_PM_OPS(intel_lpss_suspend, intel_lpss_resume),\
+	RUNTIME_PM_OPS(intel_lpss_suspend, intel_lpss_resume, NULL),	\
 }
 
 #endif /* __MFD_INTEL_LPSS_H */
