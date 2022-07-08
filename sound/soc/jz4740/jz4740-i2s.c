@@ -64,6 +64,9 @@
 #define JZ_AIC_CTRL_ENABLE_PLAYBACK BIT(1)
 #define JZ_AIC_CTRL_ENABLE_CAPTURE BIT(0)
 
+#define JZ4760_AIC_CTRL_TFLUSH BIT(8)
+#define JZ4760_AIC_CTRL_RFLUSH BIT(7)
+
 #define JZ_AIC_CTRL_OUTPUT_SAMPLE_SIZE_OFFSET 19
 #define JZ_AIC_CTRL_INPUT_SAMPLE_SIZE_OFFSET  16
 
@@ -90,6 +93,8 @@ enum jz47xx_i2s_version {
 struct i2s_soc_info {
 	enum jz47xx_i2s_version version;
 	struct snd_soc_dai_driver *dai;
+
+	bool shared_fifo_flush;
 };
 
 struct jz4740_i2s {
@@ -123,12 +128,33 @@ static int jz4740_i2s_startup(struct snd_pcm_substream *substream,
 	uint32_t conf, ctrl;
 	int ret;
 
+	/*
+	 * When we can flush FIFOs independently, only flush the
+	 * FIFO that is starting up.
+	 */
+	if (!i2s->soc_info->shared_fifo_flush) {
+		ctrl = jz4740_i2s_read(i2s, JZ_REG_AIC_CTRL);
+
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+			ctrl |= JZ4760_AIC_CTRL_TFLUSH;
+		else
+			ctrl |= JZ4760_AIC_CTRL_RFLUSH;
+
+		jz4740_i2s_write(i2s, JZ_REG_AIC_CTRL, ctrl);
+	}
+
 	if (snd_soc_dai_active(dai))
 		return 0;
 
-	ctrl = jz4740_i2s_read(i2s, JZ_REG_AIC_CTRL);
-	ctrl |= JZ_AIC_CTRL_FLUSH;
-	jz4740_i2s_write(i2s, JZ_REG_AIC_CTRL, ctrl);
+	/*
+	 * When there is a shared flush bit for both FIFOs we can
+	 * only flush the FIFOs if no other stream has started.
+	 */
+	if (i2s->soc_info->shared_fifo_flush) {
+		ctrl = jz4740_i2s_read(i2s, JZ_REG_AIC_CTRL);
+		ctrl |= JZ_AIC_CTRL_FLUSH;
+		jz4740_i2s_write(i2s, JZ_REG_AIC_CTRL, ctrl);
+	}
 
 	ret = clk_prepare_enable(i2s->clk_i2s);
 	if (ret)
@@ -443,6 +469,7 @@ static struct snd_soc_dai_driver jz4740_i2s_dai = {
 static const struct i2s_soc_info jz4740_i2s_soc_info = {
 	.version = JZ_I2S_JZ4740,
 	.dai = &jz4740_i2s_dai,
+	.shared_fifo_flush = true,
 };
 
 static const struct i2s_soc_info jz4760_i2s_soc_info = {
