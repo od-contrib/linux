@@ -485,44 +485,46 @@ static int tmio_remove(struct platform_device *dev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
-static int tmio_suspend(struct platform_device *dev, pm_message_t state)
+static int tmio_suspend(struct device *dev)
 {
-	const struct mfd_cell *cell = mfd_get_cell(dev);
+	struct tmio_nand *tmio = dev_get_drvdata(dev);
+	struct platform_device *pdev = tmio->dev;
+	const struct mfd_cell *cell = mfd_get_cell(pdev);
 
 	if (cell->suspend)
-		cell->suspend(dev);
+		cell->suspend(pdev);
 
-	tmio_hw_stop(dev, platform_get_drvdata(dev));
+	tmio_hw_stop(pdev, tmio);
 	return 0;
 }
 
-static int tmio_resume(struct platform_device *dev)
+static int tmio_resume(struct device *dev)
 {
-	const struct mfd_cell *cell = mfd_get_cell(dev);
+	struct tmio_nand *tmio = dev_get_drvdata(dev);
+	struct platform_device *pdev = tmio->dev;
+	const struct mfd_cell *cell = mfd_get_cell(pdev);
 
 	/* FIXME - is this required or merely another attack of the broken
 	 * SHARP platform? Looks suspicious.
 	 */
-	tmio_hw_init(dev, platform_get_drvdata(dev));
+	tmio_hw_init(pdev, tmio);
 
 	if (cell->resume)
-		cell->resume(dev);
+		cell->resume(pdev);
 
 	return 0;
 }
-#else
-#define tmio_suspend NULL
-#define tmio_resume NULL
-#endif
+
+static DEFINE_SIMPLE_DEV_PM_OPS(tmio_pm_ops, tmio_suspend, tmio_resume);
 
 static struct platform_driver tmio_driver = {
-	.driver.name	= "tmio-nand",
-	.driver.owner	= THIS_MODULE,
 	.probe		= tmio_probe,
 	.remove		= tmio_remove,
-	.suspend	= tmio_suspend,
-	.resume		= tmio_resume,
+	.driver = {
+		.name	= "tmio-nand",
+		.owner	= THIS_MODULE,
+		.pm	= pm_sleep_ptr(&tmio_pm_ops),
+	},
 };
 
 module_platform_driver(tmio_driver);

@@ -968,10 +968,9 @@ static int lpc32xx_nand_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
-static int lpc32xx_nand_resume(struct platform_device *pdev)
+static int lpc32xx_nand_resume(struct device *dev)
 {
-	struct lpc32xx_nand_host *host = platform_get_drvdata(pdev);
+	struct lpc32xx_nand_host *host = dev_get_drvdata(dev);
 	int ret;
 
 	/* Re-enable NAND clock */
@@ -988,10 +987,10 @@ static int lpc32xx_nand_resume(struct platform_device *pdev)
 	return 0;
 }
 
-static int lpc32xx_nand_suspend(struct platform_device *pdev, pm_message_t pm)
+static int lpc32xx_nand_suspend(struct device *dev)
 {
 	uint32_t tmp;
-	struct lpc32xx_nand_host *host = platform_get_drvdata(pdev);
+	struct lpc32xx_nand_host *host = dev_get_drvdata(dev);
 
 	/* Force CE high */
 	tmp = readl(SLC_CTRL(host->io_base));
@@ -1007,10 +1006,8 @@ static int lpc32xx_nand_suspend(struct platform_device *pdev, pm_message_t pm)
 	return 0;
 }
 
-#else
-#define lpc32xx_nand_resume NULL
-#define lpc32xx_nand_suspend NULL
-#endif
+static DEFINE_SIMPLE_DEV_PM_OPS(lpc32xx_nand_pm_ops,
+				lpc32xx_nand_suspend, lpc32xx_nand_resume);
 
 static const struct of_device_id lpc32xx_nand_match[] = {
 	{ .compatible = "nxp,lpc3220-slc" },
@@ -1021,11 +1018,10 @@ MODULE_DEVICE_TABLE(of, lpc32xx_nand_match);
 static struct platform_driver lpc32xx_nand_driver = {
 	.probe		= lpc32xx_nand_probe,
 	.remove		= lpc32xx_nand_remove,
-	.resume		= lpc32xx_nand_resume,
-	.suspend	= lpc32xx_nand_suspend,
 	.driver		= {
 		.name	= LPC32XX_MODNAME,
 		.of_match_table = lpc32xx_nand_match,
+		.pm	= pm_sleep_ptr(&lpc32xx_nand_pm_ops),
 	},
 };
 

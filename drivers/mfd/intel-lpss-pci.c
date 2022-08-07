@@ -494,7 +494,7 @@ static struct pci_driver intel_lpss_pci_driver = {
 	.probe = intel_lpss_pci_probe,
 	.remove = intel_lpss_pci_remove,
 	.driver = {
-		.pm = &intel_lpss_pci_pm_ops,
+		.pm = pm_ptr(&intel_lpss_pci_pm_ops),
 	},
 };
 

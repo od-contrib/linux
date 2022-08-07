@@ -1205,12 +1205,9 @@ static int s3c24xx_nand_probe(struct platform_device *pdev)
 	return err;
 }
 
-/* PM Support */
-#ifdef CONFIG_PM
-
-static int s3c24xx_nand_suspend(struct platform_device *dev, pm_message_t pm)
+static int s3c24xx_nand_suspend(struct device *dev)
 {
-	struct s3c2410_nand_info *info = platform_get_drvdata(dev);
+	struct s3c2410_nand_info *info = dev_get_drvdata(dev);
 
 	if (info) {
 		info->save_sel = readl(info->sel_reg);
@@ -1228,9 +1225,9 @@ static int s3c24xx_nand_suspend(struct platform_device *dev, pm_message_t pm)
 	return 0;
 }
 
-static int s3c24xx_nand_resume(struct platform_device *dev)
+static int s3c24xx_nand_resume(struct device *dev)
 {
-	struct s3c2410_nand_info *info = platform_get_drvdata(dev);
+	struct s3c2410_nand_info *info = dev_get_drvdata(dev);
 	unsigned long sel;
 
 	if (info) {
@@ -1250,10 +1247,8 @@ static int s3c24xx_nand_resume(struct platform_device *dev)
 	return 0;
 }
 
-#else
-#define s3c24xx_nand_suspend NULL
-#define s3c24xx_nand_resume NULL
-#endif
+static DEFINE_SIMPLE_DEV_PM_OPS(s3c24xx_nand_pm_ops,
+				s3c24xx_nand_suspend, s3c24xx_nand_resume);
 
 /* driver device registration */
 
@@ -1279,12 +1274,11 @@ MODULE_DEVICE_TABLE(platform, s3c24xx_driver_ids);
 static struct platform_driver s3c24xx_nand_driver = {
 	.probe		= s3c24xx_nand_probe,
 	.remove		= s3c24xx_nand_remove,
-	.suspend	= s3c24xx_nand_suspend,
-	.resume		= s3c24xx_nand_resume,
 	.id_table	= s3c24xx_driver_ids,
 	.driver		= {
 		.name	= "s3c24xx-nand",
 		.of_match_table = s3c24xx_nand_dt_ids,
+		.pm	= pm_sleep_ptr(&s3c24xx_nand_pm_ops),
 	},
 };
 

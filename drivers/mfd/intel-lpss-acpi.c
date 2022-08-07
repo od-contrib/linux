@@ -211,7 +211,7 @@ static struct platform_driver intel_lpss_acpi_driver = {
 	.driver = {
 		.name = "intel-lpss",
 		.acpi_match_table = intel_lpss_acpi_ids,
-		.pm = &intel_lpss_acpi_pm_ops,
+		.pm = pm_ptr(&intel_lpss_acpi_pm_ops),
 	},
 };
 
